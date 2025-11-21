@@ -1,0 +1,214 @@
+/**
+ * KB Medizin Technik - Layout
+ * Compact, professional medical layout
+ */
+
+/* ========== APP SHELL ========== */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  background: var(--neutral-50);
+}
+
+/* ========== SIDEBAR ========== */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--neutral-white);
+  border-right: var(--border-width) solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  z-index: var(--z-fixed);
+  transition: width var(--transition-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar--collapsed {
+  width: var(--sidebar-collapsed-width);
+}
+
+.sidebar-header {
+  padding: var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-color);
+  min-height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-header h2 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+.sidebar--collapsed .sidebar-header h2 {
+  font-size: var(--font-size-sm);
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: var(--space-3) var(--space-2);
+  overflow-y: auto;
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  color: var(--neutral-700);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-1);
+  transition: all var(--transition-base);
+  min-height: 38px;
+}
+
+.sidebar-nav a:hover {
+  background: var(--neutral-100);
+  color: var(--neutral-900);
+}
+
+.sidebar-nav a.active {
+  background: var(--color-primary-50);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sidebar-nav a i {
+  width: 18px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.sidebar--collapsed .sidebar-nav a span {
+  display: none;
+}
+
+.sidebar-footer {
+  padding: var(--space-3);
+  border-top: var(--border-width) solid var(--border-color);
+}
+
+/* ========== USER INFO ========== */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+.user-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar--collapsed .user-details {
+  display: none;
+}
+
+.user-details strong {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--neutral-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-details span {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--neutral-500);
+}
+
+/* ========== MAIN CONTENT ========== */
+.main-content {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left var(--transition-base);
+}
+
+.sidebar--collapsed ~ .main-content {
+  margin-left: var(--sidebar-collapsed-width);
+}
+
+.page-header {
+  position: sticky;
+  top: 0;
+  height: var(--topbar-height);
+  background: var(--neutral-white);
+  border-bottom: var(--border-width) solid var(--border-color);
+  padding: 0 var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  z-index: var(--z-sticky);
+  box-shadow: var(--shadow-sm);
+}
+
+.page-header h1 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--neutral-900);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.page-header h1 i {
+  color: var(--color-primary);
+  font-size: var(--font-size-lg);
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 1023px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .sidebar--open {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .page-header {
+    padding: 0 var(--space-4);
+    height: 52px;
+  }
+
+  .page-header h1 {
+    font-size: var(--font-size-lg);
+  }
+}

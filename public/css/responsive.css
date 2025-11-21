@@ -1,0 +1,91 @@
+/**
+ * KB Medizin Technik - Responsive
+ * Mobile-first responsive design
+ */
+
+/* ========== TABLES RESPONSIVE ========== */
+@media (max-width: 1440px) {
+  /* Masquer colonnes moins importantes sur écrans moyens */
+  .table th[data-column="phone"],
+  .table td:nth-child(7) {
+    display: none;
+  }
+}
+
+@media (max-width: 1280px) {
+  .table th[data-column="canton"],
+  .table td:nth-child(5) {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .table th[data-column="address"],
+  .table td:nth-child(4) {
+    display: none;
+  }
+  
+  .table th[data-column="email"],
+  .table td:nth-child(8) {
+    display: none;
+  }
+}
+
+/* ========== MOBILE: CARD VIEW ========== */
+@media (max-width: 767px) {
+  .table-wrapper {
+    border: none;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table tr {
+    margin-bottom: var(--space-4);
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--neutral-white);
+    padding: var(--space-4);
+  }
+
+  .table td {
+    padding: var(--space-2) 0;
+    border: none;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    font-weight: var(--font-weight-semibold);
+    color: var(--neutral-600);
+    font-size: var(--font-size-sm);
+    flex-shrink: 0;
+    width: 40%;
+  }
+
+  .table td:first-child,
+  .table td:last-child {
+    padding: var(--space-2) 0;
+  }
+
+  /* Afficher toutes les colonnes en mobile */
+  .table th[data-column="phone"],
+  .table th[data-column="canton"],
+  .table th[data-column="address"],
+  .table th[data-column="email"],
+  .table td {
+    display: flex !important;
+  }
+}

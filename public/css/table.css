@@ -1,0 +1,278 @@
+/**
+ * KB Medizin Technik - Tables
+ * Compact, professional medical data tables
+ */
+
+/* ========== TABLE CONTAINER ========== */
+.table-container {
+  margin-bottom: var(--space-6);
+  background: var(--neutral-white);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* ========== TABLE BASE ========== */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  background: var(--neutral-white);
+}
+
+/* ========== TABLE HEADER ========== */
+.table thead {
+  background: var(--neutral-50);
+  border-bottom: 2px solid var(--color-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.table th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: var(--neutral-700);
+  vertical-align: top;
+  font-size: var(--font-size-xs);
+  position: relative;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* En-tête avec tri */
+.th-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+  margin-bottom: var(--space-2);
+  width: 100%;
+}
+
+.th-content span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  flex: 1;
+}
+
+.table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-base);
+}
+
+.table th.sortable:hover {
+  background: var(--neutral-100);
+}
+
+.table th.sortable .th-content::after {
+  content: '⇅';
+  opacity: 0.3;
+  font-size: 10px;
+  color: var(--neutral-400);
+  margin-left: var(--space-1);
+}
+
+.table th.sorted-asc .th-content::after {
+  content: '↑';
+  opacity: 1;
+  color: var(--color-primary);
+}
+
+.table th.sorted-desc .th-content::after {
+  content: '↓';
+  opacity: 1;
+  color: var(--color-primary);
+}
+
+/* Recherche par colonne */
+.column-search {
+  display: block;
+  width: 100%;
+}
+
+.column-search input {
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  font-size: var(--font-size-xs);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  min-height: 30px;
+  transition: all var(--transition-base);
+  box-sizing: border-box;
+}
+
+.column-search input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-50);
+}
+
+/* ========== TABLE BODY ========== */
+.table tbody tr {
+  border-bottom: var(--border-width) solid var(--border-color-light);
+  transition: background var(--transition-fast);
+  min-height: 44px;
+}
+
+.table tbody tr:hover {
+  background: var(--neutral-50);
+}
+
+.table td {
+  padding: var(--space-3) var(--space-4);
+  color: var(--neutral-900);
+  vertical-align: middle;
+  font-size: var(--font-size-sm);
+}
+
+/* ========== COMPACT MODE ========== */
+.table--compact tbody tr {
+  min-height: 38px;
+}
+
+.table--compact td,
+.table--compact th {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+/* ========== TABLE EMPTY STATE ========== */
+.table-empty {
+  text-align: center;
+  padding: var(--space-10);
+  color: var(--neutral-500);
+}
+
+.table-empty i {
+  font-size: 2.5rem;
+  color: var(--neutral-300);
+  margin-bottom: var(--space-3);
+}
+
+/* ========== CLIENT INFO CELL ========== */
+.client-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 240px;
+}
+
+.client-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--neutral-900);
+}
+
+.client-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--neutral-600);
+}
+
+.client-meta span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.client-meta i {
+  color: var(--color-primary);
+  width: 12px;
+  font-size: var(--font-size-xs);
+}
+
+.client-meta a {
+  color: var(--neutral-700);
+  text-decoration: none;
+  transition: color var(--transition-base);
+  font-weight: var(--font-weight-medium);
+}
+
+.client-meta a:hover {
+  color: var(--color-primary);
+}
+
+/* ========== RESPONSIVE TABLE ========== */
+@media (max-width: 767px) {
+  .table thead {
+    display: none;
+  }
+
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table tr {
+    margin-bottom: var(--space-3);
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    background: var(--neutral-white);
+  }
+
+  .table td {
+    padding: var(--space-2) 0;
+    border: none;
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-sm);
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    font-weight: var(--font-weight-semibold);
+    color: var(--neutral-600);
+    font-size: var(--font-size-xs);
+  }
+}
+
+/* ========== USER AVATAR IN TABLE ========== */
+.user-avatar-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ========== ADMIN TABLE ACTIONS ========== */
+.admin-table-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.table-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}

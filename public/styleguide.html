@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Style Guide - KB Medizin</title>
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/forms.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/table.css" />
+  <link rel="stylesheet" href="/css/pages.css" />
+  <link rel="stylesheet" href="/css/utilities.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    .container { max-width: 1200px; margin: 0 auto; padding: 3rem 2rem; }
+    .section { margin-bottom: 4rem; }
+    .color-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+    .color-box { padding: 2rem; border-radius: 8px; text-align: center; font-weight: 600; }
+    .color-code { display: block; margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.8; }
+    .component-demo { background: white; padding: 2rem; border: 1px solid var(--border-color); border-radius: 8px; margin-top: 1rem; }
+  </style>
+<link rel="stylesheet" href="/css/transitions.css" />
+</head>
+<body>
+  <div class="container">
+    <h1 style="margin-bottom: 0.5rem">KB Medizin - Style Guide</h1>
+    <p style="color: var(--neutral-600); margin-bottom: 3rem">
+      Design System professionnel, sobre et accessible
+    </p>
+
+    <!-- COLORS -->
+    <section class="section">
+      <h2 style="margin-bottom: 1.5rem">Couleurs</h2>
+      
+      <h3 style="margin: 2rem 0 1rem">Brand Colors</h3>
+      <div class="color-grid">
+        <div class="color-box" style="background: #3653A4; color: white">
+          Primary<span class="color-code">#3653A4</span>
+        </div>
+        <div class="color-box" style="background: #D9281B; color: white">
+          Secondary<span class="color-code">#D9281B</span>
+        </div>
+      </div>
+
+      <h3 style="margin: 2rem 0 1rem">Status Colors (Dates)</h3>
+      <div class="color-grid">
+        <div class="color-box" style="background: #1F8A4C; color: white">
+          À jour<span class="color-code">#1F8A4C</span>
+        </div>
+        <div class="color-box" style="background: #B45309; color: white">
+          À renouveler<span class="color-code">#B45309</span>
+        </div>
+        <div class="color-box" style="background: #D9281B; color: white">
+          Expiré<span class="color-code">#D9281B</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- TYPOGRAPHY -->
+    <section class="section">
+      <h2 style="margin-bottom: 1.5rem">Typographie</h2>
+      <div class="component-demo">
+        <h1>Heading 1 - 32px</h1>
+        <h2>Heading 2 - 24px</h2>
+        <h3>Heading 3 - 20px</h3>
+        <h4>Heading 4 - 18px</h4>
+        <p style="margin-top: 1rem">Body - 16px - Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+        <small>Small - 14px</small>
+      </div>
+    </section>
+
+    <!-- BUTTONS -->
+    <section class="section">
+      <h2 style="margin-bottom: 1.5rem">Boutons</h2>
+      
+      <h3 style="margin: 1.5rem 0 1rem">Variants</h3>
+      <div class="component-demo">
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center">
+          <button class="btn btn-primary">Primary</button>
+          <button class="btn btn-secondary">Secondary</button>
+          <button class="btn btn-success">Success</button>
+          <button class="btn btn-danger">Danger</button>
+          <button class="btn btn-primary" disabled>Disabled</button>
+        </div>
+      </div>
+      
+      <h3 style="margin: 2rem 0 1rem">Sizes</h3>
+      <div class="component-demo">
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center">
+          <button class="btn btn-primary btn-sm">Small</button>
+          <button class="btn btn-primary">Normal (44px)</button>
+          <button class="btn btn-icon btn-primary"><i class="fas fa-cog"></i></button>
+        </div>
+      </div>
+
+      <h3 style="margin: 2rem 0 1rem">Icon Buttons</h3>
+      <div class="component-demo">
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center">
+          <button class="btn btn-icon-primary"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-icon-danger"><i class="fas fa-trash"></i></button>
+          <button class="btn btn-icon-sm btn-icon-primary"><i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- BADGES -->
+    <section class="section">
+      <h2 style="margin-bottom: 1.5rem">Badges (Statuts dates)</h2>
+      <div class="component-demo">
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem">
+          <span class="badge badge-success"><i class="fas fa-check-circle"></i> À jour</span>
+          <span class="badge badge-warning"><i class="fas fa-clock"></i> À renouveler</span>
+          <span class="badge badge-danger"><i class="fas fa-exclamation-circle"></i> Expiré</span>
+          <span class="badge badge-primary">Primary</span>
+          <span class="badge badge-secondary">Secondary</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- FORMS -->
+    <section class="section">
+      <h2 style="margin-bottom: 1.5rem">Formulaires</h2>
+      <div class="component-demo">
+        <div style="max-width: 500px">
+          <div class="form-group">
+            <label><i class="fas fa-user"></i> Nom complet *</label>
+            <input type="text" placeholder="Jean Dupont" />
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-briefcase"></i> Activité</label>
+            <select>
+              <option>-- Sélectionner --</option>
+              <option>ORL</option>
+              <option>Gynécologie</option>
+              <option>Stérilisation</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-calendar"></i> Date</label>
+            <input type="date" />
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-sticky-note"></i> Notes</label>
+            <textarea rows="3" placeholder="Vos notes..."></textarea>
+          </div>
+
+          <div class="checkbox-group">
+            <input type="checkbox" id="check1" checked />
+            <label for="check1">J'accepte les conditions</label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ALERTS -->
+    <section class="section">
+      <h2 style="margin-bottom: 1.5rem">Alerts</h2>
+      
+      <div class="alert alert--success">
+        <i class="fas fa-check-circle"></i>
+        <div>
+          <strong>Succès</strong> - L'opération a été réalisée avec succès.
+        </div>
+      </div>
+
+      <div class="alert alert--warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        <div>
+          <strong>Attention</strong> - La garantie expire dans 30 jours.
+        </div>
+      </div>
+
+      <div class="alert alert--danger">
+        <i class="fas fa-exclamation-circle"></i>
+        <div>
+          <strong>Erreur</strong> - Une erreur s'est produite.
+        </div>
+      </div>
+    </section>
+
+    <!-- TABLE -->
+    <section class="section">
+      <h2 style="margin-bottom: 1.5rem">Tableaux</h2>
+      
+      <h3 style="margin-bottom: 1rem">Mode Confort (48px)</h3>
+      <div class="table-container">
+        <div class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th class="sortable">Cabinet</th>
+                <th class="sortable">Contact</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Cabinet Dr. Müller</strong></td>
+                <td>Dr. Hans Müller</td>
+                <td><span class="badge badge-success"><i class="fas fa-check-circle"></i> À jour</span></td>
+                <td><button class="btn btn-icon-sm btn-icon-primary"><i class="fas fa-edit"></i></button></td>
+              </tr>
+              <tr>
+                <td><strong>Praxis Zürich</strong></td>
+                <td>Dr. Anna Schmidt</td>
+                <td><span class="badge badge-danger"><i class="fas fa-exclamation-circle"></i> Expiré</span></td>
+                <td><button class="btn btn-icon-sm btn-icon-primary"><i class="fas fa-edit"></i></button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3 style="margin: 2rem 0 1rem">Mode Compact (40px)</h3>
+      <div class="table-container">
+        <div class="table-wrapper">
+          <table class="table table--compact">
+            <thead>
+              <tr>
+                <th>Cabinet</th>
+                <th>Contact</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Cabinet Dr. Müller</strong></td>
+                <td>Dr. Hans Müller</td>
+                <td><span class="badge badge-warning"><i class="fas fa-clock"></i> À renouveler</span></td>
+              </tr>
+              <tr>
+                <td><strong>Praxis Zürich</strong></td>
+                <td>Dr. Anna Schmidt</td>
+                <td><span class="badge badge-danger"><i class="fas fa-exclamation-circle"></i> Expiré</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- USER INFO -->
+    <section class="section">
+      <h2 style="margin-bottom: 1.5rem">User Info (Sidebar)</h2>
+      <div class="component-demo" style="max-width: 300px">
+        <div class="user-info">
+          <div class="user-avatar">A</div>
+          <div class="user-details">
+            <strong>Administrateur</strong>
+            <span>Admin Principal</span>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="width: 100%">
+          <i class="fas fa-sign-out-alt"></i> Déconnexion
+        </button>
+      </div>
+    </section>
+
+    <!-- SIDEBAR STATES -->
+    <section class="section">
+      <h2 style="margin-bottom: 1.5rem">Sidebar States</h2>
+      <div style="display: grid; grid-template-columns: 240px 64px; gap: 2rem">
+        <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden">
+          <div style="background: white; border-bottom: 1px solid var(--border-color-light); padding: 1.25rem 1rem">
+            <strong style="color: var(--color-primary)">KB Medizin</strong>
+          </div>
+          <div style="padding: 1rem 0.5rem; background: white">
+            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: var(--color-primary-50); border-radius: 8px; position: relative">
+              <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-primary); border-radius: 0 4px 4px 0"></div>
+              <i class="fas fa-chart-line" style="color: var(--color-primary); width: 20px"></i>
+              <span style="color: var(--color-primary); font-weight: 600">Dashboard</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; margin-top: 0.25rem; color: var(--neutral-700)">
+              <i class="fas fa-users" style="width: 20px"></i>
+              <span>Clients</span>
+            </div>
+          </div>
+        </div>
+        <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden">
+          <div style="background: white; border-bottom: 1px solid var(--border-color-light); padding: 1.25rem 1rem; text-align: center">
+            <strong style="color: var(--color-primary)">KB</strong>
+          </div>
+          <div style="padding: 1rem 0.5rem; background: white">
+            <div style="display: flex; justify-content: center; padding: 0.75rem; background: var(--color-primary-50); border-radius: 8px">
+              <i class="fas fa-chart-line" style="color: var(--color-primary); font-size: 20px"></i>
+            </div>
+            <div style="display: flex; justify-content: center; padding: 0.75rem; margin-top: 0.25rem; color: var(--neutral-700)">
+              <i class="fas fa-users" style="font-size: 20px"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="margin-top: 1rem; color: var(--neutral-600); font-size: 14px">
+        <strong>Gauche:</strong> Sidebar ouverte (240px) | <strong>Droite:</strong> Sidebar collapsed (64px)
+      </p>
+    </section>
+
+    <!-- NOTIFICATIONS -->
+    <section class="section">
+      <h2 style="margin-bottom: 1.5rem">Notifications Toast</h2>
+      <div class="component-demo">
+        <button class="btn btn-primary" onclick="demoNotification('success')">Success</button>
+        <button class="btn btn-danger" onclick="demoNotification('error')">Error</button>
+        <button class="btn btn-secondary" onclick="demoNotification('warning')">Warning</button>
+        <button class="btn btn-secondary" onclick="demoNotification('info')">Info</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    function demoNotification(type) {
+      let container = document.getElementById('notification-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'notification-container';
+        container.className = 'notification-container';
+        document.body.appendChild(container);
+      }
+
+      const messages = {
+        success: 'Opération réussie !',
+        error: 'Une erreur est survenue',
+        warning: 'Attention, action requise',
+        info: 'Information importante'
+      };
+
+      const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-circle',
+        warning: 'fa-exclamation-triangle',
+        info: 'fa-info-circle'
+      };
+
+      const notification = document.createElement('div');
+      notification.className = `notification notification-${type}`;
+      notification.innerHTML = `
+        <i class="fas ${icons[type]}"></i>
+        <span>${messages[type]}</span>
+      `;
+
+      container.appendChild(notification);
+      setTimeout(() => notification.classList.add('show'), 10);
+      setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+  </script>
+<script src="/js/page-transitions.js"></script>
+</body>
+</html>

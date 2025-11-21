@@ -1,0 +1,20 @@
+{
+  "name": "kb-medizin-tool",
+  "version": "1.0.0",
+  "description": "Outil de gestion interne pour KB Medizin Technik",
+  "main": "server/server.js",
+  "scripts": {
+    "init": "node server/seed.js",
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js"
+  },
+  "keywords": ["medical", "equipment", "management"],
+  "author": "KB Medizin Technik",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "sqlite3": "^5.1.6",
+    "bcrypt": "^5.1.1"
+  }
+}

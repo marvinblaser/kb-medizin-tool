@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clients - KB Medizin Tool</title>
+    <link rel="stylesheet" href="/css/tokens.css" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/layout.css" />
+    <link rel="stylesheet" href="/css/forms.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+    <link rel="stylesheet" href="/css/table.css" />
+    <link rel="stylesheet" href="/css/pages.css" />
+    <link rel="stylesheet" href="/css/utilities.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/css/transitions.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h2>KB Medizin</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="/dashboard.html">
+            <i class="fas fa-chart-line"></i>
+            <span>Tableau de bord</span>
+          </a>
+          <a href="/clients.html" class="active">
+            <i class="fas fa-users"></i>
+            <span>Clients</span>
+          </a>
+          <a href="/checklists.html">
+            <i class="fas fa-clipboard-check"></i>
+            <span>Checklists</span>
+          </a>
+          <a href="/reports.html">
+            <i class="fas fa-file-alt"></i>
+            <span>Rapports</span>
+          </a>
+          <a href="/admin.html" id="admin-link" class="hidden">
+            <i class="fas fa-cog"></i>
+            <span>Administration</span>
+          </a>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="user-info" id="user-info"></div>
+          <button
+            class="btn btn-secondary btn-sm"
+            id="logout-btn"
+            style="width: 100%"
+          >
+            <i class="fas fa-sign-out-alt"></i>
+            Déconnexion
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <div class="page-header">
+          <h1><i class="fas fa-users"></i> Gestion des clients</h1>
+          <button class="btn btn-success" id="add-client-btn">
+            <i class="fas fa-plus"></i> Ajouter un client
+          </button>
+        </div>
+
+        <div class="table-controls">
+          <div class="table-controls-row">
+            <div class="search-box">
+              <input
+                type="text"
+                id="global-search"
+                placeholder="Recherche globale..."
+              />
+            </div>
+
+            <!-- 🔥 NOUVEAU : Sélecteur de limite -->
+            <select
+              id="limit-select"
+              style="
+                min-height: 36px;
+                padding: 0.5rem;
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius-md);
+              "
+            >
+              <option value="10">10 par page</option>
+              <option value="25" selected>25 par page</option>
+              <option value="50">50 par page</option>
+              <option value="1000">Tous</option>
+            </select>
+
+            <input type="text" id="filter-brand" placeholder="Marque..." />
+            <input type="text" id="filter-model" placeholder="Modèle..." />
+            <input type="text" id="filter-serial" placeholder="N° série..." />
+            <input
+              type="text"
+              id="filter-category"
+              placeholder="Catégorie..."
+            />
+            <button class="btn btn-secondary" id="clear-filters-btn">
+              <i class="fas fa-times"></i> Effacer
+            </button>
+            <button class="btn btn-secondary" id="export-csv-btn">
+              <i class="fas fa-download"></i> Export CSV
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <div class="table-wrapper">
+            <table id="clients-table" class="table">
+              <thead>
+                <tr>
+                  <th
+                    class="sortable"
+                    data-column="cabinet_name"
+                    style="min-width: 280px; max-width: 280px"
+                  >
+                    <div class="th-content">
+                      <span
+                        ><i class="fas fa-building"></i> Cabinet / Contact</span
+                      >
+                    </div>
+                    <div class="column-search">
+                      <input
+                        type="text"
+                        data-column="cabinet_name"
+                        placeholder="Rechercher..."
+                      />
+                    </div>
+                  </th>
+                  <th
+                    class="sortable"
+                    data-column="activity"
+                    style="min-width: 130px; max-width: 130px"
+                  >
+                    <div class="th-content">
+                      <span><i class="fas fa-briefcase"></i> Activité</span>
+                    </div>
+                    <div class="column-search">
+                      <input
+                        type="text"
+                        data-column="activity"
+                        placeholder="Rechercher..."
+                      />
+                    </div>
+                  </th>
+                  <th
+                    class="sortable"
+                    data-column="city"
+                    style="min-width: 200px; max-width: 200px"
+                  >
+                    <div class="th-content">
+                      <span
+                        ><i class="fas fa-map-marker-alt"></i>
+                        Localisation</span
+                      >
+                    </div>
+                    <div class="column-search">
+                      <input
+                        type="text"
+                        data-column="city"
+                        placeholder="Ville..."
+                        style="margin-bottom: 4px"
+                      />
+                      <input
+                        type="text"
+                        data-column="canton"
+                        placeholder="Canton..."
+                      />
+                    </div>
+                  </th>
+                  <th data-column="equipment" style="min-width: 320px">
+                    <div class="th-content">
+                      <span><i class="fas fa-tools"></i> Équipements</span>
+                    </div>
+                  </th>
+                  <th
+                    class="sortable"
+                    data-column="appointment_at"
+                    style="min-width: 140px; max-width: 140px"
+                  >
+                    <div class="th-content">
+                      <span><i class="fas fa-calendar"></i> Rendez-vous</span>
+                    </div>
+                  </th>
+                  <th style="width: 60px; text-align: center">
+                    <div class="th-content">
+                      <span>Actions</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="clients-tbody">
+                <tr>
+                  <td colspan="6" style="text-align: center; padding: 40px">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p style="margin-top: 10px">Chargement...</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination">
+            <div class="pagination-info" id="pagination-info">-</div>
+            <div class="pagination-buttons">
+              <button class="btn btn-secondary btn-sm" id="prev-page" disabled>
+                <i class="fas fa-chevron-left"></i> Précédent
+              </button>
+              <button class="btn btn-secondary btn-sm" id="next-page" disabled>
+                Suivant <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Footer -->
+        <footer class="app-footer">
+          <div class="footer-content">
+            <div class="footer-brand">
+              <div class="footer-logo">
+                <i class="fas fa-stethoscope"></i>
+              </div>
+              <div class="footer-info">
+                <h3>KB Medizin Technik GmbH</h3>
+                <p>Solutions médicales professionnelles</p>
+              </div>
+            </div>
+
+            <div class="footer-links">
+              <div class="footer-section">
+                <h4>Contact</h4>
+                <ul>
+                  <li>
+                    <a href="tel:+41617211111"
+                      ><i class="fas fa-phone"></i> +41 61 721 11 11</a
+                    >
+                  </li>
+                  <li>
+                    <a href="mailto:info@kbmedizin.ch"
+                      ><i class="fas fa-envelope"></i> info@kbmedizin.ch</a
+                    >
+                  </li>
+                  <li>
+                    <a href="#"
+                      ><i class="fas fa-map-marker-alt"></i> Biel-Benken,
+                      Suisse</a
+                    >
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer-bottom">
+            <p>&copy; 2025 KB Medizin Technik GmbH. Tous droits réservés.</p>
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <!-- Modal Ajouter/Modifier Client -->
+    <!-- Modal Ajouter/Modifier Client -->
+    <div class="modal" id="client-modal">
+      <div class="modal-content" style="max-width: 900px">
+        <div class="modal-header">
+          <h2 id="modal-title">
+            <i class="fas fa-plus-circle"></i> Ajouter un client
+          </h2>
+          <button class="modal-close" onclick="closeClientModal()">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="client-form">
+            <input type="hidden" id="client-id" />
+
+            <!-- Informations de base -->
+            <div class="form-section">
+              <h3 class="form-section-title">
+                <i class="fas fa-info-circle"></i> Informations générales
+              </h3>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="cabinet-name">
+                    <i class="fas fa-building"></i> Nom du cabinet *
+                  </label>
+                  <input type="text" id="cabinet-name" required />
+                </div>
+
+                <div class="form-group">
+                  <label for="contact-name">
+                    <i class="fas fa-user"></i> Nom du contact *
+                  </label>
+                  <input type="text" id="contact-name" required />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="activity">
+                    <i class="fas fa-briefcase"></i> Activité *
+                  </label>
+                  <select id="activity" required>
+                    <option value="">-- Sélectionner --</option>
+                    <option value="ORL">ORL</option>
+                    <option value="Gynécologie">Gynécologie</option>
+                    <option value="Stérilisation">Stérilisation</option>
+                    <option value="Podologie">Podologie</option>
+                    <option value="Chirurgie">Chirurgie</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="phone">
+                    <i class="fas fa-phone"></i> Téléphone
+                  </label>
+                  <input type="tel" id="phone" placeholder="+41 XX XXX XX XX" />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="email">
+                  <i class="fas fa-envelope"></i> Email
+                </label>
+                <input type="email" id="email" />
+              </div>
+            </div>
+
+            <!-- Adresse -->
+            <div class="form-section">
+              <h3 class="form-section-title">
+                <i class="fas fa-map-marker-alt"></i> Adresse
+              </h3>
+
+              <div class="form-group">
+                <label for="address">
+                  <i class="fas fa-home"></i> Adresse *
+                </label>
+                <input type="text" id="address" required />
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="postal-code">
+                    <i class="fas fa-hashtag"></i> Code postal
+                  </label>
+                  <input type="text" id="postal-code" placeholder="ex: 4102" />
+                </div>
+
+                <div class="form-group">
+                  <label for="city">
+                    <i class="fas fa-city"></i> Ville *
+                  </label>
+                  <input type="text" id="city" required />
+                </div>
+
+                <div class="form-group">
+                  <label for="canton">
+                    <i class="fas fa-map"></i> Canton
+                  </label>
+                  <select id="canton">
+                    <option value="">-- Sélectionner --</option>
+                    <option value="AG">AG - Argovie</option>
+                    <option value="AI">
+                      AI - Appenzell Rhodes-Intérieures
+                    </option>
+                    <option value="AR">
+                      AR - Appenzell Rhodes-Extérieures
+                    </option>
+                    <option value="BE">BE - Berne</option>
+                    <option value="BL">BL - Bâle-Campagne</option>
+                    <option value="BS">BS - Bâle-Ville</option>
+                    <option value="FR">FR - Fribourg</option>
+                    <option value="GE">GE - Genève</option>
+                    <option value="GL">GL - Glaris</option>
+                    <option value="GR">GR - Grisons</option>
+                    <option value="JU">JU - Jura</option>
+                    <option value="LU">LU - Lucerne</option>
+                    <option value="NE">NE - Neuchâtel</option>
+                    <option value="NW">NW - Nidwald</option>
+                    <option value="OW">OW - Obwald</option>
+                    <option value="SG">SG - Saint-Gall</option>
+                    <option value="SH">SH - Schaffhouse</option>
+                    <option value="SO">SO - Soleure</option>
+                    <option value="SZ">SZ - Schwyz</option>
+                    <option value="TG">TG - Thurgovie</option>
+                    <option value="TI">TI - Tessin</option>
+                    <option value="UR">UR - Uri</option>
+                    <option value="VD">VD - Vaud</option>
+                    <option value="VS">VS - Valais</option>
+                    <option value="ZG">ZG - Zoug</option>
+                    <option value="ZH">ZH - Zurich</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rendez-vous -->
+            <div class="form-section">
+              <h3 class="form-section-title">
+                <i class="fas fa-calendar-alt"></i> Prochain rendez-vous
+              </h3>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="appointment">
+                    <i class="fas fa-calendar"></i> Date du rendez-vous
+                  </label>
+                  <input type="date" id="appointment" />
+                </div>
+
+                <div class="form-group">
+                  <label for="technician">
+                    <i class="fas fa-user-tie"></i> Technicien assigné
+                  </label>
+                  <select id="technician">
+                    <option value="">-- Non assigné --</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="form-section">
+              <h3 class="form-section-title">
+                <i class="fas fa-sticky-note"></i> Notes
+              </h3>
+
+              <div class="form-group">
+                <textarea
+                  id="notes"
+                  rows="3"
+                  placeholder="Notes et remarques..."
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Historique (visible uniquement en édition) -->
+            <div
+              class="form-section"
+              id="history-section"
+              style="display: none"
+            >
+              <h3 class="form-section-title">
+                <i class="fas fa-history"></i> Historique des rendez-vous
+              </h3>
+              <div id="appointments-history">
+                <p style="text-align: center; color: var(--neutral-500)">
+                  Chargement...
+                </p>
+              </div>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                id="add-history-btn"
+                style="margin-top: var(--space-4)"
+              >
+                <i class="fas fa-plus"></i> Ajouter un rendez-vous passé
+              </button>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="cancel-modal-btn">
+            <i class="fas fa-times"></i> Annuler
+          </button>
+          <button class="btn btn-success" id="save-client-btn">
+            <i class="fas fa-check"></i> Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Détails Client (Lecture seule) -->
+    <div class="modal" id="client-details-modal">
+      <div class="modal-content" style="max-width: 1000px">
+        <div class="modal-header">
+          <h2 id="client-details-title">
+            <i class="fas fa-folder-open"></i> Détails du client
+          </h2>
+          <button class="modal-close" onclick="closeClientDetailsModal()">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="client-details-content">
+            <!-- Contenu généré dynamiquement -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeClientDetailsModal()">
+            <i class="fas fa-times"></i> Fermer
+          </button>
+          <button class="btn btn-primary" id="edit-from-details-btn">
+            <i class="fas fa-edit"></i> Modifier
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Ajouter Historique Rendez-vous -->
+    <!-- Modal Ajouter/Modifier Historique Rendez-vous -->
+    <div class="modal" id="history-modal">
+      <div class="modal-content" style="max-width: 600px">
+        <div class="modal-header">
+          <h2 id="history-modal-title">
+            <i class="fas fa-plus-circle"></i> Ajouter un rendez-vous passé
+          </h2>
+          <button class="modal-close" onclick="closeHistoryModal()">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="history-form">
+            <input type="hidden" id="history-id" />
+            <input type="hidden" id="history-client-id" />
+
+            <div class="form-group">
+              <label for="history-date">
+                <i class="fas fa-calendar"></i> Date du rendez-vous *
+              </label>
+              <input type="date" id="history-date" required />
+            </div>
+
+            <div class="form-group">
+              <label for="history-task">
+                <i class="fas fa-tasks"></i> Tâche réalisée
+              </label>
+              <textarea
+                id="history-task"
+                rows="3"
+                placeholder="Description de l'intervention..."
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="history-technician">
+                <i class="fas fa-user-tie"></i> Technicien
+              </label>
+              <select id="history-technician">
+                <option value="">-- Non assigné --</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>
+                <i class="fas fa-tools"></i> Équipements concernés
+              </label>
+              <div
+                id="history-equipment-list"
+                style="
+                  max-height: 200px;
+                  overflow-y: auto;
+                  border: 1px solid var(--border-color);
+                  border-radius: var(--radius-md);
+                  padding: var(--space-3);
+                  background: var(--neutral-50);
+                "
+              >
+                <p style="text-align: center; color: var(--neutral-500)">
+                  Aucun équipement disponible
+                </p>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="cancel-history-btn">
+            <i class="fas fa-times"></i> Annuler
+          </button>
+          <button class="btn btn-success" id="save-history-btn">
+            <i class="fas fa-check"></i> Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Gérer Équipements -->
+    <div class="modal" id="equipment-modal">
+      <div class="modal-content" style="max-width: 800px">
+        <div class="modal-header">
+          <h2>
+            <i class="fas fa-tools"></i> Gérer les équipements
+            <span
+              id="equipment-client-name"
+              style="
+                color: var(--neutral-600);
+                font-weight: 500;
+                font-size: 16px;
+              "
+            ></span>
+          </h2>
+          <button class="modal-close" onclick="closeEquipmentModal()">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <button
+            class="btn btn-primary"
+            id="add-equipment-item-btn"
+            style="margin-bottom: 20px"
+          >
+            <i class="fas fa-plus"></i> Ajouter un équipement
+          </button>
+
+          <div id="equipment-list-container">
+            <!-- Liste des équipements sera générée ici -->
+          </div>
+
+          <div id="equipment-form-container" class="hidden">
+            <form id="equipment-item-form">
+              <input type="hidden" id="equipment-item-id" />
+              <input type="hidden" id="equipment-client-id" />
+
+              <div
+                class="alert alert--warning"
+                style="margin-bottom: var(--space-4)"
+              >
+                <i class="fas fa-info-circle"></i>
+                <div>
+                  <strong>Important</strong> - Vous ne pouvez pas changer
+                  l'équipement. Pour changer d'appareil, supprimez cet
+                  équipement et créez-en un nouveau.
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="equipment-select">
+                  <i class="fas fa-tools"></i> Équipement *
+                </label>
+                <select id="equipment-select" required>
+                  <option value="">-- Sélectionner --</option>
+                </select>
+                <small
+                  style="
+                    color: var(--neutral-600);
+                    font-size: var(--font-size-xs);
+                    margin-top: var(--space-1);
+                    display: block;
+                  "
+                >
+                  L'équipement ne peut pas être modifié après création
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label for="equipment-serial">
+                  <i class="fas fa-barcode"></i> Numéro de série
+                </label>
+                <input type="text" id="equipment-serial" />
+              </div>
+
+              <div class="form-group">
+                <label for="equipment-installed">
+                  <i class="fas fa-calendar-plus"></i> Date d'installation
+                </label>
+                <input type="date" id="equipment-installed" />
+              </div>
+
+              <div class="form-group">
+                <label for="equipment-warranty">
+                  <i class="fas fa-shield-alt"></i> Garantie jusqu'au
+                </label>
+                <input type="date" id="equipment-warranty" />
+              </div>
+
+              <div class="form-group">
+                <label for="last-maintenance">
+                  <i class="fas fa-wrench"></i> Dernière maintenance
+                </label>
+                <input type="date" id="last-maintenance" />
+              </div>
+
+              <div class="form-group">
+                <label for="maintenance-interval">
+                  <i class="fas fa-clock"></i> Intervalle de maintenance
+                </label>
+                <select id="maintenance-interval">
+                  <option value="1">Tous les ans</option>
+                  <option value="2">Tous les 2 ans</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="next-maintenance-display">
+                  <i class="fas fa-calendar-check"></i> Prochaine maintenance
+                  (calculée automatiquement)
+                </label>
+                <div
+                  style="
+                    padding: var(--space-3);
+                    background: var(--color-primary-50);
+                    border-radius: var(--radius-md);
+                    border-left: 3px solid var(--color-primary);
+                  "
+                >
+                  <strong
+                    id="next-maintenance-display"
+                    style="
+                      color: var(--color-primary);
+                      font-size: var(--font-size-lg);
+                    "
+                  >
+                    Saisissez la dernière maintenance
+                  </strong>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 12px; margin-top: 20px">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  id="cancel-equipment-item-btn"
+                >
+                  <i class="fas fa-times"></i> Annuler
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-success"
+                  id="save-equipment-item-btn"
+                >
+                  <i class="fas fa-check"></i> Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="closeEquipmentModal()">
+            <i class="fas fa-check"></i> Terminé
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Confirmation Suppression -->
+    <div class="modal" id="delete-modal">
+      <div class="modal-content" style="max-width: 400px">
+        <div class="modal-header">
+          <h2>
+            <i class="fas fa-exclamation-triangle"></i> Confirmer la suppression
+          </h2>
+          <button class="modal-close" onclick="closeDeleteModal()">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>Êtes-vous sûr de vouloir supprimer ce client ?</p>
+          <p><strong id="delete-client-name"></strong></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="cancel-delete-btn">
+            <i class="fas fa-times"></i> Annuler
+          </button>
+          <button class="btn btn-danger" id="confirm-delete-btn">
+            <i class="fas fa-trash"></i> Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/js/clients.js"></script>
+    <script src="/js/page-transitions.js"></script>
+  </body>
+</html>

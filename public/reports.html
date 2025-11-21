@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rapports - KB Medizin Tool</title>
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/forms.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/table.css" />
+  <link rel="stylesheet" href="/css/pages.css" />
+  <link rel="stylesheet" href="/css/utilities.css" />
+  <link rel="stylesheet" href="/css/transitions.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>KB Medizin</h2>
+      </div>
+      <nav class="sidebar-nav">
+  <a href="/dashboard.html">
+    <i class="fas fa-chart-line"></i>
+    <span>Tableau de bord</span>
+  </a>
+  <a href="/clients.html">
+    <i class="fas fa-users"></i>
+    <span>Clients</span>
+  </a>
+  <a href="/checklists.html">
+    <i class="fas fa-clipboard-check"></i>
+    <span>Checklists</span>
+  </a>
+  <a href="/reports.html" class="active">
+    <i class="fas fa-file-alt"></i>
+    <span>Rapports</span>
+  </a>
+  <a href="/admin.html" id="admin-link" class="hidden">
+    <i class="fas fa-cog"></i>
+    <span>Administration</span>
+  </a>
+</nav>
+      <div class="sidebar-footer">
+        <div class="user-info" id="user-info"></div>
+        <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%">
+          <i class="fas fa-sign-out-alt"></i>
+          Déconnexion
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1><i class="fas fa-file-alt"></i> Rapports</h1>
+        <button class="btn btn-success" id="add-report-btn">
+          <i class="fas fa-plus"></i> Nouveau rapport
+        </button>
+      </div>
+
+      <!-- Filtres -->
+      <div class="table-controls">
+        <div class="table-controls-row">
+          <div class="search-box">
+            <input type="text" id="global-search" placeholder="Rechercher un rapport..." />
+          </div>
+          
+          <select id="filter-type">
+            <option value="">Tous les types</option>
+            <option value="RE-VALIDATION">Re-validation</option>
+            <option value="SERVICE">Service</option>
+            <option value="REPARATION">Réparation</option>
+            <option value="INSTALLATION">Installation</option>
+          </select>
+          
+          <select id="filter-status">
+            <option value="">Tous les statuts</option>
+            <option value="draft">Brouillon</option>
+            <option value="completed">Complété</option>
+            <option value="sent">Envoyé</option>
+          </select>
+          
+          <button class="btn btn-secondary" id="clear-filters-btn">
+            <i class="fas fa-times"></i> Effacer
+          </button>
+        </div>
+      </div>
+
+      <!-- Tableau des rapports -->
+      <div class="table-container">
+        <div class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>N° Rapport</th>
+                <th>Type</th>
+                <th>Client</th>
+                <th>Date</th>
+                <th>Intervenants</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="reports-tbody">
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 40px">
+                  <i class="fas fa-spinner fa-spin fa-2x"></i>
+                  <p style="margin-top: 10px">Chargement...</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <span class="pagination-info" id="pagination-info"></span>
+        <div class="pagination-buttons">
+          <button class="btn btn-secondary" id="prev-page">
+            <i class="fas fa-chevron-left"></i> Précédent
+          </button>
+          <button class="btn btn-secondary" id="next-page">
+            Suivant <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <footer class="app-footer">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <div class="footer-logo">
+              <i class="fas fa-stethoscope"></i>
+            </div>
+            <div class="footer-info">
+              <h3>KB Medizin Technik GmbH</h3>
+              <p>Solutions médicales professionnelles</p>
+            </div>
+          </div>
+          
+          <div class="footer-links">
+            <div class="footer-section">
+              <h4>Contact</h4>
+              <ul>
+                <li><a href="tel:+41617211111"><i class="fas fa-phone"></i> +41 61 721 11 11</a></li>
+                <li><a href="mailto:info@kbmedizin.ch"><i class="fas fa-envelope"></i> info@kbmedizin.ch</a></li>
+                <li><a href="#"><i class="fas fa-map-marker-alt"></i> Biel-Benken, Suisse</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        <div class="footer-bottom">
+          <p>&copy; 2025 KB Medizin Technik GmbH. Tous droits réservés.</p>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Modal Créer/Modifier Rapport -->
+<div class="modal" id="report-modal">
+  <div class="modal-content" style="max-width: 1200px">
+    <div class="modal-header">
+      <h2 id="report-modal-title">
+        <i class="fas fa-file-alt"></i> Nouveau rapport
+      </h2>
+      <button class="modal-close" onclick="closeReportModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="report-form">
+        <input type="hidden" id="report-id" />
+
+        <!-- ✅ AJOUTER CETTE SECTION ICI -->
+        <!-- Section Type de rapport -->
+<div class="form-section">
+  <h3 class="form-section-title">
+    <i class="fas fa-clipboard-list"></i> Type de rapport
+  </h3>
+  <div class="form-row">
+    <div class="form-group" style="flex: 2;">
+      <label for="report-type">Type de travaux *</label>
+      <select id="report-type" required>
+        <option value="">-- Sélectionner --</option>
+        <option value="Mise en marche">Mise en marche</option>
+        <option value="Service d'entretien">Service d'entretien</option>
+        <option value="Montage">Montage</option>
+        <option value="Réparation">Réparation</option>
+        <option value="Contrôle">Contrôle</option>
+        <option value="Instruction">Instruction</option>
+        <option value="Réparation / Garantie">Réparation / Garantie</option>
+        <option value="Première validation">Première validation</option>
+        <option value="Re-validation">Re-validation</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="report-status">Statut</label>
+      <select id="report-status">
+        <option value="draft">Brouillon</option>
+        <option value="completed">Terminé</option>
+        <option value="sent">Envoyé</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+        <!-- Section Client -->
+        <div class="form-section">
+          <h3 class="form-section-title">
+            <i class="fas fa-building"></i> Client
+          </h3>
+          <div class="form-row">
+            <div class="form-group" style="flex: 2;">
+              <label for="client-select">Client *</label>
+              <select id="client-select" required>
+                <option value="">-- Sélectionner un client --</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="cabinet-name">Nom du cabinet *</label>
+            <input type="text" id="cabinet-name" required />
+          </div>
+          <div class="form-group">
+            <label for="address">Adresse *</label>
+            <input type="text" id="address" required />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="postal-code">Code postal</label>
+              <input type="text" id="postal-code" />
+            </div>
+            <div class="form-group">
+              <label for="city">Ville *</label>
+              <input type="text" id="city" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="interlocutor">Interlocuteur</label>
+            <input type="text" id="interlocutor" placeholder="Assistante, Dr., etc." />
+          </div>
+        </div>
+
+        <!-- Installation -->
+        <div class="form-section">
+          <h3 class="form-section-title">
+            <i class="fas fa-tools"></i> Installation(s)
+          </h3>
+          <div class="form-group">
+            <label>Équipement(s) concerné(s)</label>
+            <div id="client-equipment-list" style="max-height: 200px; overflow-y: auto; padding: var(--space-3); background: var(--neutral-50); border-radius: var(--radius-md);">
+              <p style="text-align: center; color: var(--neutral-500);">Sélectionnez d'abord un client</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Intervenants -->
+        <div class="form-section">
+          <h3 class="form-section-title">
+            <i class="fas fa-users"></i> Intervenants
+          </h3>
+          <button type="button" class="btn btn-sm btn-primary" id="add-technician-btn" style="margin-bottom: var(--space-4)">
+            <i class="fas fa-plus"></i> Ajouter un intervenant
+          </button>
+          <div id="technicians-list"></div>
+        </div>
+
+        <!-- Travaux accomplis -->
+        <div class="form-section">
+          <h3 class="form-section-title">
+            <i class="fas fa-tasks"></i> Travaux accomplis
+          </h3>
+          <div class="form-group">
+            <textarea id="work-accomplished" rows="6" placeholder="Détail des travaux effectués..."></textarea>
+          </div>
+        </div>
+
+        <!-- Remplacer la section STK par : -->
+
+<div class="form-section">
+  <h3 class="form-section-title">
+    <i class="fas fa-check-circle"></i> Tests de sécurité électrique (STK)
+  </h3>
+  <button type="button" class="btn btn-sm btn-primary" id="add-stk-test-btn" style="margin-bottom: var(--space-4)">
+    <i class="fas fa-plus"></i> Ajouter un test STK
+  </button>
+  <div id="stk-tests-list"></div>
+</div>
+
+        <!-- Matériel utilisé -->
+        <div class="form-section">
+          <h3 class="form-section-title">
+            <i class="fas fa-toolbox"></i> Matériel utilisé
+          </h3>
+          <button type="button" class="btn btn-sm btn-primary" id="add-material-btn" style="margin-bottom: var(--space-4)">
+            <i class="fas fa-plus"></i> Ajouter du matériel
+          </button>
+          <div id="materials-list"></div>
+          <div style="text-align: right; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 2px solid var(--border-color);">
+            <strong>Total matériel: <span id="materials-total">0.00</span> CHF</strong>
+          </div>
+        </div>
+
+        <!-- Frais de déplacement -->
+        <div class="form-section">
+          <h3 class="form-section-title">
+            <i class="fas fa-car"></i> Frais de déplacement
+          </h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="travel-location">Lieu</label>
+              <input type="text" id="travel-location" placeholder="ex: Wil (SG)" />
+            </div>
+            <div class="form-group">
+              <label for="travel-costs">Montant (CHF)</label>
+              <input type="number" id="travel-costs" step="0.01" min="0" placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="travel-incl" />
+                Inclus
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Commentaires -->
+        <div class="form-section">
+          <h3 class="form-section-title">
+            <i class="fas fa-comment"></i> Commentaires
+          </h3>
+          <div class="form-group">
+            <textarea id="remarks" rows="3" placeholder="Remarques additionnelles..."></textarea>
+          </div>
+        </div>
+
+        <!-- Signatures -->
+        <div class="form-section">
+          <h3 class="form-section-title">
+            <i class="fas fa-signature"></i> Signatures
+          </h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="tech-signature-date">Date signature technicien</label>
+              <input type="date" id="tech-signature-date" />
+            </div>
+            <div class="form-group">
+              <label for="tech-signature">Initiales technicien</label>
+              <input type="text" id="tech-signature" placeholder="ex: M.B" maxlength="10" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="client-signature-date">Date signature client</label>
+              <input type="date" id="client-signature-date" />
+            </div>
+            <div class="form-group">
+              <label for="client-signature">Initiales client</label>
+              <input type="text" id="client-signature" placeholder="ex: Dr. M" maxlength="10" />
+            </div>
+          </div>
+        </div>
+
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeReportModal()">
+        <i class="fas fa-times"></i> Annuler
+      </button>
+      <button class="btn btn-success" id="save-report-btn">
+        <i class="fas fa-check"></i> Enregistrer
+      </button>
+    </div>
+  </div>
+</div>
+
+  <!-- Modal Suppression -->
+  <div class="modal" id="delete-modal">
+    <div class="modal-content" style="max-width: 400px">
+      <div class="modal-header">
+        <h2><i class="fas fa-exclamation-triangle"></i> Confirmer la suppression</h2>
+        <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Êtes-vous sûr de vouloir supprimer ce rapport ?</p>
+        <p><strong id="delete-report-number"></strong></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-delete-btn">
+          <i class="fas fa-times"></i> Annuler
+        </button>
+        <button class="btn btn-danger" id="confirm-delete-btn">
+          <i class="fas fa-trash"></i> Supprimer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="notification-container" class="notification-container"></div>
+
+  <script src="/js/page-transitions.js"></script>
+  <script src="/js/reports.js"></script>
+</body>
+</html>
