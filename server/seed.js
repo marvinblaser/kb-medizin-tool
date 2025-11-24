@@ -170,10 +170,22 @@ async function seed() {
     )
   `);
 
+  // ✅ AJOUT DE LA TABLE MATERIALS (Manquait dans ton ancien seed)
+  await runAsync(db, `
+    CREATE TABLE IF NOT EXISTS materials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      product_code TEXT NOT NULL,
+      unit_price REAL NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ✅ CORRECTION DE LA TABLE REPORTS (Mise à jour pour correspondre à database.js)
+  // Suppression de report_type, ajout de travel_location et travel_included
   await runAsync(db, `
     CREATE TABLE IF NOT EXISTS reports (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      report_type TEXT NOT NULL CHECK(report_type IN ('RE-VALIDATION', 'SERVICE', 'REPARATION', 'INSTALLATION')),
       report_number TEXT UNIQUE,
       client_id INTEGER NOT NULL,
       cabinet_name TEXT NOT NULL,
@@ -184,13 +196,13 @@ async function seed() {
       work_type TEXT NOT NULL,
       installation TEXT,
       work_accomplished TEXT,
+      travel_location TEXT,
       travel_costs REAL DEFAULT 0,
+      travel_included INTEGER DEFAULT 0,
       remarks TEXT,
-      technician_signature_date TEXT,
-      technician_signature TEXT,
-      client_signature_date TEXT,
-      client_signature TEXT,
       status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'completed', 'sent')),
+      technician_signature_date TEXT,
+      client_signature_date TEXT,
       created_by INTEGER,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -213,14 +225,39 @@ async function seed() {
     )
   `);
 
+  // ✅ CORRECTION DE LA TABLE REPORT_MATERIALS (Ajout material_id et product_code)
   await runAsync(db, `
     CREATE TABLE IF NOT EXISTS report_materials (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       report_id INTEGER NOT NULL,
+      material_id INTEGER,
       material_name TEXT NOT NULL,
+      product_code TEXT,
       quantity INTEGER DEFAULT 1,
       unit_price REAL DEFAULT 0,
       total_price REAL DEFAULT 0,
+      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
+      FOREIGN KEY (material_id) REFERENCES materials(id)
+    )
+  `);
+
+  // ✅ AJOUT DE LA TABLE REPORT_STK_TESTS (Manquait aussi)
+  await runAsync(db, `
+    CREATE TABLE IF NOT EXISTS report_stk_tests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_id INTEGER NOT NULL,
+      test_name TEXT NOT NULL,
+      price REAL DEFAULT 0,
+      included INTEGER DEFAULT 0,
+      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
+    )
+  `);
+
+  await runAsync(db, `
+    CREATE TABLE IF NOT EXISTS report_equipment (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_id INTEGER NOT NULL,
+      equipment_info TEXT NOT NULL,
       FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
     )
   `);
@@ -268,6 +305,23 @@ async function seed() {
     await runAsync(db, 
       `INSERT INTO equipment_catalog (name, brand, model, type) VALUES (?, ?, ?, ?)`,
       eq
+    );
+  }
+
+  // Matériaux (Nouveau)
+  console.log('🔩 Création des matériaux...');
+  const materials = [
+    ['Joint torique', 'J-123', 5.50],
+    ['Filtre HEPA', 'F-HEPA-01', 45.00],
+    ['Ampoule halogène', 'L-HAL-12', 12.90],
+    ['Câble alimentation', 'C-PWR-CH', 15.00],
+    ['Fusible 10A', 'FUS-10', 2.00]
+  ];
+
+  for (const mat of materials) {
+    await runAsync(db, 
+      `INSERT INTO materials (name, product_code, unit_price) VALUES (?, ?, ?)`,
+      mat
     );
   }
 

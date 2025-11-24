@@ -246,12 +246,24 @@ function initDatabase() {
         )
       `);
 
-      // ✅ Supprimer la colonne report_type si elle existe
+      // ✅ FIX: C'est ici que la magie opère. On force l'ajout des colonnes si elles manquent.
       db.all("PRAGMA table_info(reports)", (err, columns) => {
         if (!err) {
           const columnNames = columns.map(col => col.name);
+          
+          // Fix pour ton erreur "no column named travel_location"
+          if (!columnNames.includes('travel_location')) {
+            console.log('🔧 Ajout de la colonne manquante : travel_location');
+            db.run("ALTER TABLE reports ADD COLUMN travel_location TEXT");
+          }
+          
+          // Je rajoute celle-ci par sécurité car elle va souvent avec
+          if (!columnNames.includes('travel_included')) {
+            console.log('🔧 Ajout de la colonne manquante : travel_included');
+            db.run("ALTER TABLE reports ADD COLUMN travel_included INTEGER DEFAULT 0");
+          }
+
           if (columnNames.includes('report_type')) {
-            // SQLite ne supporte pas DROP COLUMN, donc on recrée la table
             console.log('⚠️ Colonne report_type détectée, migration nécessaire');
           }
         }
@@ -316,7 +328,7 @@ function initDatabase() {
         if (err) {
           console.error('Erreur création table report_stk_tests:', err);
         } else {
-          console.log('✅ Table report_stk_tests créée ou déjà existante');
+          console.log('✅ Table report_stk_tests prête');
         }
       });
 
