@@ -1,9 +1,5 @@
 let currentPage = 1;
-let currentFilters = {
-  search: '',
-  type: '',
-  status: ''
-};
+let currentFilters = { search: '', type: '', status: '' };
 let totalPages = 1;
 let reportToDelete = null;
 let clients = [];
@@ -28,21 +24,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('filter-status').addEventListener('change', handleFilters);
   document.getElementById('clear-filters-btn').addEventListener('click', clearFilters);
   
-  document.getElementById('prev-page').addEventListener('click', () => {
-    if (currentPage > 1) {
-      currentPage--;
-      loadReports();
-    }
-  });
-  
-  document.getElementById('next-page').addEventListener('click', () => {
-    if (currentPage < totalPages) {
-      currentPage++;
-      loadReports();
-    }
-  });
+  document.getElementById('prev-page').addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadReports(); } });
+  document.getElementById('next-page').addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; loadReports(); } });
 
-  // Charger les infos client quand on sélectionne un client
+  // Changement Client : pré-remplir infos
   document.getElementById('client-select').addEventListener('change', async function() {
     const clientId = this.value;
     if (clientId) {
@@ -53,7 +38,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('postal-code').value = client.postal_code || '';
         document.getElementById('city').value = client.city;
         document.getElementById('interlocutor').value = client.contact_name;
-        
         await loadClientEquipmentForReport(clientId);
       }
     }
@@ -62,158 +46,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('add-technician-btn').addEventListener('click', () => addTechnicianRow());
   document.getElementById('add-material-btn').addEventListener('click', () => addMaterialRow());
   document.getElementById('add-stk-test-btn').addEventListener('click', () => addStkTestRow());
-
-  document.getElementById('travel-incl').addEventListener('change', function() {
-    document.getElementById('travel-costs').disabled = this.checked;
-    if (this.checked) {
-      document.getElementById('travel-costs').value = '';
-    }
-  });
+  document.getElementById('add-work-btn').addEventListener('click', () => addWorkRow());
 });
 
-function closeReportModal() {
-  document.getElementById('report-modal').classList.remove('active');
-}
-
-function closeDeleteModal() {
-  document.getElementById('delete-modal').classList.remove('active');
-  reportToDelete = null;
-}
-
-async function checkAuth() {
-  try {
-    const response = await fetch('/api/me');
-    if (!response.ok) {
-      window.location.href = '/login.html';
-      return;
-    }
-    const data = await response.json();
-    
-    document.getElementById('user-info').innerHTML = `
-      <div class="user-avatar">${data.user.name.charAt(0)}</div>
-      <div class="user-details">
-        <strong>${data.user.name}</strong>
-        <span>${data.user.role === 'admin' ? 'Administrateur' : 'Technicien'}</span>
-      </div>
-    `;
-
-    if (data.user.role === 'admin') {
-      document.getElementById('admin-link').classList.remove('hidden');
-    }
-  } catch (error) {
-    window.location.href = '/login.html';
-  }
-}
-
-async function logout() {
-  await fetch('/api/logout', { method: 'POST' });
-  window.location.href = '/login.html';
-}
-
-async function loadClients() {
-  try {
-    const response = await fetch('/api/clients?page=1&limit=1000');
-    const data = await response.json();
-    clients = data.clients;
-    
-    const select = document.getElementById('client-select');
-    select.innerHTML = '<option value="">-- Sélectionner un client --</option>' +
-      clients.map(c => `<option value="${c.id}">${escapeHtml(c.cabinet_name)}</option>`).join('');
-  } catch (error) {
-    console.error('Erreur chargement clients:', error);
-  }
-}
-
-async function loadTechnicians() {
-  try {
-    const response = await fetch('/api/admin/users');
-    const users = await response.json();
-    technicians = users.filter(u => u.is_active === 1);
-  } catch (error) {
-    console.error('Erreur chargement techniciens:', error);
-  }
-}
-
-async function loadMaterials() {
-  try {
-    const response = await fetch('/api/admin/materials');
-    materials = await response.json();
-  } catch (error) {
-    console.error('Erreur chargement matériaux:', error);
-  }
-}
+// --- LOAD DATA ---
 
 async function loadReports() {
   const params = new URLSearchParams({
-    page: currentPage,
-    limit: 25,
-    search: currentFilters.search,
-    type: currentFilters.type,
-    status: currentFilters.status
+    page: currentPage, limit: 25, search: currentFilters.search, type: currentFilters.type, status: currentFilters.status
   });
-
   try {
     const response = await fetch(`/api/reports?${params}`);
     const data = await response.json();
-
     renderReports(data.reports);
     updatePagination(data.pagination);
-  } catch (error) {
-    console.error('Erreur chargement rapports:', error);
-    document.getElementById('reports-tbody').innerHTML = `
-      <tr><td colspan="7" style="text-align: center; color: var(--color-danger); padding: 40px">
-        <i class="fas fa-exclamation-triangle fa-2x"></i>
-        <p style="margin-top: 10px">Erreur de chargement</p>
-      </td></tr>
-    `;
-  }
+  } catch (error) { console.error(error); }
 }
 
 function renderReports(reports) {
   const tbody = document.getElementById('reports-tbody');
+  if (reports.length === 0) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Aucun rapport</td></tr>`; return; }
 
-  if (reports.length === 0) {
-    tbody.innerHTML = `
-      <tr><td colspan="7" class="table-empty">
-        <i class="fas fa-inbox"></i>
-        <p>Aucun rapport trouvé</p>
-      </td></tr>
-    `;
-    return;
-  }
-
-  tbody.innerHTML = reports.map(report => {
-    const statusBadges = {
-      draft: '<span class="badge badge-secondary"><i class="fas fa-edit"></i> Brouillon</span>',
-      completed: '<span class="badge badge-success"><i class="fas fa-check"></i> Complété</span>',
-      sent: '<span class="badge badge-primary"><i class="fas fa-paper-plane"></i> Envoyé</span>'
-    };
-
+  tbody.innerHTML = reports.map(r => {
+    const badges = { draft: 'Brouillon', completed: 'Complété', sent: 'Envoyé' };
     return `
       <tr>
-        <td data-label="N° Rapport">
-          <strong>${escapeHtml(report.report_number)}</strong>
+        <td><strong>${escapeHtml(r.report_number)}</strong></td>
+        <td>${escapeHtml(r.work_type)}</td>
+        <td>${escapeHtml(r.cabinet_name)}</td>
+        <td>${formatDate(r.created_at)}</td>
+        <td>${r.technicians_count || 0}</td>
+        <td>${badges[r.status] || r.status}</td>
+        <td>
+          <button class="btn-icon-sm" onclick="viewReport(${r.id})"><i class="fas fa-eye"></i></button>
+          <button class="btn-icon-sm" onclick="openReportModal(${r.id})"><i class="fas fa-edit"></i></button>
+          <button class="btn-icon-sm" onclick="openDeleteModal(${r.id}, '${r.report_number}')"><i class="fas fa-trash"></i></button>
         </td>
-        <td data-label="Type">${escapeHtml(report.work_type)}</td>
-        <td data-label="Client">${escapeHtml(report.cabinet_name)}</td>
-        <td data-label="Date">${formatDate(report.created_at)}</td>
-        <td data-label="Intervenants">${report.technicians_count} intervenant(s)</td>
-        <td data-label="Statut">${statusBadges[report.status] || report.status}</td>
-        <td data-label="Actions">
-          <div style="display: flex; gap: var(--space-2);">
-            <button class="btn-icon-sm btn-icon-primary" onclick="viewReport(${report.id})" title="Voir">
-              <i class="fas fa-eye"></i>
-            </button>
-            <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${report.id})" title="Modifier">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn-icon-sm btn-icon-danger" onclick="openDeleteModal(${report.id}, '${escapeHtml(report.report_number).replace(/'/g, "\\'")}')">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-        </td>
-      </tr>
-    `;
+      </tr>`;
   }).join('');
 }
 
@@ -227,10 +96,11 @@ async function openReportModal(reportId = null) {
   document.getElementById('technicians-list').innerHTML = '';
   document.getElementById('materials-list').innerHTML = '';
   document.getElementById('stk-tests-list').innerHTML = '';
+  document.getElementById('work-list').innerHTML = '';
+  document.getElementById('client-equipment-list').innerHTML = '<p style="color:#999">Sélectionnez un client...</p>';
 
   if (reportId) {
     title.innerHTML = '<i class="fas fa-edit"></i> Modifier le rapport';
-    
     try {
       const response = await fetch(`/api/reports/${reportId}`);
       const report = await response.json();
@@ -244,482 +114,266 @@ async function openReportModal(reportId = null) {
       document.getElementById('postal-code').value = report.postal_code || '';
       document.getElementById('city').value = report.city;
       document.getElementById('interlocutor').value = report.interlocutor || '';
-      document.getElementById('work-accomplished').value = report.work_accomplished || '';
-      document.getElementById('travel-location').value = report.travel_location || '';
+      document.getElementById('installation-text').value = report.installation || '';
+      document.getElementById('remarks').value = report.remarks || '';
+
+      // Parse Location "Ville (CT)"
+      if(report.travel_location) {
+         const match = report.travel_location.match(/^(.*)\s\(([A-Z]{2})\)$/);
+         if(match) {
+             document.getElementById('travel-city').value = match[1];
+             document.getElementById('travel-canton').value = match[2];
+         } else {
+             document.getElementById('travel-city').value = report.travel_location;
+         }
+      }
       document.getElementById('travel-costs').value = report.travel_costs || 0;
       document.getElementById('travel-incl').checked = report.travel_included || false;
-      document.getElementById('remarks').value = report.remarks || '';
-      
-      if (report.client_id) {
-        await loadClientEquipmentForReport(report.client_id);
+
+      if(report.technician_signature_date) document.getElementById('tech-signature-date').value = report.technician_signature_date.split('T')[0];
+      if(report.technicians && report.technicians[0]) {
+         document.getElementById('tech-signature').value = getInitials(report.technicians[0].technician_name);
       }
       
-      if (report.technicians && report.technicians.length > 0) {
-        report.technicians.forEach(tech => {
-          addTechnicianRow(tech);
-        });
-      }
+      if (report.client_id) await loadClientEquipmentForReport(report.client_id, report.installation);
+      if (report.technicians) report.technicians.forEach(t => addTechnicianRow(t));
+      if (report.stk_tests) report.stk_tests.forEach(t => addStkTestRow(t));
+      if (report.materials) report.materials.forEach(m => addMaterialRow(m));
       
-      if (report.stk_tests && report.stk_tests.length > 0) {
-        report.stk_tests.forEach(test => {
-          addStkTestRow(test);
-        });
+      if (report.work_accomplished) {
+          report.work_accomplished.split('\n').forEach(line => addWorkRow(line));
+      } else {
+          addWorkRow();
       }
-      
-      if (report.materials && report.materials.length > 0) {
-        report.materials.forEach(mat => {
-          addMaterialRow(mat);
-        });
-      }
-      
       updateMaterialsTotal();
-      
-    } catch (error) {
-      console.error('Erreur chargement rapport:', error);
-      showNotification('Erreur lors du chargement', 'error');
-      return;
-    }
+
+    } catch (e) { console.error(e); }
   } else {
     title.innerHTML = '<i class="fas fa-plus-circle"></i> Nouveau rapport';
     addTechnicianRow();
-    addMaterialRow();
-    addStkTestRow({ test_name: 'Test de sécurité électrique obligatoire i.O - Unité', price: 75.00 });
-    addStkTestRow({ test_name: 'Test de sécurité électrique obligatoire i.O - Microscope', price: 75.00 });
+    addWorkRow();
   }
-
   modal.classList.add('active');
 }
 
-function addTechnicianRow(data = null) {
-  const container = document.getElementById('technicians-list');
-  const index = container.children.length;
-  
+// --- DYNAMIC ROWS ---
+
+function addWorkRow(text = '') {
+  const container = document.getElementById('work-list');
   const div = document.createElement('div');
   div.className = 'form-row';
-  div.style.alignItems = 'flex-end';
+  div.style.display = 'flex'; div.style.gap = '5px'; div.style.marginBottom = '5px';
   div.innerHTML = `
-    <div class="form-group">
-      <label>Intervenant</label>
-      <select class="technician-select" data-index="${index}">
-        <option value="">-- Sélectionner --</option>
-        ${technicians.map(t => `
-          <option value="${t.id}" ${data && data.technician_id == t.id ? 'selected' : ''}>
-            ${escapeHtml(t.name)}
-          </option>
-        `).join('')}
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Date</label>
-      <input type="date" class="tech-date" value="${data ? data.work_date : ''}" />
-    </div>
-    <div class="form-group">
-      <label>Heures normales</label>
-      <input type="number" class="tech-hours-normal" step="0.5" min="0" value="${data ? data.hours_normal : 0}" style="width: 100px;" />
-    </div>
-    <div class="form-group">
-      <label>Heures sup.</label>
-      <input type="number" class="tech-hours-extra" step="0.5" min="0" value="${data ? data.hours_extra : 0}" style="width: 100px;" />
-    </div>
-    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()">
-      <i class="fas fa-times"></i>
-    </button>
+    <input type="text" class="work-line-input" value="${escapeHtml(text)}" placeholder="Description..." style="flex:1;" />
+    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
   `;
-  
   container.appendChild(div);
 }
 
 function addStkTestRow(data = null) {
   const container = document.getElementById('stk-tests-list');
-  
   const div = document.createElement('div');
   div.className = 'form-row';
-  div.style.alignItems = 'flex-end';
-  div.innerHTML = `
-    <div class="form-group" style="flex: 2;">
-      <label>Nom du test *</label>
-      <input type="text" class="stk-test-name" value="${data ? escapeHtml(data.test_name) : ''}" placeholder="ex: Test I.O - Unité" required />
-    </div>
-    <div class="form-group">
-      <label>Prix (CHF)</label>
-      <input type="number" class="stk-test-price" step="0.01" min="0" value="${data ? data.price : 75.00}" style="width: 120px;" />
-    </div>
-    <div class="form-group" style="display: flex; align-items: center; min-height: 36px;">
-      <label style="margin: 0;">
-        <input type="checkbox" class="stk-test-included" ${data && data.included ? 'checked' : ''} />
-        Inclus
-      </label>
-    </div>
-    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove();">
-      <i class="fas fa-times"></i>
-    </button>
-  `;
-  
-  container.appendChild(div);
-  
-  const checkbox = div.querySelector('.stk-test-included');
-  const priceInput = div.querySelector('.stk-test-price');
-  
-  checkbox.addEventListener('change', function() {
-    priceInput.disabled = this.checked;
-    if (this.checked) priceInput.value = '';
-  });
-  
-  if (checkbox.checked) {
-    priceInput.disabled = true;
+  div.style.display = 'flex'; div.style.gap = '5px'; div.style.alignItems = 'center'; div.style.marginBottom = '5px';
+
+  const prefix = "Test de sécurité électrique obligatoire i.O - ";
+  let val = '';
+  if (data && data.test_name && data.test_name.startsWith(prefix)) {
+      val = data.test_name.replace(prefix, '');
+  } else if (data) {
+      val = data.test_name;
   }
+
+  div.innerHTML = `
+    <div style="flex:2; display:flex; align-items:center; gap:5px;">
+      <span style="font-size:12px; font-weight:bold; white-space:nowrap;">${prefix}</span>
+      <input type="text" class="stk-input-name" value="${escapeHtml(val)}" placeholder="Unité" required style="flex:1;" />
+    </div>
+    <div style="width:100px;">
+      <input type="number" class="stk-price" step="0.01" value="${data ? data.price : 75.00}" />
+    </div>
+    <div style="width:70px; text-align:center;">
+       <label><input type="checkbox" class="stk-incl" ${data && data.included ? 'checked' : ''}> Incl.</label>
+    </div>
+    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+  `;
+  container.appendChild(div);
 }
 
 function addMaterialRow(data = null) {
   const container = document.getElementById('materials-list');
-  
   const div = document.createElement('div');
   div.className = 'form-row';
-  div.style.alignItems = 'flex-end';
+  div.style.display = 'flex'; div.style.gap = '10px'; div.style.alignItems = 'flex-end'; div.style.marginBottom = '5px';
+  
   div.innerHTML = `
-    <div class="form-group" style="flex: 2;">
-      <label>Matériel *</label>
-      <select class="material-select" style="width: 100%;">
-        <option value="">-- Sélectionner --</option>
-        ${materials.map(mat => `
-          <option 
-            value="${mat.id}" 
-            data-price="${mat.unit_price}"
-            data-code="${mat.product_code}"
-            ${data && data.material_id == mat.id ? 'selected' : ''}
-          >
-            ${escapeHtml(mat.name)} (${mat.product_code})
-          </option>
-        `).join('')}
+    <div class="form-group" style="flex:2;">
+      <label>Matériel</label>
+      <select class="material-select" style="width:100%;">
+        <option value="">-- Choix --</option>
+        ${materials.map(m => `
+          <option value="${m.id}" data-price="${m.unit_price}" data-code="${m.product_code}" ${data && data.material_id == m.id ? 'selected' : ''}>
+            ${escapeHtml(m.name)}
+          </option>`).join('')}
       </select>
     </div>
-    <div class="form-group">
-      <label>Qté</label>
-      <input type="number" class="material-qty" min="1" value="${data ? data.quantity : 1}" style="width: 80px;" />
-    </div>
-    <div class="form-group">
-      <label>Prix unit. (CHF)</label>
-      <input type="number" class="material-price" step="0.01" min="0" value="${data ? data.unit_price : 0}" readonly style="width: 120px; background: var(--neutral-100);" />
-    </div>
-    <div class="form-group">
-      <label>Total (CHF)</label>
-      <input type="number" class="material-total" step="0.01" min="0" value="${data ? data.total_price : 0}" readonly style="width: 120px; background: var(--neutral-100);" />
-    </div>
-    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();">
-      <i class="fas fa-times"></i>
-    </button>
+    <div class="form-group"><label>Code</label><input type="text" class="material-code" value="${data ? (data.product_code||'') : ''}" readonly style="width:80px; background:#eee;" /></div>
+    <div class="form-group"><label>Qté</label><input type="number" class="material-qty" min="1" value="${data ? data.quantity : 1}" style="width:60px;" /></div>
+    <div class="form-group"><label>Prix</label><input type="number" class="material-price" step="0.01" value="${data ? data.unit_price : 0}" style="width:90px;" /></div>
+    <div class="form-group"><label>Total</label><input type="number" class="material-total" step="0.01" value="${data ? data.total_price : 0}" readonly style="width:90px; background:#eee;" /></div>
+    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();" style="margin-bottom:5px;"><i class="fas fa-times"></i></button>
   `;
-  
   container.appendChild(div);
-  
-  const select = div.querySelector('.material-select');
-  const qtyInput = div.querySelector('.material-qty');
-  const priceInput = div.querySelector('.material-price');
-  const totalInput = div.querySelector('.material-total');
-  
-  select.addEventListener('change', function() {
-    const selectedOption = this.options[this.selectedIndex];
-    const price = parseFloat(selectedOption.dataset.price) || 0;
-    priceInput.value = price.toFixed(2);
-    updateRowTotal();
+
+  const sel = div.querySelector('.material-select');
+  const codeIn = div.querySelector('.material-code');
+  const qtyIn = div.querySelector('.material-qty');
+  const priceIn = div.querySelector('.material-price');
+  const totalIn = div.querySelector('.material-total');
+
+  const update = () => {
+      const q = parseFloat(qtyIn.value)||0;
+      const p = parseFloat(priceIn.value)||0;
+      totalIn.value = (q * p).toFixed(2);
+      updateMaterialsTotal();
+  };
+
+  sel.addEventListener('change', function() {
+      const opt = this.options[this.selectedIndex];
+      if(opt.value) {
+          priceIn.value = parseFloat(opt.dataset.price).toFixed(2);
+          codeIn.value = opt.dataset.code || '';
+      }
+      update();
   });
-  
-  qtyInput.addEventListener('change', updateRowTotal);
-  
-  function updateRowTotal() {
-    const qty = parseFloat(qtyInput.value) || 0;
-    const price = parseFloat(priceInput.value) || 0;
-    const total = qty * price;
-    totalInput.value = total.toFixed(2);
-    updateMaterialsTotal();
-  }
-  
-  if (data) {
-    updateRowTotal();
-  }
+  qtyIn.addEventListener('change', update);
+  priceIn.addEventListener('change', update);
 }
 
 function updateMaterialsTotal() {
-  const materials = document.querySelectorAll('.material-total');
   let total = 0;
-  materials.forEach(input => {
-    total += parseFloat(input.value) || 0;
-  });
-  document.getElementById('materials-total').textContent = total.toFixed(2);
+  document.querySelectorAll('.material-total').forEach(i => total += parseFloat(i.value)||0);
+  document.getElementById('materials-total').innerText = total.toFixed(2);
+}
+
+function addTechnicianRow(data = null) {
+  const container = document.getElementById('technicians-list');
+  const div = document.createElement('div');
+  div.className = 'form-row';
+  div.style.display = 'flex'; div.style.gap = '10px'; div.style.alignItems = 'flex-end'; div.style.marginBottom = '5px';
+  div.innerHTML = `
+    <div class="form-group"><label>Intervenant</label><select class="technician-select"><option value="">--</option>${technicians.map(t => `<option value="${t.id}" ${data && data.technician_id == t.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Date</label><input type="date" class="tech-date" value="${data ? data.work_date : new Date().toISOString().split('T')[0]}" /></div>
+    <div class="form-group"><label>Norm.</label><input type="number" class="tech-hours-normal" step="0.5" value="${data ? data.hours_normal : 0}" style="width:70px;" /></div>
+    <div class="form-group"><label>Sup.</label><input type="number" class="tech-hours-extra" step="0.5" value="${data ? data.hours_extra : 0}" style="width:70px;" /></div>
+    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" style="margin-bottom:5px;"><i class="fas fa-times"></i></button>
+  `;
+  container.appendChild(div);
 }
 
 async function loadClientEquipmentForReport(clientId) {
   try {
-    const response = await fetch(`/api/clients/${clientId}/equipment`);
-    const equipment = await response.json();
-    
+    const res = await fetch(`/api/clients/${clientId}/equipment`);
+    const eqs = await res.json();
     const container = document.getElementById('client-equipment-list');
+    if(eqs.length===0) { container.innerHTML='<p>Aucun équipement.</p>'; return; }
     
-    if (equipment.length === 0) {
-      container.innerHTML = '<p style="text-align: center; color: var(--neutral-500);">Aucun équipement installé</p>';
-      return;
-    }
-    
-    container.innerHTML = equipment.map(eq => `
-      <div class="checkbox-group" style="margin-bottom: var(--space-2);">
-        <input type="checkbox" id="eq-${eq.id}" value="${eq.id}" class="equipment-checkbox" />
-        <label for="eq-${eq.id}" style="flex: 1;">
-          <strong>${escapeHtml(eq.name)}</strong>
-          <small style="display: block; color: var(--neutral-600); margin-top: 2px;">
-            ${escapeHtml(eq.brand)} ${eq.model ? '- ' + escapeHtml(eq.model) : ''}
-            ${eq.serial_number ? ' • S/N: ' + escapeHtml(eq.serial_number) : ''}
-          </small>
-        </label>
-      </div>
+    container.innerHTML = eqs.map(e => `
+      <div style="margin-bottom:5px;"><label><input type="checkbox" class="eq-cb" value="${e.id}" data-txt="${escapeHtml(e.name)} ${escapeHtml(e.model||'')} S/N:${escapeHtml(e.serial_number||'')}"> ${escapeHtml(e.name)}</label></div>
     `).join('');
-  } catch (error) {
-    console.error('Erreur chargement équipements:', error);
-  }
+    
+    // Auto-add to text field
+    const txt = document.getElementById('installation-text');
+    container.querySelectorAll('.eq-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const selected = Array.from(container.querySelectorAll('.eq-cb:checked')).map(c => c.dataset.txt);
+            if(selected.length > 0) txt.value = selected.join(', ');
+        });
+    });
+  } catch(e) { console.error(e); }
 }
 
 async function saveReport() {
   const btn = document.getElementById('save-report-btn');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
-  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true;
 
   try {
     const reportId = document.getElementById('report-id').value;
-    const clientId = document.getElementById('client-select').value;
-    const reportType = document.getElementById('report-type').value;
-    
-    // ✅ VALIDATION : client_id obligatoire
-    if (!clientId) {
-      showNotification('Veuillez sélectionner un client', 'error');
-      btn.innerHTML = originalText;
-      btn.disabled = false;
-      return;
-    }
-    
-    // ✅ VALIDATION : work_type obligatoire
-    if (!reportType) {
-      showNotification('Veuillez sélectionner un type de travail', 'error');
-      btn.innerHTML = originalText;
-      btn.disabled = false;
-      return;
-    }
-    
-    const equipmentCheckboxes = document.querySelectorAll('.equipment-checkbox:checked');
-    const equipment_ids = Array.from(equipmentCheckboxes).map(cb => cb.value);
-    
-    const techRows = document.querySelectorAll('#technicians-list .form-row');
-    const technicians = Array.from(techRows).map(row => {
-      const select = row.querySelector('.technician-select');
-      const techId = select.value;
-      const techName = select.options[select.selectedIndex]?.text || '';
-      
-      return {
-        technician_id: techId || null,
-        technician_name: techName,
-        work_date: row.querySelector('.tech-date').value,
-        hours_normal: parseFloat(row.querySelector('.tech-hours-normal').value) || 0,
-        hours_extra: parseFloat(row.querySelector('.tech-hours-extra').value) || 0
-      };
-    }).filter(t => t.work_date);
-    
-    const stkRows = document.querySelectorAll('#stk-tests-list .form-row');
-    const stk_tests = Array.from(stkRows).map(row => ({
-      test_name: row.querySelector('.stk-test-name').value,
-      price: parseFloat(row.querySelector('.stk-test-price').value) || 0,
-      included: row.querySelector('.stk-test-included').checked
-    })).filter(t => t.test_name.trim());
-    
-    const matRows = document.querySelectorAll('#materials-list .form-row');
-    const materials = Array.from(matRows).map(row => {
-      const select = row.querySelector('.material-select');
-      return {
-        material_id: parseInt(select.value),
-        material_name: select.options[select.selectedIndex]?.text || '',
-        product_code: select.options[select.selectedIndex]?.dataset.code || '',
-        quantity: parseInt(row.querySelector('.material-qty').value) || 1,
-        unit_price: parseFloat(row.querySelector('.material-price').value) || 0,
-        total_price: parseFloat(row.querySelector('.material-total').value) || 0
-      };
-    }).filter(m => m.material_id);
+    const tCity = document.getElementById('travel-city').value.trim();
+    const tCanton = document.getElementById('travel-canton').value;
     
     const data = {
-      client_id: parseInt(clientId), // ✅ AJOUT client_id
-      work_type: reportType,
-      cabinet_name: document.getElementById('cabinet-name').value.trim(),
-      address: document.getElementById('address').value.trim(),
-      postal_code: document.getElementById('postal-code').value.trim(),
-      city: document.getElementById('city').value.trim(),
-      interlocutor: document.getElementById('interlocutor').value.trim(),
-      installation: equipment_ids.length > 0 ? equipment_ids.join(', ') : '',
-      work_accomplished: document.getElementById('work-accomplished').value.trim(),
-      travel_location: document.getElementById('travel-location').value.trim(),
-      travel_costs: parseFloat(document.getElementById('travel-costs').value) || 0,
+      client_id: document.getElementById('client-select').value,
+      work_type: document.getElementById('report-type').value,
+      status: document.getElementById('report-status').value,
+      cabinet_name: document.getElementById('cabinet-name').value,
+      address: document.getElementById('address').value,
+      postal_code: document.getElementById('postal-code').value,
+      city: document.getElementById('city').value,
+      interlocutor: document.getElementById('interlocutor').value,
+      installation: document.getElementById('installation-text').value,
+      remarks: document.getElementById('remarks').value,
+      travel_costs: parseFloat(document.getElementById('travel-costs').value)||0,
       travel_included: document.getElementById('travel-incl').checked,
-      remarks: document.getElementById('remarks').value.trim(),
-      status: document.getElementById('report-status').value || 'draft',
-      technicians,
-      stk_tests,
-      materials
+      travel_location: tCanton ? `${tCity} (${tCanton})` : tCity,
+      technician_signature_date: document.getElementById('tech-signature-date').value,
+      work_accomplished: Array.from(document.querySelectorAll('.work-line-input')).map(i=>i.value.trim()).filter(v=>v).join('\n')
     };
 
-    console.log('📦 Données à envoyer:', data);
+    data.technicians = Array.from(document.querySelectorAll('#technicians-list .form-row')).map(r => ({
+       technician_id: r.querySelector('.technician-select').value,
+       technician_name: r.querySelector('.technician-select').selectedOptions[0]?.text,
+       work_date: r.querySelector('.tech-date').value,
+       hours_normal: parseFloat(r.querySelector('.tech-hours-normal').value)||0,
+       hours_extra: parseFloat(r.querySelector('.tech-hours-extra').value)||0
+    })).filter(t => t.technician_id);
 
-    if (!data.cabinet_name || !data.address || !data.city) {
-      showNotification('Veuillez remplir tous les champs requis', 'error');
-      btn.innerHTML = originalText;
-      btn.disabled = false;
-      return;
-    }
+    const prefixSTK = "Test de sécurité électrique obligatoire i.O - ";
+    data.stk_tests = Array.from(document.querySelectorAll('#stk-tests-list .form-row')).map(r => {
+        const val = r.querySelector('.stk-input-name').value.trim();
+        if(!val) return null;
+        return {
+            test_name: prefixSTK + val,
+            price: parseFloat(r.querySelector('.stk-price').value)||0,
+            included: r.querySelector('.stk-incl').checked
+        };
+    }).filter(t=>t);
 
-    const url = reportId ? `/api/reports/${reportId}` : '/api/reports';
+    data.materials = Array.from(document.querySelectorAll('#materials-list .form-row')).map(r => ({
+       material_id: r.querySelector('.material-select').value,
+       material_name: r.querySelector('.material-select').selectedOptions[0]?.text,
+       product_code: r.querySelector('.material-code').value,
+       quantity: parseFloat(r.querySelector('.material-qty').value)||1,
+       unit_price: parseFloat(r.querySelector('.material-price').value)||0,
+       total_price: parseFloat(r.querySelector('.material-total').value)||0
+    })).filter(m=>m.material_id);
+
     const method = reportId ? 'PUT' : 'POST';
+    const url = reportId ? `/api/reports/${reportId}` : '/api/reports';
+    const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+    
+    if(res.ok) { closeReportModal(); loadReports(); alert('Enregistré !'); }
+    else { alert('Erreur enregistrement'); }
 
-    const response = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-
-    if (response.ok) {
-      closeReportModal();
-      loadReports();
-      showNotification('Rapport enregistré avec succès', 'success');
-    } else {
-      const error = await response.json();
-      showNotification(error.error || 'Erreur lors de l\'enregistrement', 'error');
-    }
-  } catch (error) {
-    console.error('❌ Erreur dans saveReport:', error);
-    showNotification('Erreur: ' + error.message, 'error');
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
+  } catch(e) { console.error(e); }
+  btn.innerHTML = 'Enregistrer'; btn.disabled = false;
 }
 
-function viewReport(reportId) {
-  window.open(`/report-view.html?id=${reportId}`, '_blank');
-}
-
-function openDeleteModal(reportId, reportNumber) {
-  reportToDelete = reportId;
-  document.getElementById('delete-report-number').textContent = reportNumber;
-  document.getElementById('delete-modal').classList.add('active');
-}
-
-async function confirmDelete() {
-  if (!reportToDelete) return;
-
-  const btn = document.getElementById('confirm-delete-btn');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Suppression...';
-  btn.disabled = true;
-
-  try {
-    const response = await fetch(`/api/reports/${reportToDelete}`, {
-      method: 'DELETE'
-    });
-
-    if (response.ok) {
-      closeDeleteModal();
-      loadReports();
-      showNotification('Rapport supprimé', 'success');
-    } else {
-      showNotification('Erreur lors de la suppression', 'error');
-    }
-  } catch (error) {
-    console.error('Erreur suppression:', error);
-    showNotification('Erreur de connexion au serveur', 'error');
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
-}
-
-function handleFilters() {
-  currentFilters.search = document.getElementById('global-search').value;
-  currentFilters.type = document.getElementById('filter-type').value;
-  currentFilters.status = document.getElementById('filter-status').value;
-  currentPage = 1;
-  loadReports();
-}
-
-function clearFilters() {
-  document.getElementById('global-search').value = '';
-  document.getElementById('filter-type').value = '';
-  document.getElementById('filter-status').value = '';
-  currentFilters = { search: '', type: '', status: '' };
-  currentPage = 1;
-  loadReports();
-}
-
-function updatePagination(pagination) {
-  totalPages = pagination.totalPages;
-  document.getElementById('pagination-info').textContent = 
-    `Page ${pagination.page} sur ${totalPages} (${pagination.total} rapports)`;
-
-  document.getElementById('prev-page').disabled = currentPage === 1;
-  document.getElementById('next-page').disabled = currentPage === totalPages || totalPages === 0;
-}
-
-function showNotification(message, type = 'info') {
-  let container = document.getElementById('notification-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'notification-container';
-    container.className = 'notification-container';
-    document.body.appendChild(container);
-  }
-
-  const notification = document.createElement('div');
-  notification.className = `notification notification-${type}`;
-  
-  const icons = {
-    success: 'fa-check-circle',
-    error: 'fa-exclamation-circle',
-    warning: 'fa-exclamation-triangle',
-    info: 'fa-info-circle'
-  };
-
-  notification.innerHTML = `
-    <i class="fas ${icons[type]}"></i>
-    <span>${message}</span>
-  `;
-
-  container.appendChild(notification);
-  setTimeout(() => notification.classList.add('show'), 10);
-  setTimeout(() => {
-    notification.classList.remove('show');
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '-';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('fr-CH', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-}
-
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(this, args), wait);
-  };
-}
-
-window.openReportModal = openReportModal;
-window.viewReport = viewReport;
-window.openDeleteModal = openDeleteModal;
-window.updateMaterialsTotal = updateMaterialsTotal;
+// Helpers... (copie des helpers habituels)
+function closeReportModal() { document.getElementById('report-modal').classList.remove('active'); }
+function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); }
+function checkAuth() { return fetch('/api/me').then(r=>r.ok?r.json():window.location='/login.html'); }
+function loadClients() { fetch('/api/clients?limit=1000').then(r=>r.json()).then(d=>{ clients=d.clients; document.getElementById('client-select').innerHTML='<option value="">-- Client --</option>'+clients.map(c=>`<option value="${c.id}">${escapeHtml(c.cabinet_name)}</option>`).join(''); }); }
+function loadTechnicians() { fetch('/api/admin/users').then(r=>r.json()).then(d=>technicians=d); }
+function loadMaterials() { fetch('/api/admin/materials').then(r=>r.json()).then(d=>materials=d); }
+function logout() { fetch('/api/logout',{method:'POST'}).then(()=>window.location='/login.html'); }
+function openDeleteModal(id, n) { reportToDelete=id; document.getElementById('delete-report-number').innerText=n; document.getElementById('delete-modal').classList.add('active'); }
+async function confirmDelete() { await fetch(`/api/reports/${reportToDelete}`,{method:'DELETE'}); closeDeleteModal(); loadReports(); }
+function viewReport(id) { window.open(`/report-view.html?id=${id}`, '_blank'); }
+function handleFilters() { currentFilters.search=document.getElementById('global-search').value; currentFilters.type=document.getElementById('filter-type').value; currentFilters.status=document.getElementById('filter-status').value; currentPage=1; loadReports(); }
+function clearFilters() { document.getElementById('global-search').value=''; document.getElementById('filter-type').value=''; document.getElementById('filter-status').value=''; handleFilters(); }
+function updatePagination(p) { totalPages=p.totalPages; document.getElementById('pagination-info').textContent=`Page ${p.page} / ${totalPages}`; document.getElementById('prev-page').disabled=p.page===1; document.getElementById('next-page').disabled=p.page===totalPages; }
+function formatDate(s) { return s?new Date(s).toLocaleDateString('fr-CH'):'-'; }
+function escapeHtml(t) { if(!t)return ''; const d=document.createElement('div'); d.innerText=t; return d.innerHTML; }
+function debounce(f,w) { let t; return function(...a){ clearTimeout(t); t=setTimeout(()=>f.apply(this,a),w); }; }
+function getInitials(n) { return n ? n.split(' ').map(x=>x[0]).join('.').toUpperCase() : ''; }
