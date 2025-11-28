@@ -362,7 +362,39 @@ async function saveReport() {
 // Helpers... (copie des helpers habituels)
 function closeReportModal() { document.getElementById('report-modal').classList.remove('active'); }
 function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); }
-function checkAuth() { return fetch('/api/me').then(r=>r.ok?r.json():window.location='/login.html'); }
+// Remplacer l'ancienne fonction checkAuth à la fin du fichier par ceci :
+async function checkAuth() {
+  try {
+    const response = await fetch('/api/me');
+    if (!response.ok) {
+      window.location.href = '/login.html';
+      return;
+    }
+    const data = await response.json();
+    
+    // C'est cette partie qui manquait pour afficher le nom :
+    const userInfoEl = document.getElementById('user-info');
+    if (userInfoEl) {
+      userInfoEl.innerHTML = `
+        <div class="user-avatar">${data.user.name.charAt(0)}</div>
+        <div class="user-details">
+          <strong>${escapeHtml(data.user.name)}</strong>
+          <span>${data.user.role === 'admin' ? 'Administrateur' : 'Technicien'}</span>
+        </div>
+      `;
+    }
+
+    // Afficher le lien admin si nécessaire
+    if (data.user.role === 'admin') {
+      const adminLink = document.getElementById('admin-link');
+      if(adminLink) adminLink.classList.remove('hidden');
+    }
+    
+    return data; // Retourne les données pour usage ultérieur
+  } catch (error) {
+    window.location.href = '/login.html';
+  }
+}
 function loadClients() { fetch('/api/clients?limit=1000').then(r=>r.json()).then(d=>{ clients=d.clients; document.getElementById('client-select').innerHTML='<option value="">-- Client --</option>'+clients.map(c=>`<option value="${c.id}">${escapeHtml(c.cabinet_name)}</option>`).join(''); }); }
 function loadTechnicians() { fetch('/api/admin/users').then(r=>r.json()).then(d=>technicians=d); }
 function loadMaterials() { fetch('/api/admin/materials').then(r=>r.json()).then(d=>materials=d); }

@@ -149,96 +149,92 @@ function setupWidgetCustomization() {
   pageHeader.appendChild(customizeBtn);
 }
 
+// Dans public/js/dashboard.js
+
 function openWidgetCustomization() {
   const modal = document.createElement('div');
   modal.className = 'modal active';
   modal.innerHTML = `
-    <div class="modal-content widget-selector-modal">
+    <div class="modal-content widget-selector-modal" style="max-width: 900px;">
       <div class="modal-header">
-        <h2><i class="fas fa-th-large"></i> Personnaliser le tableau de bord</h2>
+        <h2><i class="fas fa-th-large" style="color: var(--color-primary)"></i> Personnaliser le tableau de bord</h2>
         <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
       </div>
-      <div class="modal-body">
-        <p style="margin-bottom: var(--space-6); color: var(--neutral-600)">
-          Choisissez les widgets à afficher sur votre tableau de bord
+      <div class="modal-body" style="padding: 2rem;">
+        <p style="margin-bottom: 2rem; color: var(--neutral-500); font-size: 0.95rem;">
+          Activez ou désactivez les cartes pour construire votre vue idéale.
         </p>
         
         <div class="widget-selector-grid">
-          <div class="widget-selector-card ${widgetSettings.appointments ? 'active' : ''}" data-widget="appointments">
+          <div class="widget-selector-card ${widgetSettings.appointments ? 'active' : ''}" onclick="toggleWidgetCard(this, 'appointments')">
+            <div class="widget-selector-toggle">
+              <input type="checkbox" id="widget-check-appointments" ${widgetSettings.appointments ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), 'appointments')">
+            </div>
             <div class="widget-selector-icon"><i class="fas fa-calendar-alt"></i></div>
-            <h3>Rendez-vous à venir</h3>
-            <p>Prochains rendez-vous planifiés</p>
-            <div class="widget-selector-toggle">
-              <input type="checkbox" id="widget-check-appointments" ${widgetSettings.appointments ? 'checked' : ''} />
-            </div>
+            <h3>Rendez-vous</h3>
+            <p>Prochains RDV planifiés</p>
           </div>
           
-          <div class="widget-selector-card ${widgetSettings.contacts ? 'active' : ''}" data-widget="contacts">
+          <div class="widget-selector-card ${widgetSettings.contacts ? 'active' : ''}" onclick="toggleWidgetCard(this, 'contacts')">
+            <div class="widget-selector-toggle">
+              <input type="checkbox" id="widget-check-contacts" ${widgetSettings.contacts ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), 'contacts')">
+            </div>
             <div class="widget-selector-icon"><i class="fas fa-phone"></i></div>
-            <h3>Clients à contacter</h3>
-            <p>Clients nécessitant un contact</p>
-            <div class="widget-selector-toggle">
-              <input type="checkbox" id="widget-check-contacts" ${widgetSettings.contacts ? 'checked' : ''} />
-            </div>
+            <h3>À contacter</h3>
+            <p>Clients nécessitant un appel</p>
           </div>
           
-          <div class="widget-selector-card ${widgetSettings['maintenance-month'] ? 'active' : ''}" data-widget="maintenance-month">
+          <div class="widget-selector-card ${widgetSettings['maintenance-month'] ? 'active' : ''}" onclick="toggleWidgetCard(this, 'maintenance-month')">
+            <div class="widget-selector-toggle">
+              <input type="checkbox" id="widget-check-maintenance-month" ${widgetSettings['maintenance-month'] ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), 'maintenance-month')">
+            </div>
             <div class="widget-selector-icon"><i class="fas fa-wrench"></i></div>
-            <h3>Maintenances du mois</h3>
-            <p>Maintenances prévues ce mois</p>
-            <div class="widget-selector-toggle">
-              <input type="checkbox" id="widget-check-maintenance-month" ${widgetSettings['maintenance-month'] ? 'checked' : ''} />
-            </div>
+            <h3>Maintenances</h3>
+            <p>Prévues ce mois-ci</p>
           </div>
           
-          <div class="widget-selector-card ${widgetSettings.warranty ? 'active' : ''}" data-widget="warranty">
+          <div class="widget-selector-card ${widgetSettings.warranty ? 'active' : ''}" onclick="toggleWidgetCard(this, 'warranty')">
+            <div class="widget-selector-toggle">
+              <input type="checkbox" id="widget-check-warranty" ${widgetSettings.warranty ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), 'warranty')">
+            </div>
             <div class="widget-selector-icon"><i class="fas fa-shield-alt"></i></div>
-            <h3>Garanties expirant</h3>
-            <p>Garanties bientôt expirées</p>
-            <div class="widget-selector-toggle">
-              <input type="checkbox" id="widget-check-warranty" ${widgetSettings.warranty ? 'checked' : ''} />
-            </div>
+            <h3>Garanties</h3>
+            <p>Expiration imminente</p>
           </div>
           
-          <div class="widget-selector-card ${widgetSettings.map ? 'active' : ''}" data-widget="map">
-            <div class="widget-selector-icon"><i class="fas fa-map-marked-alt"></i></div>
-            <h3>Carte des clients</h3>
-            <p>Visualisation géographique</p>
+          <div class="widget-selector-card ${widgetSettings.map ? 'active' : ''}" onclick="toggleWidgetCard(this, 'map')">
             <div class="widget-selector-toggle">
-              <input type="checkbox" id="widget-check-map" ${widgetSettings.map ? 'checked' : ''} />
+              <input type="checkbox" id="widget-check-map" ${widgetSettings.map ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), 'map')">
             </div>
+            <div class="widget-selector-icon"><i class="fas fa-map-marked-alt"></i></div>
+            <h3>Carte</h3>
+            <p>Vue géographique</p>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">
-          <i class="fas fa-times"></i> Annuler
-        </button>
-        <button class="btn btn-primary" onclick="saveWidgetCustomization(this)">
-          <i class="fas fa-check"></i> Enregistrer
-        </button>
+        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveWidgetCustomization(this)">Enregistrer</button>
       </div>
     </div>
   `;
-  
   document.body.appendChild(modal);
-  
-  modal.querySelectorAll('.widget-selector-card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      if (!e.target.matches('input, label')) {
-        const checkbox = card.querySelector('input[type="checkbox"]');
-        checkbox.checked = !checkbox.checked;
-        card.classList.toggle('active', checkbox.checked);
-      }
-    });
-    
-    const checkbox = card.querySelector('input[type="checkbox"]');
-    checkbox.addEventListener('change', (e) => {
-      e.stopPropagation();
-      card.classList.toggle('active', checkbox.checked);
-    });
-  });
 }
+
+// Helper function pour gérer le clic sur la carte entière
+window.toggleWidgetCard = function(card, widgetName) {
+  const checkbox = card.querySelector('input[type="checkbox"]');
+  // Si le clic vient de la carte (pas de la checkbox directement), on inverse la checkbox
+  if (event.target !== checkbox) {
+    checkbox.checked = !checkbox.checked;
+  }
+  
+  if (checkbox.checked) {
+    card.classList.add('active');
+  } else {
+    card.classList.remove('active');
+  }
+};
 
 function saveWidgetCustomization(button) {
   widgetSettings.appointments = document.getElementById('widget-check-appointments').checked;

@@ -1,112 +1,16 @@
 /**
- * KB Medizin Technik - View Transitions Styles
- * Animations professionnelles pour la navigation
+ * KB Medizin Technik - Transitions
  */
 
-/* Transition par défaut : fade + slide */
-::view-transition-old(root) {
-  animation: fade-out 0.3s ease-out;
-}
+::view-transition-old(root) { animation: fade-out 0.2s ease-out; }
+::view-transition-new(root) { animation: fade-in 0.2s ease-in, slide-up 0.2s ease-out; }
 
-::view-transition-new(root) {
-  animation: fade-in 0.3s ease-in, slide-from-right 0.3s ease-out;
-}
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-up { from { transform: translateY(10px); } to { transform: translateY(0); } }
 
-/* Animations */
-@keyframes fade-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slide-from-right {
-  from {
-    transform: translateX(30px);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slide-from-left {
-  from {
-    transform: translateX(-30px);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-/* Transition pour le retour (back navigation) */
-@media (prefers-reduced-motion: no-preference) {
-  ::view-transition-old(root) {
-    animation: fade-out 0.25s ease-out;
-  }
-
-  ::view-transition-new(root) {
-    animation: fade-in 0.25s ease-in, slide-from-right 0.25s ease-out;
-  }
-}
-
-/* Respecter les préférences utilisateur */
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation-duration: 0.001ms !important;
-  }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
 
-/* Style pendant la transition */
-html.view-transition {
-  cursor: wait;
-}
-
-html.view-transition * {
-  pointer-events: none;
-}
-
-/* Transition spécifique pour les modals */
-::view-transition-group(modal) {
-  animation-duration: 0.3s;
-}
-
-::view-transition-old(modal) {
-  animation: modal-fade-out 0.3s ease-out;
-}
-
-::view-transition-new(modal) {
-  animation: modal-fade-in 0.3s ease-in, modal-scale-in 0.3s ease-out;
-}
-
-@keyframes modal-fade-out {
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes modal-fade-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes modal-scale-in {
-  from {
-    transform: scale(0.95);
-  }
-  to {
-    transform: scale(1);
-  }
-}
+html.view-transition { cursor: wait; }
