@@ -3,6 +3,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(params.get('id')) await loadReport(params.get('id'));
 });
 
+function toggleCb(element) {
+    const box = element.querySelector('.cb-box');
+    box.classList.toggle('checked');
+}
+
 async function loadReport(id) {
     try {
         const res = await fetch(`/api/reports/${id}`);
@@ -33,7 +38,8 @@ async function loadReport(id) {
             let dayIdx = t.work_date ? new Date(t.work_date).getDay() : -1; 
             const daysMap = [1,2,3,4,5,6,0]; 
             const cells = daysMap.map(d => `<td style="font-weight:${d===dayIdx?'bold':'normal'}">${d===dayIdx?'X':''}</td>`).join('');
-            tr.innerHTML = `<td style="text-align:left;">${t.technician_name}</td>${cells}<td>${fmt(t.hours_normal)}</td><td>${fmt(t.hours_extra)}</td>`;
+            
+            tr.innerHTML = `<td style="text-align:left;">${t.technician_name}</td>${cells}<td class="col-align-right">${fmt(t.hours_normal)}</td><td class="col-align-right">${fmt(t.hours_extra)}</td><td></td><td></td>`;
             techTbody.appendChild(tr);
             tNorm += t.hours_normal||0;
             tSup += t.hours_extra||0;
@@ -41,21 +47,21 @@ async function loadReport(id) {
         document.getElementById('total-norm').innerText = fmt(tNorm);
         document.getElementById('total-sup').innerText = fmt(tSup);
 
-        // --- GRILLE PRINCIPALE ---
+        // --- GRID ---
         const grid = document.getElementById('main-grid-body');
         grid.innerHTML = '';
 
-        grid.innerHTML += emptyRowMerged();
+        grid.innerHTML += emptyRowWithLines();
 
         // 1. Travaux
         grid.innerHTML += sectionHeaderRow('Travaux réalisés :');
         const lines = (data.work_accomplished||'').split('\n');
-        while(lines.length < 4) lines.push(''); 
+        while(lines.length < 3) lines.push(''); 
         lines.forEach(line => grid.innerHTML += textOnlyRow(line));
 
         // 2. STK
         if(data.stk_tests && data.stk_tests.length > 0) {
-            grid.innerHTML += emptyRowMerged();
+            grid.innerHTML += emptyRowWithLines();
             data.stk_tests.forEach(t => {
                 const showTotal = t.included ? 'Incl.' : fmt(t.price);
                 grid.innerHTML += mergedDataRow(t.test_name, fmt(t.price), showTotal);
@@ -63,17 +69,8 @@ async function loadReport(id) {
         }
 
         // 3. Matériel
-        grid.innerHTML += emptyRowMerged();
+        grid.innerHTML += emptyRowWithLines();
         grid.innerHTML += sectionHeaderRow('Matériel utilisé :');
-        
-        grid.innerHTML += `
-            <tr class="mat-header">
-                <td class="txt-center">Qté</td>
-                <td class="txt-center">Code</td>
-                <td class="txt-left">Description</td>
-                <td class="txt-right">Prix Unit.</td>
-                <td class="txt-right">Total</td>
-            </tr>`;
         
         let totalMat = 0;
         (data.materials||[]).forEach(m => {
@@ -89,16 +86,16 @@ async function loadReport(id) {
         }
 
         // 4. Frais
-        grid.innerHTML += emptyRowMerged();
+        grid.innerHTML += emptyRowWithLines();
         let travelDisplay = fmt(data.travel_costs);
         if(data.travel_included) travelDisplay = 'Incl.';
         
         const travelText = `<b>Frais de déplacement :</b> <span style="margin-left:10px;">${data.travel_location||''}</span>`;
         grid.innerHTML += `
             <tr>
-                <td colspan="3" style="text-align:left; border-right:1px solid #000; padding:5px;">${travelText}</td>
-                <td style="text-align:right; border-right:1px solid #000; padding:5px;">${fmt(data.travel_costs)}</td>
-                <td style="text-align:right; padding:5px;">${travelDisplay}</td>
+                <td class="col-desc" colspan="3" style="text-align:left; border-right:1px solid #000; padding:2px 4px;">${travelText}</td>
+                <td class="col-price col-align-right" style="border-right:1px solid #000;">${fmt(data.travel_costs)}</td>
+                <td class="col-total col-align-right">${travelDisplay}</td>
             </tr>`;
 
         // Total
@@ -118,13 +115,12 @@ function fullRow(qty, code, desc, price, total) {
         <td class="txt-center">${qty||''}</td>
         <td class="txt-center">${code||''}</td>
         <td>${desc||''}</td>
-        <td class="txt-right">${price||''}</td>
-        <td class="txt-right">${total||''}</td>
+        <td class="col-price col-align-right">${price||''}</td>
+        <td class="col-total col-align-right">${total||''}</td>
     </tr>`;
 }
 
 function textOnlyRow(text) {
-    // Colspan 3 pour masquer Qty et Code
     return `<tr>
         <td colspan="3" style="border-right:1px solid #000;">${text||''}</td>
         <td style="border-right:1px solid #000;"></td>
@@ -135,8 +131,8 @@ function textOnlyRow(text) {
 function mergedDataRow(text, price, total) {
     return `<tr>
         <td colspan="3" style="border-right:1px solid #000;">${text||''}</td>
-        <td style="text-align:right; border-right:1px solid #000;">${price||''}</td>
-        <td style="text-align:right;">${total||''}</td>
+        <td class="col-price col-align-right" style="border-right:1px solid #000;">${price||''}</td>
+        <td class="col-total col-align-right">${total||''}</td>
     </tr>`;
 }
 
@@ -148,8 +144,12 @@ function sectionHeaderRow(title) {
     </tr>`;
 }
 
-function emptyRowMerged() {
-    return `<tr><td colspan="5" style="height:15px; border-right:none;"></td></tr>`;
+function emptyRowWithLines() {
+    return `<tr>
+        <td colspan="3" style="height:15px; border-right:1px solid #000;"></td>
+        <td style="border-right:1px solid #000;"></td>
+        <td></td>
+    </tr>`;
 }
 
 function setText(id, txt) { const e = document.getElementById(id); if(e) e.innerText = txt||''; }
