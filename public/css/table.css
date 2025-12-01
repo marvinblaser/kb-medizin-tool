@@ -1,57 +1,86 @@
 /**
- * KB Medizin Technik - Tables (FIXED)
+ * KB Medizin Technik - Tables (Table Search Inputs Restored)
  */
 
 .table-container {
-  background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 2rem;
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  overflow: hidden; margin-bottom: 2rem;
 }
 
 .table-wrapper { width: 100%; overflow-x: auto; }
-
-.table { width: 100%; border-collapse: collapse; text-align: left; }
+.table { width: 100%; border-collapse: collapse; text-align: left; min-width: 1000px; }
 
 /* Headers */
-.table thead { background: var(--neutral-50); border-bottom: 1px solid var(--border-color); }
+.table thead { background: var(--bg-surface-alt); border-bottom: 1px solid var(--border-color); }
+
 .table th {
-  padding: 1.25rem 1.5rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--neutral-500); vertical-align: top;
+  padding: 1rem 1.25rem; /* Un peu moins de padding vertical pour laisser place aux inputs */
+  vertical-align: top; /* Important : aligne le titre en haut */
+  color: var(--text-muted);
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
 }
 
-/* Rows */
-.table tbody tr { border-bottom: 1px solid var(--border-color-light); transition: background 0.1s; }
+/* Rows & Cells */
+.table tbody tr { border-bottom: 1px solid var(--border-color-light); transition: background 0.15s; }
 .table tbody tr:last-child { border-bottom: none; }
-.table tbody tr:hover { background: var(--neutral-50); }
+.table tbody tr:hover { background-color: var(--bg-hover); }
 
-/* Cells */
-.table td { padding: 1.25rem 1.5rem; color: var(--neutral-700); vertical-align: middle; font-size: 0.9rem; }
-.table td strong { color: var(--neutral-900); font-weight: 600; }
+.table td { padding: 1.25rem 1.25rem; color: var(--text-secondary); vertical-align: middle; font-size: 0.9rem; }
+.table td strong { color: var(--text-main); font-weight: 600; }
 
-/* FIX ADMIN USER TABLE (Cellule Avatar + Nom) */
-.user-cell {
-  display: flex; align-items: center; gap: 0.75rem;
+/* === STYLES POUR LES INPUTS DE COLONNE === */
+.th-content {
+  display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; min-height: 1.25rem;
 }
 
-/* Search inputs in headers */
-.th-content { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; min-height: 20px; }
-.column-search { display: flex; flex-direction: column; gap: 0.35rem; width: 100%; }
+.column-search {
+  display: flex; flex-direction: column; gap: 0.35rem; width: 100%;
+}
+
 .column-search input {
-  margin-top: 0; width: 100%; padding: 0.4rem 0.6rem; font-size: 0.8rem; border-radius: 4px; border: 1px solid var(--border-color); font-weight: normal;
+  margin-top: 0; 
+  padding: 0.3rem 0.5rem; 
+  width: 100%; 
+  font-size: 0.8rem;
+  min-height: 32px; /* Plus petit que les inputs principaux */
+  border-radius: 4px;
+  background: var(--bg-page); /* Fond légèrement différent du header */
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  font-weight: normal; /* Pas de gras dans les inputs */
+  text-transform: none; /* Pas de majuscules forcées */
+}
+
+.column-search input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
 }
 
 /* Pagination */
 .pagination {
-  display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem;
-  background: white; border-top: 1px solid var(--border-color);
+  display: flex; justify-content: space-between; align-items: center; padding: 1.5rem;
+  background: var(--bg-surface); border-top: 1px solid var(--border-color);
 }
-.pagination-info { font-size: 0.85rem; color: var(--neutral-500); }
+.pagination-info { font-size: 0.85rem; color: var(--text-muted); }
 
 /* Empty State */
-.table-empty { text-align: center; padding: 4rem 2rem; color: var(--neutral-500); }
-.table-empty i { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.3; display: block; }
+.table-empty { padding: 5rem; text-align: center; color: var(--text-muted); }
+.table-empty i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; display: block; }
 
-/* Client Details Cell */
+/* Admin User Cell */
+.user-cell { display: flex; align-items: center; gap: 0.75rem; }
+
+/* Client Info Cell */
 .client-info-cell { display: flex; flex-direction: column; gap: 0.25rem; }
-.client-name { font-weight: 600; color: var(--neutral-900); }
-.client-meta { font-size: 0.8rem; color: var(--neutral-500); display: flex; flex-direction: column; gap: 2px; }
+.client-name { font-weight: 600; color: var(--text-main); font-size: 0.95rem; }
+.client-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; }
 .client-meta span { display: flex; align-items: center; gap: 0.5rem; }
+
+@media (max-width: 768px) {
+  .table thead { display: none; } /* Cache les headers sur mobile, y compris les inputs colonnes */
+  .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
+  .table tr { margin-bottom: 1rem; border: 1px solid var(--border-color); background: var(--bg-surface); padding: 1rem; }
+  .table td { display: flex; justify-content: space-between; border: none; text-align: right; padding: 0.5rem 0; }
+  .table td::before { content: attr(data-label); float: left; font-weight: 600; color: var(--text-muted); font-size: 0.8rem; }
+}

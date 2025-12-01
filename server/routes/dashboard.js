@@ -1,224 +1,187 @@
+/**
+ * server/routes/dashboard.js
+ * Logique Backend pour les statistiques
+ * VERSION CORRIGÉE : Logique "RDV à fixer" stricte
+ */
 const express = require('express');
+const router = express.Router();
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
 
-const router = express.Router();
-
-// GET /api/dashboard/stats
-router.get('/stats', requireAuth, async (req, res) => {
+/* 1. STATISTIQUES GLOBALES */
+router.get('/stats', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
 
-  const stats = {
-    maintenanceExpired: 0,
-    appointmentsToSchedule: 0,
-    clientsUpToDate: 0,
-    totalClients: 0,
-    equipmentInstalled: 0
-  };
+  // 1. Maintenances expirées (Compte les MACHINES en retard)
+  const sqlExpired = `SELECT COUNT(*) as count FROM client_equipment WHERE next_maintenance_date < ?`;
 
-  // Maintenances expirées
-  db.get(
-    `SELECT COUNT(*) as count FROM clients 
-     WHERE maintenance_due_date < ?`,
-    [today],
-    (err, row) => {
-      if (!err) stats.maintenanceExpired = row.count;
+  // 2. RDV à fixer (LOGIQUE STRICTE)
+  // Compte les CLIENTS uniques qui :
+  // A. N'ont PAS de rendez-vous futur (Date vide, nulle, ou passée)
+  // B. ET possèdent au moins une machine qui est expirée OU expire dans les 30 jours
+  const sqlAppointments = `
+    SELECT COUNT(DISTINCT c.id) as count 
+    FROM clients c
+    JOIN client_equipment ce ON c.id = ce.client_id
+    WHERE (c.appointment_at IS NULL OR c.appointment_at = '' OR c.appointment_at < ?)
+    AND (
+      ce.next_maintenance_date < ? 
+      OR 
+      ce.next_maintenance_date <= date(?, '+30 days')
+    )
+  `;
 
-      // RDV à fixer
-      db.get(
-        `SELECT COUNT(*) as count FROM clients 
-         WHERE appointment_at IS NULL OR appointment_at < ?`,
-        [today],
-        (err, row) => {
-          if (!err) stats.appointmentsToSchedule = row.count;
+  // 3. Total clients
+  const sqlTotalClients = `SELECT COUNT(*) as count FROM clients`;
 
-          // Total clients
-          db.get('SELECT COUNT(*) as count FROM clients', (err, row) => {
-            if (!err) stats.totalClients = row.count;
+  // 4. Total équipements
+  const sqlTotalEquipment = `SELECT COUNT(*) as count FROM client_equipment`;
+  
+  // 5. Clients à jour (Ceux qui n'ont aucune machine en retard)
+  const sqlUpToDate = `
+    SELECT COUNT(*) as count FROM clients c
+    WHERE NOT EXISTS (
+      SELECT 1 FROM client_equipment ce 
+      WHERE ce.client_id = c.id 
+      AND (
+        ce.next_maintenance_date <= date(?, '+30 days') 
+        OR ce.next_maintenance_date IS NULL
+      )
+    )
+  `;
 
-            // 🔥 NOUVEAU : Calculer les clients avec TOUS les équipements à jour
-            db.all('SELECT id FROM clients', async (err, clients) => {
-              if (err) {
-                stats.clientsUpToDate = 0;
-                stats.equipmentInstalled = 0;
-                return res.json(stats);
-              }
+  // Exécution
+  db.get(sqlExpired, [today], (err, rowExpired) => {
+    if (err) { console.error("Err Stats Expired:", err); return res.status(500).json({error: err.message}); }
+    
+    // On passe 'today' 3 fois pour les 3 conditions de dates dans sqlAppointments
+    db.get(sqlAppointments, [today, today, today], (err, rowAppt) => {
+      if (err) { console.error("Err Stats Appt:", err); return res.status(500).json({error: err.message}); }
 
-              let upToDateCount = 0;
-
-              // Pour chaque client, vérifier si TOUS ses équipements sont OK
-              const promises = clients.map(client => {
-                return new Promise((resolve) => {
-                  db.all(
-                    `SELECT next_maintenance_date 
-                     FROM client_equipment 
-                     WHERE client_id = ?`,
-                    [client.id],
-                    (err, equipment) => {
-                      if (err || equipment.length === 0) {
-                        resolve(false);
-                        return;
-                      }
-
-                      // Tous les équipements doivent être à jour
-                      const allUpToDate = equipment.every(eq => 
-                        eq.next_maintenance_date && eq.next_maintenance_date >= today
-                      );
-
-                      resolve(allUpToDate);
-                    }
-                  );
-                });
-              });
-
-              const results = await Promise.all(promises);
-              stats.clientsUpToDate = results.filter(v => v === true).length;
-
-              // Équipements installés
-              db.get(
-                'SELECT COUNT(*) as count FROM client_equipment',
-                (err, row) => {
-                  if (!err) stats.equipmentInstalled = row.count;
-                  res.json(stats);
-                }
-              );
+      db.get(sqlTotalClients, [], (err, rowClients) => {
+        db.get(sqlTotalEquipment, [], (err, rowEquip) => {
+          db.get(sqlUpToDate, [today], (err, rowUpToDate) => {
+            
+            res.json({
+              maintenanceExpired: rowExpired ? rowExpired.count : 0,
+              appointmentsToSchedule: rowAppt ? rowAppt.count : 0, // Devrait être 0 maintenant
+              clientsUpToDate: rowUpToDate ? rowUpToDate.count : 0,
+              totalClients: rowClients ? rowClients.count : 0,
+              equipmentInstalled: rowEquip ? rowEquip.count : 0
             });
+
           });
-        }
-      );
-    }
-  );
+        });
+      });
+    });
+  });
 });
 
-// GET /api/dashboard/upcoming-appointments
+/* 2. RENDEZ-VOUS À VENIR */
 router.get('/upcoming-appointments', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
-
-  db.all(
-    `SELECT id, cabinet_name, contact_name, appointment_at, phone
-     FROM clients 
-     WHERE appointment_at >= ?
-     ORDER BY appointment_at ASC
-     LIMIT 10`,
-    [today],
-    (err, rows) => {
-      if (err) {
-        return res.status(500).json({ error: 'Erreur serveur' });
-      }
-      res.json(rows || []);
-    }
-  );
+  const sql = `
+    SELECT id, cabinet_name, contact_name, appointment_at, city 
+    FROM clients 
+    WHERE appointment_at >= ? 
+    ORDER BY appointment_at ASC 
+    LIMIT 5
+  `;
+  db.all(sql, [today], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
 });
 
-// GET /api/dashboard/clients-to-contact
+/* 3. CLIENTS À CONTACTER */
 router.get('/clients-to-contact', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
-  const thirtyDaysLater = new Date(
-    Date.now() + 30 * 24 * 60 * 60 * 1000
-  )
-    .toISOString()
-    .split('T')[0];
-
-  db.all(
-    `SELECT id, cabinet_name, contact_name, maintenance_due_date, phone
-     FROM clients 
-     WHERE maintenance_due_date BETWEEN ? AND ?
-     ORDER BY maintenance_due_date ASC
-     LIMIT 10`,
-    [today, thirtyDaysLater],
-    (err, rows) => {
-      if (err) {
-        return res.status(500).json({ error: 'Erreur serveur' });
-      }
-      res.json(rows || []);
-    }
-  );
+  // Affiche les clients qui ont une urgence ET pas de RDV futur
+  const sql = `
+    SELECT DISTINCT c.id, c.cabinet_name, c.phone, MIN(ce.next_maintenance_date) as due_date
+    FROM clients c
+    JOIN client_equipment ce ON c.id = ce.client_id
+    WHERE (c.appointment_at IS NULL OR c.appointment_at = '' OR c.appointment_at < ?)
+    AND (ce.next_maintenance_date <= date(?, '+30 days'))
+    GROUP BY c.id
+    ORDER BY due_date ASC
+    LIMIT 5
+  `;
+  db.all(sql, [today, today], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
 });
 
-// GET /api/dashboard/clients-map
+/* 4. MAINTENANCES DU MOIS */
+router.get('/maintenance-month', requireAuth, (req, res) => {
+  const today = new Date();
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+
+  const sql = `
+    SELECT ce.id, ce.next_maintenance_date, c.cabinet_name, 
+           COALESCE(ce.name, 'Équipement') as name 
+    FROM client_equipment ce
+    JOIN clients c ON ce.client_id = c.id
+    WHERE ce.next_maintenance_date BETWEEN ? AND ?
+    ORDER BY ce.next_maintenance_date ASC
+    LIMIT 5
+  `;
+  db.all(sql, [startOfMonth, endOfMonth], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+/* 5. GARANTIES EXPIRANT */
+router.get('/warranty-expiring', requireAuth, (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const future = new Date();
+  future.setDate(future.getDate() + 90);
+  const futureStr = future.toISOString().split('T')[0];
+
+  const sql = `
+    SELECT ce.id, ce.warranty_until, c.cabinet_name,
+           COALESCE(ce.name, 'Équipement') as name
+    FROM client_equipment ce
+    JOIN clients c ON ce.client_id = c.id
+    WHERE ce.warranty_until BETWEEN ? AND ?
+    ORDER BY ce.warranty_until ASC
+    LIMIT 5
+  `;
+  db.all(sql, [today, futureStr], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+/* 6. CARTE DES CLIENTS */
 router.get('/clients-map', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
-  const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  
+  const sql = `
+    SELECT c.id, c.cabinet_name, c.address, c.city, c.canton,
+           MIN(ce.next_maintenance_date) as next_maintenance
+    FROM clients c
+    LEFT JOIN client_equipment ce ON c.id = ce.client_id
+    GROUP BY c.id
+  `;
 
-  db.all(
-    `SELECT 
-      c.id, c.cabinet_name, c.contact_name, c.address, 
-      c.city, c.canton, c.maintenance_due_date, c.phone, c.email,
-      c.postal_code
-     FROM clients c`,
-    async (err, rows) => {
-      if (err) {
-        return res.status(500).json({ error: 'Erreur serveur' });
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    const clients = rows.map(c => {
+      let status = 'ok';
+      if (c.next_maintenance) {
+        if (c.next_maintenance < today) status = 'expired';
+        else if (c.next_maintenance < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) status = 'warning';
       }
+      return { ...c, status };
+    });
 
-      // Pour chaque client, récupérer ses équipements et calculer le statut
-      const clientsWithEquipment = await Promise.all(
-        rows.map(async (client) => {
-          return new Promise((resolve) => {
-            db.all(
-              `SELECT ce.next_maintenance_date, eq.name, eq.brand, eq.model, ce.serial_number
-               FROM client_equipment ce
-               JOIN equipment_catalog eq ON ce.equipment_id = eq.id
-               WHERE ce.client_id = ?`,
-              [client.id],
-              (err, equipment) => {
-                if (err || equipment.length === 0) {
-                  // Pas d'équipement = statut basé sur maintenance_due_date
-                  const status = !client.maintenance_due_date ? 'ok'
-                    : client.maintenance_due_date < today ? 'expired'
-                    : client.maintenance_due_date <= thirtyDaysLater ? 'warning'
-                    : 'ok';
-                  
-                  resolve({ ...client, equipment: [], status });
-                  return;
-                }
-
-                // 🔥 NOUVEAU : Le statut est le PIRE statut parmi tous les équipements
-                let worstStatus = 'ok';
-                
-                equipment.forEach(eq => {
-                  if (!eq.next_maintenance_date) {
-                    // Pas de date = warning
-                    if (worstStatus === 'ok') worstStatus = 'warning';
-                  } else if (eq.next_maintenance_date < today) {
-                    // Expiré = toujours le pire
-                    worstStatus = 'expired';
-                  } else if (eq.next_maintenance_date <= thirtyDaysLater && worstStatus !== 'expired') {
-                    // À renouveler bientôt
-                    worstStatus = 'warning';
-                  }
-                  // Sinon reste 'ok'
-                });
-
-                resolve({ ...client, equipment, status: worstStatus });
-              }
-            );
-          });
-        })
-      );
-
-      res.json(clientsWithEquipment);
-    }
-  );
-});
-
-// GET /api/dashboard/recent-activity
-router.get('/recent-activity', requireAuth, (req, res) => {
-  db.all(
-    `SELECT 
-      al.id, al.action, al.entity, al.entity_id, 
-      al.created_at, u.name as user_name
-     FROM activity_logs al
-     LEFT JOIN users u ON al.user_id = u.id
-     ORDER BY al.created_at DESC
-     LIMIT 20`,
-    (err, rows) => {
-      if (err) {
-        return res.status(500).json({ error: 'Erreur serveur' });
-      }
-      res.json(rows || []);
-    }
-  );
+    res.json(clients);
+  });
 });
 
 module.exports = router;
