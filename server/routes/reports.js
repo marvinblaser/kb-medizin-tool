@@ -75,7 +75,7 @@ router.get('/:id', requireAuth, (req, res) => {
   });
 });
 
-// CREATE
+// CREATE (MODIFIÉ POUR AJOUTER AUTOMATIQUEMENT L'HISTORIQUE)
 router.post('/', requireAuth, (req, res) => {
   const data = req.body;
   
@@ -84,7 +84,6 @@ router.post('/', requireAuth, (req, res) => {
   const prefix = typeMap[data.work_type] || 'RP';
   const year = new Date().getFullYear();
   
-  // Trouver le dernier numéro pour cette année
   db.get("SELECT report_number FROM reports WHERE report_number LIKE ? ORDER BY id DESC LIMIT 1", [`${prefix}-${year}-%`], (err, row) => {
     let nextNum = 1;
     if (row && row.report_number) {
@@ -109,6 +108,29 @@ router.post('/', requireAuth, (req, res) => {
         const reportId = this.lastID;
         
         insertRelatedData(reportId, data);
+        
+        // --- AUTO-CREATE HISTORY ENTRY ---
+        // On prend le premier technicien de la liste comme responsable, ou null
+        const mainTechId = (data.technicians && data.technicians.length > 0) ? data.technicians[0].technician_id : null;
+        // On utilise la date de signature ou aujourd'hui
+        const interventionDate = data.technician_signature_date || new Date().toISOString().split('T')[0];
+        
+        db.run(
+          "INSERT INTO appointments_history (client_id, appointment_date, task_description, technician_id, report_id) VALUES (?, ?, ?, ?, ?)",
+          [
+            data.client_id, 
+            interventionDate, 
+            `Rapport: ${data.work_type}`, // Nom de l'intervention basé sur le type
+            mainTechId, 
+            reportId
+          ],
+          (histErr) => {
+            if (histErr) console.error("Erreur création historique auto:", histErr);
+            // On ne bloque pas la réponse si l'historique échoue, mais on le loggue
+          }
+        );
+        // ----------------------------------
+
         logActivity(req.session.userId, 'create', 'report', reportId, { report_number: reportNumber });
         res.json({ id: reportId, report_number: reportNumber });
       }
@@ -135,7 +157,6 @@ router.put('/:id', requireAuth, (req, res) => {
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       
-      // Supprimer anciennes données liées pour recréer (plus simple)
       db.run("DELETE FROM report_technicians WHERE report_id=?", [id]);
       db.run("DELETE FROM report_materials WHERE report_id=?", [id]);
       db.run("DELETE FROM report_stk_tests WHERE report_id=?", [id]);
@@ -147,15 +168,18 @@ router.put('/:id', requireAuth, (req, res) => {
   );
 });
 
-// DELETE (CORRIGÉ POUR ÉVITER ERREUR 500)
+// DELETE
 router.delete('/:id', requireAuth, (req, res) => {
   const id = req.params.id;
   
   db.serialize(() => {
-    // 1. Délier les rendez-vous de l'historique (pour éviter contrainte FK)
+    // 1. Délier les rendez-vous de l'historique (NULL)
+    // Optionnel : Si vous préférez supprimer l'entrée d'historique quand le rapport est supprimé :
+    // db.run("DELETE FROM appointments_history WHERE report_id = ?", [id]); 
+    // Ici on garde l'historique mais on enlève le lien
     db.run("UPDATE appointments_history SET report_id = NULL WHERE report_id = ?", [id]);
     
-    // 2. Supprimer le rapport (Cascade s'occupera des matériaux/techniciens)
+    // 2. Supprimer le rapport
     db.run("DELETE FROM reports WHERE id = ?", [id], function(err) {
       if (err) return res.status(500).json({ error: err.message });
       logActivity(req.session.userId, 'delete', 'report', id);

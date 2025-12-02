@@ -1,6 +1,6 @@
 /**
  * KB Medizin Technik - Clients Logic
- * Version: Filtering Fixed & New Card Design
+ * Version: Complete & Fixed
  */
 
 let currentPage = 1;
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => { openClientDetails(parseInt(openId)); }, 500);
   }
 
-  // Event Listeners
+  // Event Listeners UI
   safeAdd('logout-btn', 'click', logout);
   safeAdd('add-client-btn', 'click', () => openClientModal());
   safeAdd('cancel-modal-btn', 'click', closeClientModal);
@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
-// ========== AUTHENTIFICATION ==========
+// ========== AUTHENTIFICATION & UI ==========
 async function checkAuth() {
   try {
     const response = await fetch('/api/me');
@@ -226,15 +226,12 @@ function renderClients(clients) {
   `).join('');
 }
 
-// 🔥 C'EST ICI QUE SE FAIT LE FILTRAGE VISUEL ET LE NOUVEAU DESIGN 🔥
 function renderEquipmentColumn(client) {
-  // 1. FILTRAGE : Si des filtres sont actifs, on ne garde QUE ce qui correspond
+  // Filtrage visuel strict
   const filteredEq = client.equipment.filter(eq => {
     const f = currentFilters;
-    // Si aucun filtre, on garde tout
     if (!f.brand && !f.model && !f.serialNumber && !f.category && !f.device) return true;
 
-    // Sinon on vérifie : Si le filtre est rempli ET que l'équipement ne contient pas la chaine -> false
     if (f.brand && !((eq.final_brand || eq.brand || '').toLowerCase().includes(f.brand.toLowerCase()))) return false;
     if (f.model && !((eq.final_name || eq.name || '').toLowerCase().includes(f.model.toLowerCase()))) return false;
     if (f.serialNumber && !((eq.serial_number || '').toLowerCase().includes(f.serialNumber.toLowerCase()))) return false;
@@ -245,25 +242,22 @@ function renderEquipmentColumn(client) {
   });
 
   if (!filteredEq || filteredEq.length === 0) {
-    // Si la liste est vide à cause du filtre (mais que le client en a), on peut afficher un message spécifique
-    if (client.equipment.length > 0) return '<div class="equipment-empty" style="color:#aaa;">Filtré (Aucun résultat)</div>';
+    if (client.equipment.length > 0) return '<div class="equipment-empty" style="color:#aaa;">Filtré</div>';
     return '<div class="equipment-empty"><i class="fas fa-box-open"></i> Vide</div>';
   }
   
   return `<div class="equipment-badges">
     ${filteredEq.map(eq => {
-      const { badgeText, badgeClass, daysLeft, statusClass, daysLeftText } = getMaintenanceBadge(eq.next_maintenance_date);
+      const { badgeText, badgeClass, daysLeftText, statusClass } = getMaintenanceBadge(eq.next_maintenance_date);
       let display = eq.final_name || eq.name;
       if (!display || display === 'undefined') {
          display = (eq.final_brand || eq.brand || '') + ' ' + (eq.final_device_type || eq.device_type || eq.final_type || eq.type || 'Équipement');
       }
       
-      // Classe pour la bordure latérale
       let borderClass = 'status-ok';
       if(statusClass.includes('danger')) borderClass = 'status-expired';
       else if(statusClass.includes('warning')) borderClass = 'status-warning';
 
-      // NOUVEAU DESIGN HTML "CARTE FLOTTANTE"
       return `
         <div class="equipment-card ${borderClass}">
           <div class="equipment-info">
@@ -282,7 +276,6 @@ function renderEquipmentColumn(client) {
   </div>`;
 }
 
-// Fonction utilitaire pour le statut (mise à jour pour retourner les textes séparés)
 function getMaintenanceBadge(dateString) {
   if (!dateString) return { badgeText: '?', badgeClass: '', daysLeftText: '-', statusClass: '' };
   
@@ -339,7 +332,7 @@ async function exportCSV() {
   try {
     const res = await fetch(`/api/clients?${params}`);
     const data = await res.json();
-    if(!data.clients || data.clients.length === 0) { showNotification('Aucune donnée', 'warning'); return; }
+    if(!data.clients || data.clients.length === 0) { showNotification('Aucune donnée à exporter', 'warning'); return; }
 
     const headers = ['Cabinet', 'Contact', 'Activité', 'Adresse', 'NPA', 'Ville', 'Canton', 'Téléphone', 'Email', 'Dernier RDV'];
     const rows = data.clients.map(c => [
@@ -380,10 +373,12 @@ function handleSort(col) {
 async function openClientModal(id = null) {
   const modal = document.getElementById('client-modal');
   const form = document.getElementById('client-form');
-  form.reset(); document.getElementById('client-id').value = ''; document.getElementById('history-section').style.display='none';
+  const historySec = document.getElementById('history-section');
+  form.reset(); document.getElementById('client-id').value = ''; historySec.style.display = 'none';
+
   if (id) {
     document.getElementById('modal-title').innerHTML = '<i class="fas fa-edit"></i> Modifier';
-    document.getElementById('history-section').style.display='block';
+    historySec.style.display = 'block';
     try {
       const res = await fetch(`/api/clients/${id}`); const c = await res.json();
       document.getElementById('client-id').value = c.id;
@@ -393,7 +388,7 @@ async function openClientModal(id = null) {
       document.getElementById('appointment').value = c.appointment_at ? c.appointment_at.split('T')[0] : '';
       if(c.technician_id) document.getElementById('technician').value = c.technician_id;
       document.getElementById('client-lat').value = c.latitude||''; document.getElementById('client-lon').value = c.longitude||'';
-      await loadAppointmentsHistory(id);
+      await loadAppointmentsHistory(id, true); // true = mode édition (avec boutons suppr)
     } catch(e) {}
   } else document.getElementById('modal-title').innerHTML = '<i class="fas fa-plus-circle"></i> Nouveau';
   modal.classList.add('active');
@@ -430,6 +425,8 @@ async function loadClientEquipment(id) {
   const res = await fetch(`/api/clients/${id}/equipment`); const eq = await res.json();
   const container = document.getElementById('equipment-list-container');
   if(eq.length === 0) { container.innerHTML = '<p class="text-center text-muted p-4">Aucun équipement.</p>'; return; }
+  
+  // Utilisation du nouveau design "Card" aussi dans la modale d'édition
   container.innerHTML = eq.map(e => {
     const { badgeText, badgeClass } = getMaintenanceBadge(e.next_maintenance_date);
     return `<div style="padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
@@ -464,58 +461,101 @@ async function saveEquipmentItem() {
   hideEquipmentForm(); loadClientEquipment(currentClientForEquipment); showNotification('Enregistré', 'success');
 }
 
-// ========== HISTORY & DETAILS ==========
+// ========== FICHE DÉTAILLÉE (READ-ONLY) ==========
 async function openClientDetails(id) {
   const res = await fetch(`/api/clients/${id}`); const c = await res.json();
   const req = await fetch(`/api/clients/${id}/equipment`); const eq = await req.json();
+  const raph = await fetch(`/api/clients/${id}/appointments`); const hist = await raph.json();
+  
   const content = document.getElementById('client-details-content');
   
+  // HTML Historique (Lecture seule)
+  const historyHtml = hist.length === 0 
+    ? '<p class="text-center text-muted">Aucun historique.</p>' 
+    : `<div class="history-list">` + hist.map(a => {
+        const techName = a.technician_name ? `<span class="history-tech">${escapeHtml(a.technician_name)}</span>` : '';
+        const reportLink = a.report_id && a.report_number ? `<a href="/report-view.html?id=${a.report_id}" target="_blank" class="btn btn-xs btn-secondary"><i class="fas fa-file-alt"></i> ${escapeHtml(a.report_number)}</a>` : '';
+        return `
+          <div class="history-item">
+            <div class="history-item-header">
+              <div class="history-date"><i class="fas fa-calendar-day"></i> ${formatDate(a.appointment_date)} ${techName}</div>
+              <div class="history-actions">${reportLink}</div>
+            </div>
+            <div class="history-content">${escapeHtml(a.task_description)}</div>
+          </div>`;
+      }).join('') + `</div>`;
+
   content.innerHTML = `
     <div class="client-details-grid">
-      <div class="detail-block"><h4 class="detail-block-title">Coordonnées</h4><div class="detail-row"><span class="detail-label">Contact:</span><span class="detail-value">${escapeHtml(c.contact_name)}</span></div><div class="detail-row"><span class="detail-label">Tel:</span><span class="detail-value">${c.phone||'-'}</span></div></div>
+      <div class="detail-block"><h4 class="detail-block-title">Coordonnées</h4><div class="detail-row"><span class="detail-label">Contact:</span><span class="detail-value">${escapeHtml(c.contact_name)}</span></div><div class="detail-row"><span class="detail-label">Tel:</span><span class="detail-value">${c.phone||'-'}</span></div><div class="detail-row"><span class="detail-label">Email:</span><span class="detail-value">${c.email||'-'}</span></div></div>
       <div class="detail-block"><h4 class="detail-block-title">Localisation</h4><div class="detail-row"><span class="detail-label">Adr:</span><span class="detail-value">${escapeHtml(c.address)}</span></div><div class="detail-row"><span class="detail-label">Ville:</span><span class="detail-value">${c.postal_code} ${c.city}</span></div></div>
     </div>
     <div class="form-section"><h3 class="form-section-title">Équipements</h3>${renderEquipmentColumn({equipment: eq})}</div>
+    <div class="form-section"><h3 class="form-section-title">Historique</h3>${historyHtml}</div>
   `;
   document.getElementById('edit-from-details-btn').onclick = () => { closeClientDetailsModal(); openClientModal(id); };
   document.getElementById('client-details-modal').classList.add('active');
 }
 function closeClientDetailsModal() { document.getElementById('client-details-modal').classList.remove('active'); }
 
+// ========== HISTORY LOGIC ==========
 async function openHistoryModal() {
   const cid = document.getElementById('client-id').value;
   if(!cid) return showNotification('Sauvegardez d\'abord', 'warning');
   document.getElementById('history-client-id').value = cid; document.getElementById('history-form').reset(); document.getElementById('history-date').value = new Date().toISOString().split('T')[0];
   const techSel = document.getElementById('history-technician');
   techSel.innerHTML = '<option value="">--</option>' + technicians.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  try{const r=await fetch('/api/reports?limit=1000');const d=await r.json();const reps=d.reports.filter(r=>r.client_id==cid);document.getElementById('history-report').innerHTML='<option value="">--</option>'+reps.map(r=>`<option value="${r.id}">${r.report_number}</option>`).join('');}catch{}
+  try{const r=await fetch(`/api/clients/${cid}/equipment`);const eqs=await r.json();
+    if(eqs.length>0)document.getElementById('history-equipment-list').innerHTML=eqs.map(e=>`<div class="checkbox-group" style="margin-bottom:5px;"><input type="checkbox" id="heq-${e.id}" value="${e.id}"><label for="heq-${e.id}">${escapeHtml(e.final_name||e.name)}</label></div>`).join('');
+    else document.getElementById('history-equipment-list').innerHTML='<small class="text-muted">Vide</small>';
+  }catch{} 
   document.getElementById('history-modal').classList.add('active');
 }
 function closeHistoryModal() { document.getElementById('history-modal').classList.remove('active'); }
+
 async function saveHistoryEntry() {
   const cid = document.getElementById('history-client-id').value;
-  const data = { appointment_date: document.getElementById('history-date').value, task_description: document.getElementById('history-task').value, technician_id: document.getElementById('history-technician').value };
+  const data = { 
+    appointment_date: document.getElementById('history-date').value, 
+    task_description: document.getElementById('history-task').value, 
+    technician_id: document.getElementById('history-technician').value,
+    report_id: document.getElementById('history-report').value,
+    equipment_ids: Array.from(document.querySelectorAll('#history-equipment-list input:checked')).map(i=>i.value)
+  };
   await fetch(`/api/clients/${cid}/appointments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-  closeHistoryModal(); loadAppointmentsHistory(cid);
+  closeHistoryModal(); loadAppointmentsHistory(cid, true);
+  showNotification('Ajouté','success');
 }
-async function loadAppointmentsHistory(cid) {
-  const container = document.getElementById('appointments-history'); container.innerHTML='Loading...';
-  const res = await fetch(`/api/clients/${cid}/appointments`); const appts = await res.json();
-  if(appts.length===0) { container.innerHTML='<p class="text-center text-muted">Vide</p>'; return; }
-  container.innerHTML = `<div class="history-list">` + appts.map(a => `
-    <div class="history-item">
-      <div class="history-item-header">
-        <div class="history-date">${formatDate(a.appointment_date)} <span class="history-tech">${escapeHtml(a.technician_name)}</span></div>
-        <div class="history-actions"><button class="btn btn-xs btn-danger" onclick="deleteHistoryItem(${cid}, ${a.id})">Suppr</button></div>
-      </div>
-      <div class="history-content">${escapeHtml(a.task_description)}</div>
-    </div>`).join('') + `</div>`;
+
+async function loadAppointmentsHistory(cid, isEditable = false) {
+  const container = document.getElementById('appointments-history');
+  container.innerHTML = '<p class="text-center">Chargement...</p>';
+  try {
+    const res = await fetch(`/api/clients/${cid}/appointments`); const appts = await res.json();
+    if(appts.length===0) { container.innerHTML='<p class="text-center text-muted">Vide</p>'; return; }
+    container.innerHTML = `<div class="history-list">` + appts.map(a => {
+      const techName = a.technician_name ? `<span class="history-tech">${escapeHtml(a.technician_name)}</span>` : '';
+      const reportLink = a.report_id && a.report_number ? `<a href="/report-view.html?id=${a.report_id}" target="_blank" class="btn btn-xs btn-secondary">Report</a>` : '';
+      const deleteBtn = isEditable ? `<button class="btn btn-xs btn-danger" onclick="deleteHistoryItem(${cid}, ${a.id})">Del</button>` : '';
+      return `
+        <div class="history-item">
+          <div class="history-item-header">
+            <div class="history-date">${formatDate(a.appointment_date)} ${techName}</div>
+            <div class="history-actions">${reportLink} ${deleteBtn}</div>
+          </div>
+          <div class="history-content">${escapeHtml(a.task_description)}</div>
+        </div>`;
+    }).join('') + `</div>`;
+  } catch(e) {}
 }
-async function deleteHistoryItem(cid, aid) { if(confirm('Suppr?')) { await fetch(`/api/clients/${cid}/appointments/${aid}`, {method:'DELETE'}); loadAppointmentsHistory(cid); } }
+
+async function deleteHistoryItem(cid, aid) { if(confirm('Suppr?')) { await fetch(`/api/clients/${cid}/appointments/${aid}`, {method:'DELETE'}); loadAppointmentsHistory(cid, true); } }
 
 // ========== UTILS ==========
-function openDeleteModal(id, name) { clientToDelete=id; document.getElementById('delete-client-name').innerText=name; document.getElementById('delete-modal').classList.add('active'); }
+function openDeleteModal(id, n) { clientToDelete=id; document.getElementById('delete-client-name').innerText=n; document.getElementById('delete-modal').classList.add('active'); }
 function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); }
-async function confirmDelete() { await fetch(`/api/clients/${clientToDelete}`, {method:'DELETE'}); closeDeleteModal(); loadClients(); }
+async function confirmDelete() { await fetch(`/api/clients/${clientToDelete}`,{method:'DELETE'}); closeDeleteModal(); loadClients(); }
 function toggleActionMenu(e, id) { e.stopPropagation(); document.querySelectorAll('.action-menu-dropdown').forEach(m => m.classList.remove('active')); document.getElementById(`action-menu-${id}`).classList.toggle('active'); }
 document.addEventListener('click', () => document.querySelectorAll('.action-menu-dropdown').forEach(m => m.classList.remove('active')));
 function openGeoTool() { window.open('/geo-tool.html', 'Geo', 'width=600,height=700'); }
