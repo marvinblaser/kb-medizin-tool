@@ -3,83 +3,12 @@ let markers = [];
 let allClients = [];
 let currentFilter = 'all';
 
-// Coordonnées précises des principales villes suisses
 const cityCoords = {
-  // Canton AG
-  'Aarau': [47.3919, 8.0458],
-  'Baden': [47.4724, 8.3064],
-  'Wettingen': [47.4669, 8.3194],
-  
-  // Canton BE
-  'Bern': [46.9480, 7.4474],
-  'Biel': [47.1372, 7.2459],
-  'Thun': [46.7578, 7.6283],
-  'Interlaken': [46.6863, 7.8632],
-  
-  // Canton BS/BL
-  'Basel': [47.5596, 7.5886],
-  'Liestal': [47.4851, 7.7344],
-  'Biel-Benken': [47.5056, 7.5533],
-  
-  // Canton FR
-  'Fribourg': [46.8036, 7.1517],
-  'Bulle': [46.6189, 7.0567],
-  
-  // Canton GE
-  'Genève': [46.2044, 6.1432],
-  'Carouge': [46.1833, 6.1389],
-  
-  // Canton GR
-  'Chur': [46.8499, 9.5331],
-  'Davos': [46.8014, 9.8364],
-  
-  // Canton JU
-  'Delémont': [47.3654, 7.3426],
-  
-  // Canton LU
-  'Luzern': [47.0502, 8.3093],
-  'Emmen': [47.0777, 8.2989],
-  
-  // Canton NE
-  'Neuchâtel': [46.9900, 6.9298],
-  'La Chaux-de-Fonds': [47.1003, 6.8269],
-  
-  // Canton SG
-  'St. Gallen': [47.4239, 9.3743],
-  'Rapperswil': [47.2269, 8.8184],
-  
-  // Canton SO
-  'Solothurn': [47.2078, 7.5385],
-  'Olten': [47.3493, 7.9072],
-  
-  // Canton TG
-  'Frauenfeld': [47.5530, 8.8989],
-  'Kreuzlingen': [47.6430, 9.1750],
-  
-  // Canton TI
-  'Lugano': [46.0037, 8.9511],
-  'Bellinzona': [46.1928, 9.0175],
-  'Locarno': [46.1701, 8.7997],
-  
-  // Canton VD
-  'Lausanne': [46.5197, 6.6323],
-  'Montreux': [46.4312, 6.9108],
-  'Yverdon': [46.7785, 6.6408],
-  'Vevey': [46.4601, 6.8432],
-  
-  // Canton VS
-  'Sion': [46.2310, 7.3601],
-  'Martigny': [46.1016, 7.0744],
-  'Monthey': [46.2549, 6.9586],
-  
-  // Canton ZH
-  'Zürich': [47.3769, 8.5417],
-  'Winterthur': [47.5000, 8.7500],
-  'Uster': [47.3478, 8.7214],
-  'Wetzikon': [47.3244, 8.7975]
+  'Aarau': [47.3919, 8.0458], 'Baden': [47.4724, 8.3064], 'Bern': [46.9480, 7.4474], 'Biel': [47.1372, 7.2459],
+  'Basel': [47.5596, 7.5886], 'Biel-Benken': [47.5056, 7.5533], 'Fribourg': [46.8036, 7.1517], 'Genève': [46.2044, 6.1432],
+  'Lausanne': [46.5197, 6.6323], 'Zürich': [47.3769, 8.5417], 'Winterthur': [47.5000, 8.7500], 'Neuchâtel': [46.9900, 6.9298]
 };
 
-// Canton fallback coordinates
 const cantonCoords = {
   AG: [47.4, 8.15], AI: [47.32, 9.42], AR: [47.37, 9.3], BE: [46.95, 7.45],
   BL: [47.48, 7.73], BS: [47.56, 7.59], FR: [46.8, 7.15], GE: [46.2, 6.15],
@@ -91,11 +20,7 @@ const cantonCoords = {
 };
 
 let widgetSettings = {
-  appointments: true,
-  contacts: true,
-  'maintenance-month': true,
-  warranty: true,
-  map: true
+  appointments: true, contacts: true, 'maintenance-month': true, warranty: true, map: true
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -105,111 +30,50 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupMapFilters();
   await loadDashboard();
   setupWidgetCustomization();
-
   document.getElementById('logout-btn').addEventListener('click', logout);
 });
 
 async function checkAuth() {
   try {
     const response = await fetch('/api/me');
-    if (!response.ok) {
-      window.location.href = '/login.html';
-      return;
-    }
+    if (!response.ok) { window.location.href = '/login.html'; return; }
     const data = await response.json();
-    
     document.getElementById('user-info').innerHTML = `
       <div class="user-avatar">${data.user.name.charAt(0)}</div>
-      <div class="user-details">
-        <strong>${data.user.name}</strong>
-        <span>${data.user.role === 'admin' ? 'Administrateur' : 'Technicien'}</span>
-      </div>
+      <div class="user-details"><strong>${data.user.name}</strong><span>${data.user.role === 'admin' ? 'Administrateur' : 'Technicien'}</span></div>
     `;
-
-    if (data.user.role === 'admin') {
-      document.getElementById('admin-link').classList.remove('hidden');
-    }
-  } catch (error) {
-    window.location.href = '/login.html';
-  }
+    if (data.user.role === 'admin') document.getElementById('admin-link').classList.remove('hidden');
+  } catch { window.location.href = '/login.html'; }
 }
 
-async function logout() {
-  await fetch('/api/logout', { method: 'POST' });
-  window.location.href = '/login.html';
-}
+async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login.html'; }
 
 function setupWidgetCustomization() {
   const pageHeader = document.querySelector('.page-header');
   const customizeBtn = document.createElement('button');
   customizeBtn.className = 'btn btn-secondary';
-  customizeBtn.id = 'customize-widgets-btn';
   customizeBtn.innerHTML = '<i class="fas fa-th-large"></i> Personnaliser';
   customizeBtn.onclick = openWidgetCustomization;
   pageHeader.appendChild(customizeBtn);
 }
 
-// Dans public/js/dashboard.js
-
 function openWidgetCustomization() {
   const modal = document.createElement('div');
   modal.className = 'modal active';
   modal.innerHTML = `
-    <div class="modal-content widget-selector-modal" style="max-width: 900px;">
+    <div class="modal-content widget-selector-modal" style="max-width: 800px;">
       <div class="modal-header">
-        <h2><i class="fas fa-th-large" style="color: var(--color-primary)"></i> Personnaliser le tableau de bord</h2>
+        <h2><i class="fas fa-th-large" style="color: var(--color-primary)"></i> Personnaliser</h2>
         <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
       </div>
       <div class="modal-body" style="padding: 2rem;">
-        <p style="margin-bottom: 2rem; color: var(--neutral-500); font-size: 0.95rem;">
-          Activez ou désactivez les cartes pour construire votre vue idéale.
-        </p>
-        
+        <p style="margin-bottom: 1.5rem; color: var(--neutral-500); font-size: 0.9rem;">Sélectionnez les éléments à afficher sur votre tableau de bord.</p>
         <div class="widget-selector-grid">
-          <div class="widget-selector-card ${widgetSettings.appointments ? 'active' : ''}" onclick="toggleWidgetCard(this, 'appointments')">
-            <div class="widget-selector-toggle">
-              <input type="checkbox" id="widget-check-appointments" ${widgetSettings.appointments ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), 'appointments')">
-            </div>
-            <div class="widget-selector-icon"><i class="fas fa-calendar-alt"></i></div>
-            <h3>Rendez-vous</h3>
-            <p>Prochains RDV planifiés</p>
-          </div>
-          
-          <div class="widget-selector-card ${widgetSettings.contacts ? 'active' : ''}" onclick="toggleWidgetCard(this, 'contacts')">
-            <div class="widget-selector-toggle">
-              <input type="checkbox" id="widget-check-contacts" ${widgetSettings.contacts ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), 'contacts')">
-            </div>
-            <div class="widget-selector-icon"><i class="fas fa-phone"></i></div>
-            <h3>À contacter</h3>
-            <p>Clients nécessitant un appel</p>
-          </div>
-          
-          <div class="widget-selector-card ${widgetSettings['maintenance-month'] ? 'active' : ''}" onclick="toggleWidgetCard(this, 'maintenance-month')">
-            <div class="widget-selector-toggle">
-              <input type="checkbox" id="widget-check-maintenance-month" ${widgetSettings['maintenance-month'] ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), 'maintenance-month')">
-            </div>
-            <div class="widget-selector-icon"><i class="fas fa-wrench"></i></div>
-            <h3>Maintenances</h3>
-            <p>Prévues ce mois-ci</p>
-          </div>
-          
-          <div class="widget-selector-card ${widgetSettings.warranty ? 'active' : ''}" onclick="toggleWidgetCard(this, 'warranty')">
-            <div class="widget-selector-toggle">
-              <input type="checkbox" id="widget-check-warranty" ${widgetSettings.warranty ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), 'warranty')">
-            </div>
-            <div class="widget-selector-icon"><i class="fas fa-shield-alt"></i></div>
-            <h3>Garanties</h3>
-            <p>Expiration imminente</p>
-          </div>
-          
-          <div class="widget-selector-card ${widgetSettings.map ? 'active' : ''}" onclick="toggleWidgetCard(this, 'map')">
-            <div class="widget-selector-toggle">
-              <input type="checkbox" id="widget-check-map" ${widgetSettings.map ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), 'map')">
-            </div>
-            <div class="widget-selector-icon"><i class="fas fa-map-marked-alt"></i></div>
-            <h3>Carte</h3>
-            <p>Vue géographique</p>
-          </div>
+          ${createWidgetCard('appointments', 'fa-calendar-alt', 'Rendez-vous', 'Prochains RDV')}
+          ${createWidgetCard('contacts', 'fa-phone', 'À contacter', 'Suivi clients')}
+          ${createWidgetCard('maintenance-month', 'fa-wrench', 'Maintenances', 'Ce mois-ci')}
+          ${createWidgetCard('warranty', 'fa-shield-alt', 'Garanties', 'Bientôt expirées')}
+          ${createWidgetCard('map', 'fa-map-marked-alt', 'Carte', 'Vue géographique')}
         </div>
       </div>
       <div class="modal-footer">
@@ -221,19 +85,24 @@ function openWidgetCustomization() {
   document.body.appendChild(modal);
 }
 
-// Helper function pour gérer le clic sur la carte entière
+function createWidgetCard(id, icon, title, desc) {
+  const isActive = widgetSettings[id];
+  return `
+    <div class="widget-selector-card ${isActive ? 'active' : ''}" onclick="toggleWidgetCard(this, '${id}')">
+      <div class="widget-selector-toggle">
+        <input type="checkbox" id="widget-check-${id}" ${isActive ? 'checked' : ''} onclick="event.stopPropagation(); toggleWidgetCard(this.closest('.widget-selector-card'), '${id}')">
+      </div>
+      <div class="widget-selector-icon"><i class="fas ${icon}"></i></div>
+      <h3>${title}</h3>
+      <p>${desc}</p>
+    </div>
+  `;
+}
+
 window.toggleWidgetCard = function(card, widgetName) {
   const checkbox = card.querySelector('input[type="checkbox"]');
-  // Si le clic vient de la carte (pas de la checkbox directement), on inverse la checkbox
-  if (event.target !== checkbox) {
-    checkbox.checked = !checkbox.checked;
-  }
-  
-  if (checkbox.checked) {
-    card.classList.add('active');
-  } else {
-    card.classList.remove('active');
-  }
+  if (event.target !== checkbox) checkbox.checked = !checkbox.checked;
+  if (checkbox.checked) card.classList.add('active'); else card.classList.remove('active');
 };
 
 function saveWidgetCustomization(button) {
@@ -242,11 +111,10 @@ function saveWidgetCustomization(button) {
   widgetSettings['maintenance-month'] = document.getElementById('widget-check-maintenance-month').checked;
   widgetSettings.warranty = document.getElementById('widget-check-warranty').checked;
   widgetSettings.map = document.getElementById('widget-check-map').checked;
-  
   localStorage.setItem('dashboardWidgets', JSON.stringify(widgetSettings));
   applyWidgetSettings();
   button.closest('.modal').remove();
-  showNotification('Configuration enregistrée avec succès', 'success');
+  showNotification('Configuration enregistrée', 'success');
 }
 
 function loadWidgetSettings() {
@@ -254,137 +122,77 @@ function loadWidgetSettings() {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      widgetSettings = {
-        appointments: parsed.appointments !== undefined ? parsed.appointments : true,
-        contacts: parsed.contacts !== undefined ? parsed.contacts : true,
-        'maintenance-month': parsed['maintenance-month'] !== undefined ? parsed['maintenance-month'] : true,
-        warranty: parsed.warranty !== undefined ? parsed.warranty : true,
-        map: parsed.map !== undefined ? parsed.map : true
-      };
-    } catch (e) {
-      console.error('Erreur chargement widgets:', e);
-    }
+      Object.keys(parsed).forEach(k => { if(widgetSettings[k] !== undefined) widgetSettings[k] = parsed[k]; });
+    } catch (e) {}
   }
   applyWidgetSettings();
 }
 
 function applyWidgetSettings() {
-  const widgetElements = {
-    'appointments': document.getElementById('widget-appointments'),
-    'contacts': document.getElementById('widget-contacts'),
-    'maintenance-month': document.getElementById('widget-maintenance-month'),
-    'warranty': document.getElementById('widget-warranty'),
-    'map': document.getElementById('widget-map')
-  };
-  
-  Object.keys(widgetSettings).forEach(widgetName => {
-    const element = widgetElements[widgetName];
-    if (element) {
-      element.style.display = widgetSettings[widgetName] ? 'block' : 'none';
-    }
+  const ids = { 'appointments': 'widget-appointments', 'contacts': 'widget-contacts', 'maintenance-month': 'widget-maintenance-month', 'warranty': 'widget-warranty', 'map': 'widget-map' };
+  Object.keys(widgetSettings).forEach(k => {
+    const el = document.getElementById(ids[k]);
+    if (el) el.style.display = widgetSettings[k] ? 'block' : 'none';
   });
 }
 
-function showNotification(message, type = 'info') {
-  let container = document.getElementById('notification-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'notification-container';
-    container.className = 'notification-container';
-    document.body.appendChild(container);
-  }
-
-  const notification = document.createElement('div');
-  notification.className = `notification notification-${type}`;
-  
-  const icons = {
-    success: 'fa-check-circle',
-    error: 'fa-exclamation-circle',
-    warning: 'fa-exclamation-triangle',
-    info: 'fa-info-circle'
-  };
-
-  notification.innerHTML = `
-    <i class="fas ${icons[type]}"></i>
-    <span>${message}</span>
-  `;
-
-  container.appendChild(notification);
-  setTimeout(() => notification.classList.add('show'), 10);
-  setTimeout(() => {
-    notification.classList.remove('show');
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
+function showNotification(msg, type='info') {
+  let c = document.getElementById('notification-container');
+  if (!c) { c = document.createElement('div'); c.id='notification-container'; c.className='notification-container'; document.body.appendChild(c); }
+  const n = document.createElement('div'); n.className=`notification notification-${type}`;
+  n.innerHTML = `<i class="fas ${type==='success'?'fa-check-circle':type==='error'?'fa-exclamation-circle':'fa-info-circle'}"></i><span>${msg}</span>`;
+  c.appendChild(n); setTimeout(()=>n.classList.add('show'),10); setTimeout(()=>{n.classList.remove('show');setTimeout(()=>n.remove(),300)},3000);
 }
 
 async function loadDashboard() {
-  await Promise.all([
-    loadStats(),
-    loadUpcomingAppointments(),
-    loadClientsToContact(),
-    loadMaintenanceMonth(),
-    loadWarrantyExpiring(),
-    loadClientsMap()
-  ]);
-  
+  await Promise.all([loadStats(), loadUpcomingAppointments(), loadClientsToContact(), loadMaintenanceMonth(), loadWarrantyExpiring(), loadClientsMap()]);
 }
 
 async function loadStats() {
   try {
-    const response = await fetch('/api/dashboard/stats');
-    const stats = await response.json();
-
-    document.getElementById('stat-expired').textContent = stats.maintenanceExpired;
-    document.getElementById('stat-appointments').textContent = stats.appointmentsToSchedule;
-    document.getElementById('stat-uptodate').textContent = `${stats.clientsUpToDate}/${stats.totalClients}`;
-    document.getElementById('stat-equipment').textContent = stats.equipmentInstalled;
-  } catch (error) {
-    console.error('Erreur stats:', error);
-  }
+    const r = await fetch('/api/dashboard/stats'); const s = await r.json();
+    document.getElementById('stat-expired').textContent = s.maintenanceExpired;
+    document.getElementById('stat-appointments').textContent = s.appointmentsToSchedule;
+    document.getElementById('stat-uptodate').textContent = `${s.clientsUpToDate}/${s.totalClients}`;
+    document.getElementById('stat-equipment').textContent = s.equipmentInstalled;
+  } catch {}
 }
 
 async function loadUpcomingAppointments() {
   try {
-    const response = await fetch('/api/dashboard/upcoming-appointments');
-    const appointments = await response.json();
-    const list = document.getElementById('appointments-list');
+    const r = await fetch('/api/dashboard/upcoming-appointments'); const appts = await r.json();
+    const l = document.getElementById('appointments-list');
+    if (appts.length === 0) { l.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucun rendez-vous.</p>'; return; }
     
-    if (appointments.length === 0) {
-      list.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucun rendez-vous.</p>';
-      return;
-    }
-
-    list.innerHTML = appointments.map(apt => `
+    // FIX: Affichage du Technicien dans la liste
+    l.innerHTML = appts.map(a => `
       <div class="widget-item">
-        <strong>${apt.cabinet_name}</strong>
-        <small><i class="fas fa-calendar"></i> ${formatDate(apt.appointment_at)} • ${apt.phone || 'N/A'}</small>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <strong>${escapeHtml(a.cabinet_name)}</strong>
+          ${a.technician_name ? `<span class="badge badge-primary" style="font-size:0.7rem; padding:0.2rem 0.5rem;">${escapeHtml(a.technician_name)}</span>` : ''}
+        </div>
+        <small>
+          <i class="fas fa-calendar"></i> ${formatDate(a.appointment_at)} 
+          ${a.phone ? `&nbsp;•&nbsp; <i class="fas fa-phone" style="font-size:0.7rem;"></i> ${escapeHtml(a.phone)}` : ''}
+          &nbsp;•&nbsp; ${escapeHtml(a.city)}
+        </small>
       </div>
     `).join('');
-  } catch (error) {
-    console.error('Erreur RDV:', error);
-  }
+  } catch {}
 }
 
 async function loadClientsToContact() {
   try {
-    const response = await fetch('/api/dashboard/clients-to-contact');
-    const clients = await response.json();
-    const list = document.getElementById('contacts-list');
-    
-    if (clients.length === 0) {
-      list.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucun client.</p>';
-      return;
-    }
-
-    list.innerHTML = clients.map(c => `
+    const r = await fetch('/api/dashboard/clients-to-contact'); const clients = await r.json();
+    const l = document.getElementById('contacts-list');
+    if (clients.length === 0) { l.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucun client.</p>'; return; }
+    l.innerHTML = clients.map(c => `
       <div class="widget-item">
-        <strong>${c.cabinet_name}</strong>
-        <small><i class="fas fa-wrench"></i> ${formatDate(c.maintenance_due_date)} • ${c.phone || 'N/A'}</small>
+        <strong>${escapeHtml(c.cabinet_name)}</strong>
+        <small><i class="fas fa-wrench"></i> ${formatDate(c.maintenance_due_date)} ${c.phone ? `&nbsp;•&nbsp; <i class="fas fa-phone" style="font-size:0.7rem;"></i> ${escapeHtml(c.phone)}` : ''}</small>
       </div>
     `).join('');
-  } catch (error) {
-    console.error('Erreur contacts:', error);
-  }
+  } catch {}
 }
 
 async function loadMaintenanceMonth() {
@@ -392,243 +200,116 @@ async function loadMaintenanceMonth() {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
     const end = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
-
-    const response = await fetch('/api/clients?page=1&limit=1000');
-    const data = await response.json();
-    const maintenances = data.clients.filter(c => c.maintenance_due_date >= start && c.maintenance_due_date <= end);
-    const list = document.getElementById('maintenance-month-list');
-    
-    if (maintenances.length === 0) {
-      list.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucune maintenance.</p>';
-      return;
-    }
-
-    list.innerHTML = maintenances.map(c => `
-      <div class="widget-item">
-        <strong>${c.cabinet_name}</strong>
-        <small><i class="fas fa-calendar-check"></i> ${formatDate(c.maintenance_due_date)} • ${c.city}</small>
-      </div>
-    `).join('');
-  } catch (error) {
-    console.error('Erreur maintenances:', error);
-  }
+    const r = await fetch('/api/clients?page=1&limit=1000'); const d = await r.json();
+    const m = d.clients.filter(c => c.maintenance_due_date >= start && c.maintenance_due_date <= end);
+    const l = document.getElementById('maintenance-month-list');
+    if (m.length === 0) { l.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucune maintenance.</p>'; return; }
+    l.innerHTML = m.map(c => `<div class="widget-item"><strong>${escapeHtml(c.cabinet_name)}</strong><small><i class="fas fa-calendar-check"></i> ${formatDate(c.maintenance_due_date)} • ${escapeHtml(c.city)}</small></div>`).join('');
+  } catch {}
 }
 
 async function loadWarrantyExpiring() {
   try {
     const today = new Date().toISOString().split('T')[0];
     const future = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const response = await fetch('/api/clients?page=1&limit=1000');
-    const data = await response.json();
-
-    const equipmentPromises = data.clients.map(async (client) => {
-      const eq_resp = await fetch(`/api/clients/${client.id}/equipment`);
-      const equipment = await eq_resp.json();
-      return equipment.filter(eq => eq.warranty_until && eq.warranty_until >= today && eq.warranty_until <= future)
-        .map(eq => ({ ...eq, client_name: client.cabinet_name }));
+    const r = await fetch('/api/clients?page=1&limit=1000'); const d = await r.json();
+    const promises = d.clients.map(async (c) => {
+      const er = await fetch(`/api/clients/${c.id}/equipment`); const eq = await er.json();
+      return eq.filter(e => e.warranty_until && e.warranty_until >= today && e.warranty_until <= future).map(e => ({...e, client_name: c.cabinet_name}));
     });
-
-    const all = (await Promise.all(equipmentPromises)).flat();
-    const list = document.getElementById('warranty-list');
-    
-    if (all.length === 0) {
-      list.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucune garantie.</p>';
-      return;
-    }
-
-    list.innerHTML = all.sort((a,b) => a.warranty_until.localeCompare(b.warranty_until))
-      .map(eq => `
-        <div class="widget-item">
-          <strong>${eq.name} - ${eq.client_name}</strong>
-          <small><i class="fas fa-shield-alt"></i> ${formatDate(eq.warranty_until)}</small>
-        </div>
-      `).join('');
-  } catch (error) {
-    console.error('Erreur garanties:', error);
-  }
+    const all = (await Promise.all(promises)).flat();
+    const l = document.getElementById('warranty-list');
+    if (all.length === 0) { l.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucune garantie.</p>'; return; }
+    l.innerHTML = all.sort((a,b)=>a.warranty_until.localeCompare(b.warranty_until)).map(e => `<div class="widget-item"><strong>${escapeHtml(e.name)} - ${escapeHtml(e.client_name)}</strong><small><i class="fas fa-shield-alt"></i> ${formatDate(e.warranty_until)}</small></div>`).join('');
+  } catch {}
 }
 
 async function loadClientsMap() {
   try {
-    const response = await fetch('/api/dashboard/clients-map');
-    const clients = await response.json();
-    const clientsWithEq = await Promise.all(clients.map(async (c) => {
-      try {
-        const eq_resp = await fetch(`/api/clients/${c.id}/equipment`);
-        const equipment = await eq_resp.json();
-        return { ...c, equipment };
-      } catch {
-        return { ...c, equipment: [] };
-      }
+    const r = await fetch('/api/dashboard/clients-map'); const clients = await r.json();
+    allClients = await Promise.all(clients.map(async (c) => {
+      try { const er = await fetch(`/api/clients/${c.id}/equipment`); const eq = await er.json(); return { ...c, equipment: eq }; } catch { return { ...c, equipment: [] }; }
     }));
-    allClients = clientsWithEq;
     updateMapMarkers();
-  } catch (error) {
-    console.error('Erreur carte:', error);
-  }
+  } catch {}
 }
 
 function getCoordinatesForClient(client) {
-  // Nettoyer le nom de la ville
-  const city = client.city.trim();
-  
-  // Chercher coordonnées exactes de la ville
-  if (cityCoords[city]) {
-    return cityCoords[city];
+  // 1. Priorité aux coordonnées exactes de la DB
+  if (client.latitude && client.longitude) {
+    return [client.latitude, client.longitude];
   }
+
+  // 2. Fallback Ville
+  if (cityCoords[client.city.trim()]) return cityCoords[client.city.trim()];
   
-  // Fallback sur les coordonnées du canton avec petit décalage aléatoire
-  const cantonBase = cantonCoords[client.canton] || [46.8, 8.2];
-  return [
-    cantonBase[0] + (Math.random() - 0.5) * 0.05,
-    cantonBase[1] + (Math.random() - 0.5) * 0.05
-  ];
+  // 3. Fallback Canton (Décalage pour éviter superposition)
+  const base = cantonCoords[client.canton] || [46.8, 8.2];
+  return [base[0] + (Math.random() - 0.5) * 0.05, base[1] + (Math.random() - 0.5) * 0.05];
 }
 
 function updateMapMarkers() {
-  if (!map) {
-    console.warn('Carte non initialisée, impossible d\'ajouter les marqueurs');
-    return;
-  }
-  
-  markers.forEach(m => map.removeLayer(m));
-  markers = [];
-
+  if (!map) return;
+  markers.forEach(m => map.removeLayer(m)); markers = [];
   const filtered = allClients.filter(c => currentFilter === 'all' || c.status === currentFilter);
   
   filtered.forEach(client => {
     const coords = getCoordinatesForClient(client);
     const color = client.status === 'expired' ? '#dc2626' : client.status === 'warning' ? '#f59e0b' : '#16a34a';
+    const marker = L.circleMarker(coords, { radius: 8, fillColor: color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.8 }).addTo(map);
 
-    const marker = L.circleMarker(coords, {
-      radius: 8, 
-      fillColor: color, 
-      color: '#fff', 
-      weight: 2, 
-      opacity: 1, 
-      fillOpacity: 0.8
-    }).addTo(map);
+    const badgeClass = client.status === 'expired' ? 'badge-danger' : client.status === 'warning' ? 'badge-warning' : 'badge-success';
+    const badgeText = client.status === 'expired' ? 'Expiré' : client.status === 'warning' ? 'Bientôt' : 'À jour';
+    const badgeIcon = client.status === 'expired' ? 'fa-times-circle' : client.status === 'warning' ? 'fa-exclamation-triangle' : 'fa-check-circle';
 
-    const badge = client.status === 'expired' 
-      ? '<span class="map-popup-badge badge-danger"><i class="fas fa-exclamation-circle"></i> Expiré</span>'
-      : client.status === 'warning'
-      ? '<span class="map-popup-badge badge-warning"><i class="fas fa-clock"></i> Bientôt</span>'
-      : '<span class="map-popup-badge badge-success"><i class="fas fa-check-circle"></i> OK</span>';
+    // Helper equipment badge
+    const getEqBadge = (date) => {
+        if(!date) return '<span class="badge badge-primary" style="font-size:10px!important;padding:2px 6px;">À définir</span>';
+        const d = new Date(date), diff = Math.ceil((d - new Date().setHours(0,0,0,0))/(1000*60*60*24));
+        if(diff<0) return `<span class="badge badge-danger" style="font-size:10px!important;padding:2px 6px;">Expiré (${Math.abs(diff)}j)</span>`;
+        if(diff<=30) return `<span class="badge badge-warning" style="font-size:10px!important;padding:2px 6px;">${diff} jours</span>`;
+        return `<span class="badge badge-success" style="font-size:10px!important;padding:2px 6px;">OK</span>`;
+    };
 
-    // 🔥 NOUVEAU : Pop-up amélioré
-    function getEquipmentBadge(nextMaintenanceDate) {
-      if (!nextMaintenanceDate) {
-        return '<span class="badge badge-primary" style="font-size: 10px !important; padding: 0.25rem 0.5rem !important;"><i class="fas fa-clock"></i> À définir</span>';
-      }
-      
-      const date = new Date(nextMaintenanceDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const diffTime = date - today;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const eqHtml = client.equipment && client.equipment.length > 0 
+      ? `<div class="map-equipment-section"><strong style="font-size:0.85rem;display:block;margin-bottom:5px;">Équipements (${client.equipment.length})</strong>` + 
+        client.equipment.map(e => `<div class="map-equipment-item"><div style="font-size:0.8rem;"><strong>${escapeHtml(e.name)}</strong><br/><span style="color:#666;font-size:0.75rem;">${escapeHtml(e.brand)}</span></div><div>${getEqBadge(e.next_maintenance_date)}</div></div>`).join('') + `</div>`
+      : `<div class="map-equipment-section" style="color:#777;font-style:italic;font-size:0.85rem;">Aucun équipement</div>`;
 
-      if (diffDays < 0) {
-        return `<span class="badge badge-danger" style="font-size: 10px !important; padding: 0.25rem 0.5rem !important;"><i class="fas fa-exclamation-circle"></i> Expiré (${Math.abs(diffDays)}j)</span>`;
-      } else if (diffDays <= 30) {
-        return `<span class="badge badge-warning" style="font-size: 10px !important; padding: 0.25rem 0.5rem !important;"><i class="fas fa-clock"></i> ${diffDays} jours</span>`;
-      } else {
-        return `<span class="badge badge-success" style="font-size: 10px !important; padding: 0.25rem 0.5rem !important;"><i class="fas fa-check-circle"></i> ${diffDays} jours</span>`;
-      }
-    }
-
-    const eq_html = client.equipment && client.equipment.length > 0
-      ? `<div class="map-popup-section">
-          <div class="map-popup-section-title"><i class="fas fa-tools"></i> Équipements (${client.equipment.length})</div>
-          ${client.equipment.map(eq => `
-            <div class="map-popup-equipment">
-              <div class="map-popup-equipment-info">
-                <strong>${escapeHtml(eq.name)}</strong>
-                <small>${escapeHtml(eq.brand)} ${eq.model ? '- ' + escapeHtml(eq.model) : ''}</small>
-                ${eq.serial_number ? `<small style="color: var(--neutral-500);"><i class="fas fa-barcode"></i> ${escapeHtml(eq.serial_number)}</small>` : ''}
-              </div>
-              <div class="map-popup-equipment-badge">
-                ${getEquipmentBadge(eq.next_maintenance_date)}
-              </div>
-            </div>
-          `).join('')}
-        </div>`
-      : '<div class="map-popup-section"><em style="color: var(--neutral-500);">Aucun équipement installé</em></div>';
-
+    // FIX: DESIGN POPUP (Bleu + CP + Bouton)
     marker.bindPopup(`
       <div class="map-popup">
-        <div class="map-popup-header">
-          <h3>${escapeHtml(client.cabinet_name)}</h3>
-          ${badge}
-        </div>
-        <div class="map-popup-section">
-          <div class="map-popup-row"><i class="fas fa-user"></i><span>${escapeHtml(client.contact_name)}</span></div>
-          <div class="map-popup-row"><i class="fas fa-briefcase"></i><span>${escapeHtml(client.activity)}</span></div>
-          <div class="map-popup-row"><i class="fas fa-map-marker-alt"></i><span>${escapeHtml(client.address)}, ${client.postal_code || ''} ${escapeHtml(client.city)}</span></div>
-          ${client.phone ? `<div class="map-popup-row"><i class="fas fa-phone"></i><a href="tel:${client.phone}">${escapeHtml(client.phone)}</a></div>` : ''}
-          ${client.email ? `<div class="map-popup-row"><i class="fas fa-envelope"></i><a href="mailto:${client.email}">${escapeHtml(client.email)}</a></div>` : ''}
-        </div>
-        ${eq_html}
-        <div class="map-popup-footer">
-          <button class="map-popup-link" onclick="openClientFromMap(${client.id})">
-            <i class="fas fa-folder-open"></i> Voir la fiche complète
-          </button>
+        <div class="map-popup-header"><h3>${escapeHtml(client.cabinet_name)}</h3><span class="badge ${badgeClass}"><i class="fas ${badgeIcon}"></i> ${badgeText}</span></div>
+        <div class="map-popup-body">
+          <div class="map-info-row"><i class="fas fa-user-md"></i><strong>${escapeHtml(client.contact_name)}</strong></div>
+          <div class="map-info-row"><i class="fas fa-map-marker-alt"></i><span>${escapeHtml(client.address)}, ${client.postal_code ? client.postal_code + ' ' : ''}${escapeHtml(client.city)}</span></div>
+          ${client.phone ? `<div class="map-info-row"><i class="fas fa-phone"></i><a href="tel:${client.phone}">${escapeHtml(client.phone)}</a></div>` : ''}
+          ${eqHtml}
+          <div style="margin-top:1rem;text-align:center;"><button class="btn btn-sm btn-secondary w-100" onclick="openClientFromMap(${client.id})"><i class="fas fa-external-link-alt"></i> Voir la fiche complète</button></div>
         </div>
       </div>
-    `, { maxWidth: 450, className: 'map-popup-container' });
+    `, { maxWidth: 340, minWidth: 300, className: 'kb-map-popup' });
     markers.push(marker);
   });
 }
 
-// Fonction globale pour ouvrir la fiche client depuis la carte
-window.openClientFromMap = async function(clientId) {
-  // Charger le script clients.js si pas déjà fait
-  if (typeof openClientModal === 'undefined') {
-    // Rediriger vers la page clients avec l'ID
-    window.location.href = `/clients.html?open=${clientId}`;
-  } else {
-    // Si on est déjà sur la page clients, ouvrir directement
-    await openClientModal(clientId);
-  }
+window.openClientFromMap = function(id) { 
+  window.location.href = `/clients.html?open=${id}`;
 };
 
 function setupMapFilters() {
   document.querySelectorAll('.map-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.map-filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentFilter = btn.dataset.filter;
-      updateMapMarkers();
+      btn.classList.add('active'); currentFilter = btn.dataset.filter; updateMapMarkers();
     });
   });
 }
 
 function initMap() {
-  try {
-    map = L.map('map').setView([46.8, 8.2], 8);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap'
-    }).addTo(map);
-    console.log('Carte initialisée avec succès');
-  } catch (error) {
-    console.error('Erreur initialisation carte:', error);
-  }
+  try { map = L.map('map').setView([46.8, 8.2], 8); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map); } catch {}
 }
 
-function formatDate(d) {
-  if (!d) return '-';
-  const [y,m,day] = d.split('-');
-  return `${day}.${m}.${y}`;
-}
-
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// Rafraîchir toutes les 60 secondes
-setInterval(() => {
-  loadDashboard();
-}, 60000);
+function formatDate(d) { if (!d) return '-'; const [y,m,day] = d.split('-'); return `${day}.${m}.${y}`; }
+function escapeHtml(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+setInterval(() => { loadDashboard(); }, 60000);

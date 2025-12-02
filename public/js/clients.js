@@ -1,6 +1,6 @@
 /**
  * KB Medizin Technik - Clients Logic
- * Version: Full Complete (All Fixes Included)
+ * Version: Full Complete (With Auto-Open Feature)
  */
 
 let currentPage = 1;
@@ -39,7 +39,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadClients();
   await loadEquipmentCatalog();
 
-  // 3. Toggle Filtres Avancés
+  // 3. Gestion de l'ouverture automatique depuis le dashboard (NOUVEAU)
+  const urlParams = new URLSearchParams(window.location.search);
+  const openId = urlParams.get('open');
+  if (openId) {
+    // Nettoyer l'URL pour ne pas réouvrir au refresh
+    window.history.replaceState({}, document.title, "/clients.html");
+    // Petit délai pour s'assurer que le DOM est prêt
+    setTimeout(() => {
+        openClientDetails(parseInt(openId));
+    }, 500);
+  }
+
+  // 4. Toggle Filtres Avancés
   const toggleBtn = document.getElementById('toggle-filters-btn');
   const filtersPanel = document.getElementById('advanced-filters');
   if (toggleBtn && filtersPanel) {
@@ -49,7 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 4. Events Globaux
+  // 5. Events Globaux
   safeAdd('logout-btn', 'click', () => logout());
   safeAdd('add-client-btn', 'click', () => openClientModal());
   safeAdd('cancel-modal-btn', 'click', closeClientModal);
@@ -78,21 +90,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // --- CORRECTION RECHERCHE COLONNES (INPUTS ET SELECTS) ---
+  // --- RECHERCHE COLONNES (INPUTS ET SELECTS) ---
   const columnInputs = document.querySelectorAll('.column-search input, .column-search select');
   
   columnInputs.forEach(input => {
-    // Empêcher le tri au clic sur l'input
     input.addEventListener('click', (e) => e.stopPropagation());
-    
-    // Détecter le type d'événement ('input' pour texte, 'change' pour select)
     const eventType = input.tagName === 'SELECT' ? 'change' : 'input';
     
     input.addEventListener(eventType, debounce((e) => {
-      // 1. Chercher l'attribut sur l'input/select lui-même
       let column = e.target.getAttribute('data-column');
-      
-      // 2. Sinon, chercher sur le TH parent (fallback)
       if (!column) {
         const th = e.target.closest('th');
         if (th) column = th.getAttribute('data-column');
@@ -106,10 +112,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 300));
   });
 
-  // Tri Colonnes (Clic sur le header)
+  // Tri Colonnes
   document.querySelectorAll('th.sortable').forEach((th) => {
     th.addEventListener('click', (e) => {
-      // Ne pas trier si on clique sur un input ou un select
       if (!e.target.matches('input') && !e.target.matches('select')) {
         handleSort(th.dataset.column);
       }
@@ -124,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   safeAdd('cancel-delete-btn', 'click', () => closeDeleteModal());
   safeAdd('confirm-delete-btn', 'click', () => confirmDelete());
 
-  // Équipements (Boutons internes au formulaire)
+  // Équipements
   safeAdd('add-equipment-item-btn', 'click', () => showEquipmentForm());
   safeAdd('cancel-equipment-item-btn', 'click', () => hideEquipmentForm());
   safeAdd('save-equipment-item-btn', 'click', () => saveEquipmentItem());
@@ -147,14 +152,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     maintInterval.addEventListener('change', updateNext);
   }
 
-  // Fermeture des menus d'action au clic extérieur
+  // Fermeture des menus
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.action-menu')) {
       document.querySelectorAll('.action-menu-dropdown').forEach((menu) => menu.classList.remove('active'));
     }
   });
 
-  // Fermeture Modals au clic sur le fond
+  // Fermeture Modals
   ['client-modal', 'client-details-modal', 'history-modal', 'equipment-modal', 'delete-modal'].forEach(id => {
     const m = document.getElementById(id);
     if (m) {
@@ -167,7 +172,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 /* ========== CHARGEMENT DES CLIENTS ========== */
 async function loadClients() {
-  // Nettoyage des filtres vides pour ne pas polluer l'URL
   const cleanColumnSearch = {};
   for (const [key, value] of Object.entries(currentFilters.columnSearch)) {
     if (value !== '' && value !== null) cleanColumnSearch[key] = value;
@@ -190,7 +194,6 @@ async function loadClients() {
     const res = await fetch(`/api/clients?${params}`);
     const data = await res.json();
 
-    // Récupérer les équipements pour chaque client
     const clientsWithEq = await Promise.all(data.clients.map(async c => {
       try {
         const r = await fetch(`/api/clients/${c.id}/equipment`);
@@ -253,14 +256,11 @@ function renderEquipmentColumn(client) {
   return `<div class="equipment-badges">
     ${client.equipment.map(eq => {
       const { badge, daysLeft } = getMaintenanceBadge(eq.next_maintenance_date);
-      
-      // Fallback pour le nom : Marque + Type si Nom vide
       let display = eq.final_name || eq.name;
       if (!display || display === 'undefined') {
          display = (eq.final_brand || eq.brand || '') + ' ' + (eq.final_type || eq.type || '');
          if (!display.trim()) display = 'Équipement';
       }
-
       return `<div class="equipment-badge-item">
         <span class="equipment-badge-name">${escapeHtml(display)}</span>
         ${badge}
@@ -274,10 +274,8 @@ function getMaintenanceBadge(dateString) {
   if (!dateString) return { badge: '<span class="badge badge-primary">À définir</span>', daysLeft: null };
   const date = new Date(dateString);
   const today = new Date(); today.setHours(0,0,0,0);
-  
   const diffTime = date - today;
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
   if (diffDays < 0) return { badge: '<span class="badge badge-danger">EXPIRÉ</span>', daysLeft: `${Math.abs(diffDays)}j retard` };
   else if (diffDays <= 30) return { badge: '<span class="badge badge-warning">BIENTÔT</span>', daysLeft: `${diffDays}j` };
   else return { badge: '<span class="badge badge-success">OK</span>', daysLeft: `${diffDays}j restants` };
@@ -298,7 +296,6 @@ async function openClientModal(id = null) {
     try {
       const res = await fetch(`/api/clients/${id}`);
       const c = await res.json();
-      
       document.getElementById('client-id').value = c.id;
       document.getElementById('cabinet-name').value = c.cabinet_name;
       document.getElementById('contact-name').value = c.contact_name;
@@ -312,7 +309,8 @@ async function openClientModal(id = null) {
       document.getElementById('appointment').value = c.appointment_at || '';
       document.getElementById('technician').value = c.technician_id || '';
       document.getElementById('notes').value = c.notes || '';
-      
+      document.getElementById('client-lat').value = c.latitude || '';
+      document.getElementById('client-lon').value = c.longitude || '';
       await loadAppointmentsHistory(id);
     } catch(e) { console.error(e); }
   } else {
@@ -328,6 +326,8 @@ async function saveClient() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true;
   
   const id = document.getElementById('client-id').value;
+  const latVal = document.getElementById('client-lat').value;
+  const lonVal = document.getElementById('client-lon').value;
   const data = {
     cabinet_name: document.getElementById('cabinet-name').value,
     contact_name: document.getElementById('contact-name').value,
@@ -340,14 +340,15 @@ async function saveClient() {
     email: document.getElementById('email').value,
     appointment_at: document.getElementById('appointment').value,
     technician_id: document.getElementById('technician').value || null,
-    notes: document.getElementById('notes').value
+    notes: document.getElementById('notes').value,
+    latitude: latVal ? parseFloat(latVal) : null,
+    longitude: lonVal ? parseFloat(lonVal) : null
   };
 
   try {
     const url = id ? `/api/clients/${id}` : '/api/clients';
     const method = id ? 'PUT' : 'POST';
     const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)});
-    
     if(res.ok) { closeClientModal(); loadClients(); showNotification('Enregistré', 'success'); }
     else { const err = await res.json(); showNotification(err.error || 'Erreur', 'error'); }
   } catch(e) { console.error(e); }
@@ -359,7 +360,6 @@ async function openEquipmentModal(clientId, clientName) {
   currentClientForEquipment = clientId;
   const nameEl = document.getElementById('equipment-client-name');
   if(nameEl) nameEl.textContent = ` - ${clientName}`;
-  
   const idEl = document.getElementById('equipment-client-id');
   if(idEl) idEl.value = clientId;
   
@@ -390,7 +390,6 @@ async function loadClientEquipment(id) {
   cont.innerHTML = eq.map(e => {
     const { badge, daysLeft } = getMaintenanceBadge(e.next_maintenance_date);
     let display = e.final_name || e.name || `${e.final_brand || e.brand || ''} ${e.final_type || e.type || ''}`.trim() || 'Équipement';
-    
     return `
     <div class="equipment-detail-card">
       <div class="equipment-detail-header">
@@ -401,19 +400,14 @@ async function loadClientEquipment(id) {
             <span><i class="fas fa-th-large"></i> ${escapeHtml(e.type || '-')}</span>
           </div>
         </div>
-        <div style="text-align:right;">
-            ${badge}
-            ${daysLeft ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${daysLeft}</div>` : ''}
-        </div>
+        <div style="text-align:right;">${badge}${daysLeft ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${daysLeft}</div>` : ''}</div>
       </div>
-      
       <div class="equipment-detail-grid">
         <div class="equipment-detail-item"><small>SÉRIE</small><strong>${escapeHtml(e.serial_number || '-')}</strong></div>
         <div class="equipment-detail-item"><small>INSTALLATION</small><strong>${formatDate(e.installed_at)}</strong></div>
         <div class="equipment-detail-item"><small>DERNIÈRE MAINT.</small><strong>${formatDate(e.last_maintenance_date)}</strong></div>
         <div class="equipment-detail-item"><small>PROCHAINE</small><strong style="color:var(--color-primary)">${formatDate(e.next_maintenance_date)}</strong></div>
       </div>
-      
       <div class="equipment-detail-actions">
         <button class="btn btn-sm btn-secondary" onclick="editEquipmentItem(${e.id})"><i class="fas fa-edit"></i> Modifier</button>
         <button class="btn btn-sm btn-danger" onclick="deleteEquipmentItem(${e.id})"><i class="fas fa-trash"></i> Supprimer</button>
@@ -427,7 +421,6 @@ async function editEquipmentItem(itemId) {
     const res = await fetch(`/api/clients/${currentClientForEquipment}/equipment`);
     const items = await res.json();
     const item = items.find(i => i.id === itemId);
-    
     if (item) {
       document.getElementById('equipment-item-id').value = item.id;
       document.getElementById('equipment-select').value = item.equipment_id;
@@ -436,11 +429,9 @@ async function editEquipmentItem(itemId) {
       document.getElementById('equipment-warranty').value = item.warranty_until || '';
       document.getElementById('last-maintenance').value = item.last_maintenance_date || '';
       document.getElementById('maintenance-interval').value = item.maintenance_interval || '1';
-      
       const next = calculateNextMaintenance(item.last_maintenance_date, item.maintenance_interval || 1);
       const disp = document.getElementById('next-maintenance-display');
       if(disp) disp.textContent = next ? formatDate(next) : 'Saisissez la dernière maintenance';
-
       showEquipmentForm();
     }
   } catch(e) { console.error(e); showNotification('Erreur chargement', 'error'); }
@@ -450,7 +441,6 @@ async function saveEquipmentItem() {
   const eqId = document.getElementById('equipment-select').value;
   const itemId = document.getElementById('equipment-item-id').value;
   const clientId = currentClientForEquipment;
-  
   if (!eqId) return showNotification('Sélectionnez un équipement', 'error');
   
   const lastMaint = document.getElementById('last-maintenance').value;
@@ -467,15 +457,20 @@ async function saveEquipmentItem() {
     next_maintenance_date: nextMaint
   };
   
-  const url = itemId 
-    ? `/api/clients/${clientId}/equipment/${itemId}` 
-    : `/api/clients/${clientId}/equipment`;
+  const url = itemId ? `/api/clients/${clientId}/equipment/${itemId}` : `/api/clients/${clientId}/equipment`;
   const method = itemId ? 'PUT' : 'POST';
 
-  await fetch(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-  hideEquipmentForm(); 
-  loadClientEquipment(clientId); 
-  showNotification('Équipement enregistré', 'success');
+  try {
+    const res = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+    if(res.ok) {
+        hideEquipmentForm(); 
+        loadClientEquipment(clientId); 
+        showNotification('Équipement enregistré', 'success');
+    } else {
+        const err = await res.json();
+        showNotification(err.error || 'Erreur lors de l\'enregistrement', 'error');
+    }
+  } catch (e) { console.error(e); showNotification('Erreur technique', 'error'); }
 }
 
 function showEquipmentForm() { document.getElementById('equipment-form-container').classList.remove('hidden'); document.getElementById('add-equipment-item-btn').classList.add('hidden'); }
@@ -487,9 +482,7 @@ async function openClientDetails(id) {
   const res = await fetch(`/api/clients/${id}`); const c = await res.json();
   const req = await fetch(`/api/clients/${id}/equipment`); const eq = await req.json();
   const raph = await fetch(`/api/clients/${id}/appointments`); const hist = await raph.json();
-  
   renderClientDetails(c, eq, hist); 
-  
   document.getElementById('edit-from-details-btn').onclick = () => { closeClientDetailsModal(); openClientModal(id); };
   document.getElementById('client-details-modal').classList.add('active');
 }
@@ -529,13 +522,11 @@ function renderClientDetails(client, equipment, appointments) {
         <div style="display: grid; gap: 1rem;">
           ${equipment.map(eq => {
             const { badge, daysLeft } = getMaintenanceBadge(eq.next_maintenance_date);
-            
             let display = eq.final_name || eq.name;
             if (!display || display === 'undefined') {
                display = (eq.final_brand || eq.brand || '') + ' ' + (eq.final_type || eq.type || '');
                if (!display.trim()) display = 'Équipement';
             }
-            
             return `
               <div class="equipment-detail-card">
                 <div class="equipment-detail-header">
@@ -546,10 +537,7 @@ function renderClientDetails(client, equipment, appointments) {
                       <span><i class="fas fa-th-large"></i> ${escapeHtml(eq.final_type || eq.type || '-')}</span>
                     </div>
                   </div>
-                  <div style="text-align:right;">
-                      ${badge}
-                      ${daysLeft ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${daysLeft}</div>` : ''}
-                  </div>
+                  <div style="text-align:right;">${badge}${daysLeft ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${daysLeft}</div>` : ''}</div>
                 </div>
                 <div class="equipment-detail-grid">
                   <div class="equipment-detail-item"><small>SÉRIE</small><strong>${escapeHtml(eq.serial_number||'-')}</strong></div>
@@ -599,5 +587,4 @@ function closeHistoryModal() { document.getElementById('history-modal').classLis
 async function saveHistoryEntry() { const cid = document.getElementById('history-client-id').value; const eqIds = Array.from(document.querySelectorAll('#history-equipment-list input:checked')).map(i => i.value); const data = { appointment_date: document.getElementById('history-date').value, task_description: document.getElementById('history-task').value, technician_id: document.getElementById('history-technician').value, equipment_ids: eqIds }; await fetch(`/api/clients/${cid}/appointments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)}); closeHistoryModal(); showNotification('Historique ajouté', 'success'); }
 async function loadAppointmentsHistory(cid) { const res = await fetch(`/api/clients/${cid}/appointments`); const appts = await res.json(); const cont = document.getElementById('appointments-history'); if(appts.length===0) { cont.innerHTML='<p style="text-align:center;color:var(--text-muted)">Vide</p>'; return; } cont.innerHTML = appts.map(a => `<div style="border-bottom:1px solid var(--border-color);padding:0.5rem;"><strong>${formatDate(a.appointment_date)}</strong> - ${a.task_description || 'Intervention'}</div>`).join(''); }
 
-// Exports
 window.openClientDetails=openClientDetails; window.openClientModal=openClientModal; window.openEquipmentModal=openEquipmentModal; window.openDeleteModal=openDeleteModal; window.toggleActionMenu=toggleActionMenu; window.editEquipmentItem=editEquipmentItem; window.deleteEquipmentItem=deleteEquipmentItem; window.saveEquipmentItem=saveEquipmentItem; window.handleSort=handleSort;

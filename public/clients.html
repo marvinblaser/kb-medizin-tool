@@ -354,35 +354,51 @@
             </div>
             <div class="form-section">
               <h3 class="form-section-title">
-                <i class="fas fa-map-marker-alt"></i> Adresse
+                <i class="fas fa-map-marker-alt"></i> Adresse & Localisation
               </h3>
               <div class="form-group">
-                <label>Adresse *</label
-                ><input type="text" id="address" required />
+                <label>Adresse *</label>
+                <input type="text" id="address" required placeholder="Rue et numéro" />
               </div>
               <div class="form-row">
                 <div class="form-group">
-                  <label>NPA</label><input type="text" id="postal-code" />
+                  <label>NPA</label>
+                  <input type="text" id="postal-code" placeholder="4105" />
                 </div>
                 <div class="form-group">
-                  <label>Ville *</label><input type="text" id="city" required />
+                  <label>Ville *</label>
+                  <input type="text" id="city" required placeholder="Biel-Benken" />
                 </div>
                 <div class="form-group">
-                  <label>Canton</label
-                  ><select id="canton">
+                  <label>Canton</label>
+                  <select id="canton">
                     <option value="">--</option>
-                    <option value="AG">AG</option>
-                    <option value="BE">BE</option>
-                    <option value="FR">FR</option>
-                    <option value="GE">GE</option>
-                    <option value="JU">JU</option>
-                    <option value="NE">NE</option>
-                    <option value="VD">VD</option>
-                    <option value="VS">VS</option>
-                    <option value="ZH">ZH</option>
-                    <option value="BL">BL</option>
-                    <option value="BS">BS</option>
+                    <option value="AG">AG</option><option value="AI">AI</option><option value="AR">AR</option>
+                    <option value="BE">BE</option><option value="BL">BL</option><option value="BS">BS</option>
+                    <option value="FR">FR</option><option value="GE">GE</option><option value="GL">GL</option>
+                    <option value="GR">GR</option><option value="JU">JU</option><option value="LU">LU</option>
+                    <option value="NE">NE</option><option value="NW">NW</option><option value="OW">OW</option>
+                    <option value="SG">SG</option><option value="SH">SH</option><option value="SO">SO</option>
+                    <option value="SZ">SZ</option><option value="TG">TG</option><option value="TI">TI</option>
+                    <option value="UR">UR</option><option value="VD">VD</option><option value="VS">VS</option>
+                    <option value="ZG">ZG</option><option value="ZH">ZH</option>
                   </select>
+                </div>
+              </div>
+              
+              <div class="form-row" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
+                <div class="form-group">
+                  <label style="font-size: 0.8rem; color: var(--neutral-500);">Latitude (Optionnel)</label>
+                  <input type="number" id="client-lat" step="0.000001" placeholder="Ex: 47.5056" />
+                </div>
+                <div class="form-group">
+                  <label style="font-size: 0.8rem; color: var(--neutral-500);">Longitude (Optionnel)</label>
+                  <input type="number" id="client-lon" step="0.000001" placeholder="Ex: 7.5533" />
+                </div>
+                <div class="form-group" style="display:flex; align-items:flex-end;">
+                  <span style="font-size: 0.75rem; color: var(--neutral-500); padding-bottom: 10px;">
+                    <i class="fas fa-info-circle"></i> Laisser vide pour détection auto.
+                  </span>
                 </div>
               </div>
             </div>

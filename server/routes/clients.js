@@ -1,245 +1,282 @@
-/**
- * server/routes/clients.js
- * Version: FULL FIXED (Equipment Join + Strict Filters)
- */
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
 
-// Utilitaire : Recherche floue (Accents)
-const toFuzzySearch = (text) => {
-  if (!text) return '';
-  return text.toLowerCase()
-    .replace(/[aàâäá]/g, '_').replace(/[eéèêë]/g, '_')
-    .replace(/[iîïí]/g, '_').replace(/[oôöó]/g, '_')
-    .replace(/[uûüú]/g, '_').replace(/[yÿ]/g, '_')
-    .replace(/ç/g, '_');
-};
+// Fonction helper pour géocoder une adresse via Nominatim (OpenStreetMap)
+async function geocodeAddress(address, postalCode, city) {
+  try {
+    // Construction de la requête standard
+    const query = `${address}, ${postalCode} ${city}, Switzerland`;
+    console.log(`🌍 Géocodage auto pour: "${query}"`);
+    
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+    
+    // Header User-Agent obligatoire pour Nominatim
+    const response = await fetch(url, {
+      headers: { 
+        'User-Agent': 'KB-Medizin-Tool/1.0 (internal-tool)',
+        'Accept-Language': 'fr-CH, fr;q=0.9' 
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.length > 0) {
+        console.log(`✅ Trouvé: ${data[0].lat}, ${data[0].lon}`);
+        return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+      } else {
+        console.log('⚠️ Aucune correspondance exacte trouvée par l\'API.');
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erreur technique Géocodage:', error.message);
+  }
+  return { lat: null, lon: null };
+}
 
-// GET /api/clients (Liste principale)
+// GET /api/clients - Liste avec recherche et pagination
 router.get('/', requireAuth, (req, res) => {
-  const { 
-    page = 1, limit = 25, search, 
-    sortBy = 'cabinet_name', sortOrder = 'ASC',
-    brand, model, serialNumber, category,
-    columnSearch 
-  } = req.query;
-
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 25;
   const offset = (page - 1) * limit;
-  const params = [];
   
-  let sql = `SELECT c.* FROM clients c WHERE 1=1`;
+  const search = req.query.search || '';
+  const sortBy = req.query.sortBy || 'cabinet_name';
+  const sortOrder = req.query.sortOrder || 'ASC';
 
-  // 1. Recherche Globale
+  let sql = `SELECT * FROM clients WHERE 1=1`;
+  let params = [];
+
   if (search) {
-    const term = `%${toFuzzySearch(search)}%`;
-    sql += ` AND (LOWER(c.cabinet_name) LIKE ? OR LOWER(c.contact_name) LIKE ? OR LOWER(c.city) LIKE ? OR LOWER(c.phone) LIKE ?)`;
+    sql += ` AND (cabinet_name LIKE ? OR city LIKE ? OR contact_name LIKE ? OR phone LIKE ?)`;
+    const term = `%${search}%`;
     params.push(term, term, term, term);
   }
 
-  // 2. Filtres Équipements (Jointure pour filtrer par marque/modèle)
-  if (brand || model || serialNumber || category) {
-    sql += ` AND EXISTS (
-      SELECT 1 FROM client_equipment ce 
-      LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
-      WHERE ce.client_id = c.id 
-      AND (
-           (LOWER(ec.brand) LIKE ? OR LOWER(ce.brand) LIKE ?)
-        OR (LOWER(ec.name) LIKE ? OR LOWER(ce.name) LIKE ?)
-        OR (LOWER(ce.serial_number) LIKE ?)
-        OR (LOWER(ec.type) LIKE ? OR LOWER(ce.type) LIKE ?)
-      )
-    )`;
-    
-    if(brand) params.push(`%${toFuzzySearch(brand)}%`, `%${toFuzzySearch(brand)}%`);
-    if(model) params.push(`%${toFuzzySearch(model)}%`, `%${toFuzzySearch(model)}%`);
-    if(serialNumber) params.push(`%${toFuzzySearch(serialNumber)}%`);
-    if(category) params.push(`%${toFuzzySearch(category)}%`, `%${toFuzzySearch(category)}%`);
-  }
-
-  // 3. Filtres Colonnes (Strict pour Canton)
-  if (columnSearch) {
+  // Column search
+  if (req.query.columnSearch) {
     try {
-      const cols = JSON.parse(columnSearch);
-      Object.keys(cols).forEach(key => {
-        if (cols[key] && cols[key].trim() !== '') {
-          const safeKey = key.replace(/[^a-z0-9_]/gi, '');
-          
-          if (safeKey === 'canton') {
-             // Recherche STRICTE pour le canton
-             sql += ` AND LOWER(c.canton) = ?`;
-             params.push(cols[key].toLowerCase());
-          } else {
-             // Recherche floue pour le reste
-             sql += ` AND LOWER(c.${safeKey}) LIKE ?`;
-             params.push(`%${toFuzzySearch(cols[key])}%`);
-          }
+      const colSearch = JSON.parse(req.query.columnSearch);
+      for (const [key, value] of Object.entries(colSearch)) {
+        if (value) {
+          sql += ` AND ${key} LIKE ?`;
+          params.push(`%${value}%`);
         }
-      });
-    } catch (e) { console.error("JSON Parse error", e); }
+      }
+    } catch (e) {}
   }
 
-  // Pagination
-  const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
+  // Equipment filters
+  if (req.query.brand || req.query.model || req.query.serialNumber || req.query.category) {
+    sql += ` AND id IN (SELECT client_id FROM client_equipment ce JOIN equipment_catalog ec ON ce.equipment_id = ec.id WHERE 1=1`;
+    if (req.query.brand) { sql += ` AND ec.brand LIKE ?`; params.push(`%${req.query.brand}%`); }
+    if (req.query.model) { sql += ` AND ec.model LIKE ?`; params.push(`%${req.query.model}%`); }
+    if (req.query.category) { sql += ` AND ec.type LIKE ?`; params.push(`%${req.query.category}%`); }
+    if (req.query.serialNumber) { sql += ` AND ce.serial_number LIKE ?`; params.push(`%${req.query.serialNumber}%`); }
+    sql += `)`;
+  }
+
+  const countSql = sql.replace('SELECT *', 'SELECT COUNT(*) as count');
   
-  db.get(countSql, params, (err, rowCount) => {
+  db.get(countSql, params, (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     
-    const total = rowCount.total;
-    const totalPages = Math.ceil(total / limit);
-    
-    const safeSortCol = sortBy.replace(/[^a-z0-9_]/gi, '');
-    sql += ` ORDER BY c.${safeSortCol} ${sortOrder === 'DESC' ? 'DESC' : 'ASC'} LIMIT ? OFFSET ?`;
+    const totalItems = row.count;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    sql += ` ORDER BY ${sortBy} ${sortOrder} LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
     db.all(sql, params, (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ clients: rows, pagination: { page: parseInt(page), limit: parseInt(limit), total, totalPages } });
+      res.json({
+        clients: rows,
+        pagination: { page, limit, totalItems, totalPages }
+      });
     });
   });
 });
 
-// GET Un client
+// GET /api/clients/:id - Un seul client
 router.get('/:id', requireAuth, (req, res) => {
   db.get('SELECT * FROM clients WHERE id = ?', [req.params.id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Client introuvable' });
+    if (!row) return res.status(404).json({ error: 'Client non trouvé' });
     res.json(row);
   });
 });
 
-// GET Equipements (CORRECTION CRITIQUE : Jointure pour avoir Brand/Type)
+// POST /api/clients - Créer (AVEC GÉOCODAGE HYBRIDE)
+router.post('/', requireAuth, async (req, res) => {
+  const { cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, appointment_at, technician_id, notes, latitude, longitude } = req.body;
+  const techId = technician_id ? parseInt(technician_id) : null;
+
+  let finalLat = latitude;
+  let finalLon = longitude;
+
+  // Si pas de coordonnées manuelles, on tente l'auto
+  if (!finalLat || !finalLon) {
+    const coords = await geocodeAddress(address, postal_code || '', city);
+    if (coords.lat) {
+      finalLat = coords.lat;
+      finalLon = coords.lon;
+    }
+  }
+
+  const sql = `INSERT INTO clients (cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, appointment_at, technician_id, notes, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  
+  db.run(sql, [cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, appointment_at, techId, notes, finalLat, finalLon], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id: this.lastID, message: 'Client créé' });
+  });
+});
+
+// PUT /api/clients/:id - Modifier (AVEC GÉOCODAGE HYBRIDE)
+router.put('/:id', requireAuth, async (req, res) => {
+  const { cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, appointment_at, technician_id, notes, latitude, longitude } = req.body;
+  const techId = technician_id ? parseInt(technician_id) : null;
+
+  let finalLat = latitude;
+  let finalLon = longitude;
+
+  // Si pas de coordonnées manuelles fournies, on retente l'auto
+  // Note: Si l'utilisateur veut corriger une position auto, il doit remplir les champs manuels.
+  if (!finalLat || !finalLon) {
+     const coords = await geocodeAddress(address, postal_code || '', city);
+     if (coords.lat) {
+       finalLat = coords.lat;
+       finalLon = coords.lon;
+     }
+  }
+
+  const sql = `UPDATE clients SET cabinet_name=?, contact_name=?, activity=?, address=?, postal_code=?, city=?, canton=?, phone=?, email=?, appointment_at=?, technician_id=?, notes=?, latitude=?, longitude=? WHERE id=?`;
+  
+  db.run(sql, [cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, appointment_at, techId, notes, finalLat, finalLon, req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Client mis à jour' });
+  });
+});
+
+// DELETE /api/clients/:id
+router.delete('/:id', requireAuth, (req, res) => {
+  db.run('DELETE FROM clients WHERE id = ?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Client supprimé' });
+  });
+});
+
+// GET /api/clients/:id/equipment
 router.get('/:id/equipment', requireAuth, (req, res) => {
   const sql = `
-    SELECT 
-      ce.*, 
-      ec.name as catalog_name,
-      ec.brand as catalog_brand,
-      ec.type as catalog_type
+    SELECT ce.*, ec.name, ec.brand, ec.model, ec.type,
+           ec.name as final_name, ec.brand as final_brand, ec.type as final_type
     FROM client_equipment ce
-    LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
-    WHERE ce.client_id = ? 
-    ORDER BY ce.next_maintenance_date ASC
+    JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+    WHERE ce.client_id = ?
   `;
   db.all(sql, [req.params.id], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    
-    // Nettoyage des données avant envoi
-    const cleanRows = rows.map(row => ({
-      ...row,
-      // Si le nom local est vide, on prend celui du catalogue
-      name: row.name || row.catalog_name,
-      brand: row.brand || row.catalog_brand,
-      type: row.type || row.catalog_type
-    }));
-
-    res.json(cleanRows);
+    res.json(rows);
   });
 });
 
-// GET Historique
-router.get('/:id/appointments', requireAuth, (req, res) => {
-  db.run(`CREATE TABLE IF NOT EXISTS client_appointments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER, appointment_date DATE,
-    task_description TEXT, technician_id INTEGER, equipment_ids TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(client_id) REFERENCES clients(id)
-  )`, (err) => {
-    const sql = `SELECT ca.*, u.name as technician_name FROM client_appointments ca LEFT JOIN users u ON ca.technician_id = u.id WHERE ca.client_id = ? ORDER BY ca.appointment_date DESC`;
-    db.all(sql, [req.params.id], (err, rows) => { if(err) return res.json([]); res.json(rows); });
-  });
-});
-
-// POST Client
-router.post('/', requireAuth, (req, res) => {
-  const { cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, appointment_at, technician_id, notes } = req.body;
-  const sql = `INSERT INTO clients (cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, appointment_at, technician_id, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
-  db.run(sql, [cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, appointment_at, technician_id, notes], function(err) {
-    if(err) return res.status(500).json({error: err.message});
-    res.json({id: this.lastID});
-  });
-});
-
-// PUT Client
-router.put('/:id', requireAuth, (req, res) => {
-  const { cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, appointment_at, technician_id, notes } = req.body;
-  const sql = `UPDATE clients SET cabinet_name=?, contact_name=?, activity=?, address=?, postal_code=?, city=?, canton=?, phone=?, email=?, appointment_at=?, technician_id=?, notes=? WHERE id=?`;
-  db.run(sql, [cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, appointment_at, technician_id, notes, req.params.id], function(err) {
-    if(err) return res.status(500).json({error: err.message});
-    res.json({success: true});
-  });
-});
-
-// DELETE Client
-router.delete('/:id', requireAuth, (req, res) => {
-  db.serialize(() => {
-    db.run('DELETE FROM client_equipment WHERE client_id = ?', [req.params.id]);
-    db.run('DELETE FROM client_appointments WHERE client_id = ?', [req.params.id]);
-    db.run('DELETE FROM clients WHERE id = ?', [req.params.id], function(err) {
-      if(err) return res.status(500).json({error: err.message});
-      res.json({success: true});
-    });
-  });
-});
-
-// POST Equipement
+// POST /api/clients/:id/equipment (FIX ERROR 500)
 router.post('/:id/equipment', requireAuth, (req, res) => {
-  const { equipment_id, serial_number, installed_at, warranty_until, last_maintenance_date, maintenance_interval, next_maintenance_date } = req.body;
+  const clientId = parseInt(req.params.id);
+  const { 
+    equipment_id, 
+    serial_number, 
+    installed_at, 
+    warranty_until,
+    last_maintenance_date,
+    maintenance_interval,
+    next_maintenance_date 
+  } = req.body;
+
+  if (!equipment_id) {
+    return res.status(400).json({ error: 'ID équipement requis' });
+  }
+
+  const sql = `
+    INSERT INTO client_equipment (
+      client_id, equipment_id, serial_number, installed_at, warranty_until,
+      last_maintenance_date, maintenance_interval, next_maintenance_date
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  // Sécurisation des données (parseInt pour éviter les erreurs SQL sur les nombres)
+  const params = [
+    clientId, 
+    parseInt(equipment_id),
+    serial_number || null, 
+    installed_at || null, 
+    warranty_until || null,
+    last_maintenance_date || null,
+    parseInt(maintenance_interval) || 1, 
+    next_maintenance_date || null
+  ];
+
+  db.run(sql, params, function(err) {
+    if (err) {
+      console.error('SERVER SQL ERROR:', err.message);
+      return res.status(500).json({ error: 'Erreur base de données: ' + err.message });
+    }
+    res.json({ id: this.lastID, message: 'Équipement ajouté' });
+  });
+});
+
+// PUT /api/clients/:id/equipment/:itemId
+router.put('/:id/equipment/:itemId', requireAuth, (req, res) => {
+  const { 
+    serial_number, installed_at, warranty_until,
+    last_maintenance_date, maintenance_interval, next_maintenance_date 
+  } = req.body;
+
+  const sql = `UPDATE client_equipment SET serial_number=?, installed_at=?, warranty_until=?, last_maintenance_date=?, maintenance_interval=?, next_maintenance_date=? WHERE id=?`;
   
-  // On récupère les infos du catalogue
-  db.get('SELECT name, brand, type FROM equipment_catalog WHERE id = ?', [equipment_id], (err, cat) => {
-    if(err || !cat) return res.status(400).json({error: "Equipment not found in catalog"});
-    
-    // On sauvegarde aussi brand/type/name dans la table client_equipment pour éviter les trous
-    const sql = `INSERT INTO client_equipment (
-      client_id, equipment_id, name, brand, type, 
-      serial_number, installed_at, warranty_until, 
-      last_maintenance_date, maintenance_interval, next_maintenance_date
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?)`;
-    
-    db.run(sql, [
-      req.params.id, equipment_id, cat.name, cat.brand, cat.type, 
-      serial_number, installed_at, warranty_until, 
-      last_maintenance_date, maintenance_interval, next_maintenance_date
-    ], function(err) {
-      if(err) return res.status(500).json({error: err.message});
-      res.json({id: this.lastID});
-    });
+  db.run(sql, [serial_number, installed_at, warranty_until, last_maintenance_date, parseInt(maintenance_interval)||1, next_maintenance_date, req.params.itemId], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Mis à jour' });
   });
 });
 
-// PUT Equipement
-router.put('/:id/equipment/:eqId', requireAuth, (req, res) => {
-  const { serial_number, installed_at, warranty_until, last_maintenance_date, maintenance_interval, next_maintenance_date } = req.body;
-  db.run(`UPDATE client_equipment SET serial_number=?, installed_at=?, warranty_until=?, last_maintenance_date=?, maintenance_interval=?, next_maintenance_date=? WHERE id=?`, [serial_number, installed_at, warranty_until, last_maintenance_date, maintenance_interval, next_maintenance_date, req.params.eqId], function(err) {
-    if(err) return res.status(500).json({error: err.message});
-    res.json({success: true});
+// DELETE /api/clients/:id/equipment/:itemId
+router.delete('/:id/equipment/:itemId', requireAuth, (req, res) => {
+  db.run('DELETE FROM client_equipment WHERE id = ?', [req.params.itemId], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Supprimé' });
   });
 });
 
-// DELETE Equipement
-router.delete('/:id/equipment/:eqId', requireAuth, (req, res) => {
-  db.run('DELETE FROM client_equipment WHERE id = ?', [req.params.eqId], function(err) {
-    if(err) return res.status(500).json({error: err.message});
-    res.json({success: true});
+// GET /api/clients/:id/appointments (Historique)
+router.get('/:id/appointments', requireAuth, (req, res) => {
+  db.all('SELECT * FROM appointments_history WHERE client_id = ? ORDER BY appointment_date DESC', [req.params.id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
   });
 });
 
-// POST Historique
+// POST /api/clients/:id/appointments (Ajouter historique)
 router.post('/:id/appointments', requireAuth, (req, res) => {
   const { appointment_date, task_description, technician_id, equipment_ids } = req.body;
-  db.run(`INSERT INTO client_appointments (client_id, appointment_date, task_description, technician_id, equipment_ids) VALUES (?,?,?,?,?)`, [req.params.id, appointment_date, task_description, technician_id, JSON.stringify(equipment_ids||[])], function(err) {
-    if(err) return res.status(500).json({error: err.message});
-    res.json({id: this.lastID});
-  });
-});
-
-// DELETE Historique
-router.delete('/:id/appointments/:appId', requireAuth, (req, res) => {
-  db.run('DELETE FROM client_appointments WHERE id = ?', [req.params.appId], function(err) {
-    if(err) return res.status(500).json({error: err.message});
-    res.json({success: true});
+  const techId = technician_id ? parseInt(technician_id) : null;
+  
+  db.run(`INSERT INTO appointments_history (client_id, appointment_date, task_description, technician_id) VALUES (?, ?, ?, ?)`, 
+    [req.params.id, appointment_date, task_description, techId], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      const appointmentId = this.lastID;
+      
+      if (equipment_ids && equipment_ids.length > 0) {
+        const placeholders = equipment_ids.map(() => '(?, ?)').join(',');
+        const values = [];
+        equipment_ids.forEach(eqId => { values.push(appointmentId, eqId); });
+        
+        db.run(`INSERT INTO appointment_equipment (appointment_id, equipment_id) VALUES ${placeholders}`, values);
+      }
+      
+      res.json({ message: 'Historique ajouté' });
   });
 });
 
