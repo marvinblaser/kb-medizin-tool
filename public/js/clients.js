@@ -1,6 +1,6 @@
 /**
  * KB Medizin Technik - Clients Logic
- * Version: Full Complete (With Auto-Open Feature)
+ * Version: Fixed (SafeAdd Hoisting)
  */
 
 let currentPage = 1;
@@ -27,31 +27,24 @@ let currentHistoryId = null;
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', async () => {
-  // 1. Helper de sécurité pour attacher les événements
-  const safeAdd = (id, event, handler) => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener(event, handler);
-  };
-
-  // 2. Chargement initial des données
+  
+  // 1. Chargement initial des données
   await checkAuth();
   await loadTechnicians();
   await loadClients();
   await loadEquipmentCatalog();
 
-  // 3. Gestion de l'ouverture automatique depuis le dashboard (NOUVEAU)
+  // 2. Gestion de l'ouverture automatique depuis le dashboard
   const urlParams = new URLSearchParams(window.location.search);
   const openId = urlParams.get('open');
   if (openId) {
-    // Nettoyer l'URL pour ne pas réouvrir au refresh
     window.history.replaceState({}, document.title, "/clients.html");
-    // Petit délai pour s'assurer que le DOM est prêt
     setTimeout(() => {
         openClientDetails(parseInt(openId));
     }, 500);
   }
 
-  // 4. Toggle Filtres Avancés
+  // 3. Toggle Filtres Avancés
   const toggleBtn = document.getElementById('toggle-filters-btn');
   const filtersPanel = document.getElementById('advanced-filters');
   if (toggleBtn && filtersPanel) {
@@ -61,18 +54,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 5. Events Globaux
+  // 4. Events Globaux (Utilisation de safeAdd)
   safeAdd('logout-btn', 'click', () => logout());
   safeAdd('add-client-btn', 'click', () => openClientModal());
   safeAdd('cancel-modal-btn', 'click', closeClientModal);
   safeAdd('save-client-btn', 'click', saveClient);
   safeAdd('export-csv-btn', 'click', exportCSV);
   
+  // NOUVEAU : Bouton outil géo
+  safeAdd('open-geo-tool-btn', 'click', openGeoTool);
+  
   // Recherche Globale
   const globalSearch = document.getElementById('global-search');
   if (globalSearch) globalSearch.addEventListener('input', debounce((e) => handleGlobalSearch(e), 300));
 
-  // Filtres spécifiques (Barre avancée)
+  // Filtres spécifiques
   ['brand', 'model', 'serial', 'category'].forEach(f => {
     const el = document.getElementById(`filter-${f}`);
     if (el) el.addEventListener('input', debounce(() => handleEquipmentFilters(), 300));
@@ -90,9 +86,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // --- RECHERCHE COLONNES (INPUTS ET SELECTS) ---
+  // --- RECHERCHE COLONNES ---
   const columnInputs = document.querySelectorAll('.column-search input, .column-search select');
-  
   columnInputs.forEach(input => {
     input.addEventListener('click', (e) => e.stopPropagation());
     const eventType = input.tagName === 'SELECT' ? 'change' : 'input';
@@ -103,7 +98,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const th = e.target.closest('th');
         if (th) column = th.getAttribute('data-column');
       }
-
       if (column) {
         currentFilters.columnSearch[column] = e.target.value;
         currentPage = 1;
@@ -169,6 +163,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 });
+
+/* ========== FONCTIONS GLOBALES (DÉCLARÉES ICI POUR ÉVITER LES ERREURS) ========== */
+
+// Helper sécurisé pour ajouter des événements
+function safeAdd(id, event, handler) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(event, handler);
+}
+
+// Outil Géolocalisation
+function openGeoTool() {
+  const address = document.getElementById('address').value;
+  const zip = document.getElementById('postal-code').value;
+  const city = document.getElementById('city').value;
+  
+  const params = new URLSearchParams({
+    address: address || '',
+    zip: zip || '',
+    city: city || ''
+  });
+
+  const width = 600;
+  const height = 700;
+  const left = (window.screen.width / 2) - (width / 2);
+  const top = (window.screen.height / 2) - (height / 2);
+  
+  window.open(
+    `/geo-tool.html?${params.toString()}`, 
+    'KBMedGeoTool', 
+    `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes`
+  );
+}
+
+// Réception des coordonnées depuis la popup
+window.receiveCoordinates = function(lat, lon) {
+  document.getElementById('client-lat').value = lat;
+  document.getElementById('client-lon').value = lon;
+  
+  const latInput = document.getElementById('client-lat');
+  const lonInput = document.getElementById('client-lon');
+  
+  latInput.style.borderColor = 'var(--color-success)';
+  lonInput.style.borderColor = 'var(--color-success)';
+  
+  setTimeout(() => {
+    latInput.style.borderColor = '';
+    lonInput.style.borderColor = '';
+  }, 1500);
+};
 
 /* ========== CHARGEMENT DES CLIENTS ========== */
 async function loadClients() {
@@ -309,8 +352,11 @@ async function openClientModal(id = null) {
       document.getElementById('appointment').value = c.appointment_at || '';
       document.getElementById('technician').value = c.technician_id || '';
       document.getElementById('notes').value = c.notes || '';
+      
+      // Coordonnées GPS
       document.getElementById('client-lat').value = c.latitude || '';
       document.getElementById('client-lon').value = c.longitude || '';
+
       await loadAppointmentsHistory(id);
     } catch(e) { console.error(e); }
   } else {
@@ -328,6 +374,7 @@ async function saveClient() {
   const id = document.getElementById('client-id').value;
   const latVal = document.getElementById('client-lat').value;
   const lonVal = document.getElementById('client-lon').value;
+
   const data = {
     cabinet_name: document.getElementById('cabinet-name').value,
     contact_name: document.getElementById('contact-name').value,
@@ -587,4 +634,5 @@ function closeHistoryModal() { document.getElementById('history-modal').classLis
 async function saveHistoryEntry() { const cid = document.getElementById('history-client-id').value; const eqIds = Array.from(document.querySelectorAll('#history-equipment-list input:checked')).map(i => i.value); const data = { appointment_date: document.getElementById('history-date').value, task_description: document.getElementById('history-task').value, technician_id: document.getElementById('history-technician').value, equipment_ids: eqIds }; await fetch(`/api/clients/${cid}/appointments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)}); closeHistoryModal(); showNotification('Historique ajouté', 'success'); }
 async function loadAppointmentsHistory(cid) { const res = await fetch(`/api/clients/${cid}/appointments`); const appts = await res.json(); const cont = document.getElementById('appointments-history'); if(appts.length===0) { cont.innerHTML='<p style="text-align:center;color:var(--text-muted)">Vide</p>'; return; } cont.innerHTML = appts.map(a => `<div style="border-bottom:1px solid var(--border-color);padding:0.5rem;"><strong>${formatDate(a.appointment_date)}</strong> - ${a.task_description || 'Intervention'}</div>`).join(''); }
 
+// Exports
 window.openClientDetails=openClientDetails; window.openClientModal=openClientModal; window.openEquipmentModal=openEquipmentModal; window.openDeleteModal=openDeleteModal; window.toggleActionMenu=toggleActionMenu; window.editEquipmentItem=editEquipmentItem; window.deleteEquipmentItem=deleteEquipmentItem; window.saveEquipmentItem=saveEquipmentItem; window.handleSort=handleSort;

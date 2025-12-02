@@ -388,17 +388,17 @@
               
               <div class="form-row" style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
                 <div class="form-group">
-                  <label style="font-size: 0.8rem; color: var(--neutral-500);">Latitude (Optionnel)</label>
+                  <label style="font-size: 0.8rem; color: var(--neutral-500);">Latitude</label>
                   <input type="number" id="client-lat" step="0.000001" placeholder="Ex: 47.5056" />
                 </div>
                 <div class="form-group">
-                  <label style="font-size: 0.8rem; color: var(--neutral-500);">Longitude (Optionnel)</label>
+                  <label style="font-size: 0.8rem; color: var(--neutral-500);">Longitude</label>
                   <input type="number" id="client-lon" step="0.000001" placeholder="Ex: 7.5533" />
                 </div>
                 <div class="form-group" style="display:flex; align-items:flex-end;">
-                  <span style="font-size: 0.75rem; color: var(--neutral-500); padding-bottom: 10px;">
-                    <i class="fas fa-info-circle"></i> Laisser vide pour détection auto.
-                  </span>
+                  <button type="button" id="open-geo-tool-btn" class="btn btn-primary btn-sm" style="width:100%; margin-bottom:2px;">
+                    <i class="fas fa-map-marked-alt"></i> Choisir sur carte
+                  </button>
                 </div>
               </div>
             </div>
