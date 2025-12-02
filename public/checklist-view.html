@@ -9,520 +9,92 @@
   <link rel="stylesheet" href="/css/layout.css" />
   <link rel="stylesheet" href="/css/forms.css" />
   <link rel="stylesheet" href="/css/components.css" />
-  <link rel="stylesheet" href="/css/table.css" />
-  <link rel="stylesheet" href="/css/pages.css" />
+  <link rel="stylesheet" href="/css/pages.css" /> 
   <link rel="stylesheet" href="/css/utilities.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <style>
-  .checklist-view-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: var(--space-8);
-  }
-
-  .checklist-view-header {
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-700) 100%);
-    color: white;
-    padding: var(--space-8) var(--space-10);
-    border-radius: var(--radius-lg);
-    margin-bottom: var(--space-8);
-    box-shadow: 0 8px 24px rgba(54, 83, 164, 0.3);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .checklist-view-header::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -10%;
-    width: 400px;
-    height: 400px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-  }
-
-  .checklist-view-header-content {
-    position: relative;
-    z-index: 1;
-  }
-
-  .checklist-view-title {
-    font-size: var(--font-size-3xl);
-    font-weight: var(--font-weight-bold);
-    color: white;
-    margin-bottom: var(--space-3);
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-  }
-
-  .checklist-view-description {
-    color: rgba(255, 255, 255, 0.9);
-    font-size: var(--font-size-lg);
-    margin-bottom: var(--space-6);
-    line-height: var(--line-height-relaxed);
-  }
-
-  .checklist-view-actions {
-    display: flex;
-    gap: var(--space-3);
-    flex-wrap: wrap;
-  }
-
-  .checklist-view-actions .btn {
-    background: white;
-    color: var(--color-primary);
-    font-weight: var(--font-weight-semibold);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-
-  .checklist-view-actions .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-  }
-
-  .checklist-view-actions .btn-secondary {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    border: 2px solid white;
-  }
-
-  .checklist-view-actions .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.3);
-  }
-
-  .checklist-view-actions .btn-save {
-    background: #16a34a;
-    color: white;
-    border: 2px solid #16a34a;
-    font-weight: var(--font-weight-semibold);
-  }
-
-  .checklist-view-actions .btn-save:hover {
-    background: #15803d;
-    border-color: #15803d;
-  }
-
-  .checklist-view-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-8);
-    margin-bottom: var(--space-8);
-  }
-
-  @media (max-width: 1024px) {
-    .checklist-view-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .checklist-section {
-    background: var(--neutral-white);
-    border: var(--border-width) solid var(--border-color);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    transition: all var(--transition-base);
-  }
-
-  .checklist-section:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  }
-
-  .checklist-section-header {
-    background: linear-gradient(135deg, var(--neutral-50) 0%, var(--neutral-100) 100%);
-    padding: var(--space-6);
-    border-bottom: 2px solid var(--color-primary);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .checklist-section-header-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .checklist-section-title {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    margin: 0;
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
-    color: var(--neutral-900);
-  }
-
-  .checklist-section-title i {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-primary);
-    color: white;
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-lg);
-  }
-
-  .checklist-section-progress {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    width: 100%;
-  }
-
-  .checklist-progress-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: var(--font-size-sm);
-    color: var(--neutral-600);
-  }
-
-  .checklist-progress-bar {
-    width: 100%;
-    height: 10px;
-    background: var(--neutral-200);
-    border-radius: var(--radius-full);
-    overflow: hidden;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .checklist-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-700) 100%);
-    transition: width 0.3s ease;
-    border-radius: var(--radius-full);
-    position: relative;
-  }
-
-  .checklist-progress-fill::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(to bottom, rgba(255,255,255,0.3) 0%, transparent 50%, rgba(0,0,0,0.1) 100%);
-    border-radius: var(--radius-full);
-  }
-
-  .checklist-section-body {
-    padding: var(--space-6);
-    max-height: 600px;
-    overflow-y: auto;
-  }
-
-.checklist-item {
-  display: flex;
-  align-items: flex-start;  /* CHANGÉ de center à flex-start */
-  gap: var(--space-4);
-  padding: var(--space-4);
-  margin-bottom: var(--space-3);
-  background: var(--neutral-50);
-  border: 2px solid var(--border-color-light);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-  cursor: pointer;
-  min-height: 48px;  /* Hauteur minimale au lieu de fixe */
-}
-
-  .checklist-item:hover {
-    background: var(--neutral-100);
-    border-color: var(--color-primary);
-    transform: translateX(4px);
-    box-shadow: 0 2px 8px rgba(54, 83, 164, 0.15);
-  }
-
-  .checklist-item.checked {
-    background: var(--status-jour-100);
-    border-color: var(--status-jour-600);
-  }
-
-  .checklist-item.checked:hover {
-    background: var(--status-jour-100);
-    filter: brightness(0.98);
-  }
-
-  .checklist-item input[type="checkbox"] {
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
-    accent-color: var(--color-primary);
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-.checklist-item-content {
-  flex: 1;
-  display: flex;
-  align-items: flex-start;  /* CHANGÉ de center à flex-start */
-  gap: var(--space-3);
-  min-width: 0; /* Important pour permettre le shrink */
-}
-
-.checklist-item-text {
-  flex: 1;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-  color: var(--neutral-900);
-  line-height: var(--line-height-relaxed);
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  white-space: normal;
-  hyphens: auto;
-}
-
-.checklist-item input[type="checkbox"] {
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  accent-color: var(--color-primary);
-  flex-shrink: 0;
-  margin-top: 2px;  /* Léger ajustement pour l'alignement */
-}
-
-  .checklist-item.checked .checklist-item-text {
-    text-decoration: line-through;
-    color: var(--neutral-600);
-  }
-
-  .checklist-item-badge {
-    background: var(--color-primary);
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: var(--radius-full);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    white-space: nowrap;
-  }
-
-  .checklist-empty {
-    text-align: center;
-    padding: var(--space-12);
-    color: var(--neutral-500);
-  }
-
-  .checklist-empty i {
-    font-size: 3rem;
-    color: var(--neutral-400);
-    margin-bottom: var(--space-4);
-    opacity: 0.5;
-  }
-
-  .edit-mode .checklist-section {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-50);
-  }
-
-  .edit-actions {
-    display: flex;
-    gap: var(--space-3);
-    margin-bottom: var(--space-4);
-  }
-
-  .edit-input-group {
-    display: flex;
-    gap: var(--space-3);
-    margin-bottom: var(--space-3);
-    align-items: center;
-  }
-
-  .edit-input-group input {
-    flex: 1;
-  }
-
-  .edit-input-group input[type="number"] {
-    width: 80px;
-    flex: 0 0 auto;
-  }
-
-  /* Drag handle visible */
-.drag-handle {
-  cursor: grab;
-  color: var(--neutral-400);
-  font-size: var(--font-size-lg);
-  padding: var(--space-2);
-  transition: color var(--transition-base);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.drag-handle:hover {
-  color: var(--color-primary);
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-}
-
-.edit-input-group.dragging {
-  opacity: 0.5;
-  background: var(--color-primary-50);
-}
-
-.edit-input-group.drag-over {
-  border-top: 3px solid var(--color-primary);
-}
-</style>
-<link rel="stylesheet" href="/css/transitions.css" />
+  <link rel="stylesheet" href="/css/transitions.css" />
 </head>
 <body>
   <div class="app-container">
     <aside class="sidebar">
-      <div class="sidebar-header">
-        <h2>KB Medizin</h2>
-      </div>
+      <div class="sidebar-header"><h2>KB Medizin</h2></div>
       <nav class="sidebar-nav">
-  <a href="/dashboard.html">
-    <i class="fas fa-chart-line"></i>
-    <span>Tableau de bord</span>
-  </a>
-  <a href="/clients.html">
-    <i class="fas fa-users"></i>
-    <span>Clients</span>
-  </a>
-  <a href="/checklists.html" class="active">
-    <i class="fas fa-clipboard-check"></i>
-    <span>Checklists</span>
-  </a>
-  <a href="/reports.html">
-    <i class="fas fa-file-alt"></i>
-    <span>Rapports</span>
-  </a>
-  <a href="/admin.html" id="admin-link" class="hidden">
-    <i class="fas fa-cog"></i>
-    <span>Administration</span>
-  </a>
-</nav>
+        <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
+        <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
+        <a href="/checklists.html" class="active"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
+        <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+        <a href="/admin.html" id="admin-link" class="hidden"><i class="fas fa-cog"></i><span>Administration</span></a>
+      </nav>
       <div class="sidebar-footer">
         <div class="user-info" id="user-info"></div>
-        <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%">
-          <i class="fas fa-sign-out-alt"></i>
-          Déconnexion
-        </button>
+        <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%"><i class="fas fa-sign-out-alt"></i> Déconnexion</button>
       </div>
     </aside>
 
     <main class="main-content">
       <div class="checklist-view-container">
-        <div class="checklist-view-header">
-          <div class="checklist-view-header-content">
-            <h1 class="checklist-view-title">
-              <i class="fas fa-clipboard-check"></i>
-              <span id="checklist-title">Chargement...</span>
-            </h1>
-            <p class="checklist-view-description" id="checklist-description"></p>
-            <div class="checklist-view-actions">
-              <button class="btn btn-secondary" onclick="window.location.href='/checklists.html'">
-                <i class="fas fa-arrow-left"></i> Retour aux checklists
-              </button>
-              <button class="btn" id="edit-toggle-btn">
-                <i class="fas fa-edit"></i> Modifier
-              </button>
-              <button class="btn btn-danger" id="reset-btn">
-                <i class="fas fa-redo"></i> Réinitialiser
-              </button>
-            </div>
+        
+        <div class="checklist-header-card">
+          <h1 class="checklist-title">
+            <div class="checklist-icon-box"><i class="fas fa-check-double"></i></div>
+            <span id="checklist-title-text">Chargement...</span>
+          </h1>
+          <p class="checklist-desc" id="checklist-description"></p>
+          
+          <div class="checklist-actions">
+            <button class="btn btn-secondary" onclick="window.location.href='/checklists.html'">
+              <i class="fas fa-arrow-left"></i> Retour
+            </button>
+            <button class="btn btn-danger" id="reset-btn">
+              <i class="fas fa-redo"></i> Réinitialiser tout
+            </button>
           </div>
         </div>
 
-        <div class="checklist-view-grid" id="checklist-content">
-          <!-- Section Matériel -->
-          <div class="checklist-section">
-            <div class="checklist-section-header">
-              <div class="checklist-section-header-top">
-                <h2 class="checklist-section-title">
-                  <i class="fas fa-toolbox"></i>
-                  Matériel à emporter
-                </h2>
-              </div>
-              <div class="checklist-section-progress">
-                <div class="checklist-progress-info">
-                  <span id="equipment-count-text">0 / 0 complété</span>
-                  <span id="equipment-progress-text">0%</span>
+        <div class="checklist-grid">
+          
+          <div class="checklist-box">
+            <div class="checklist-box-header">
+              <h2 class="checklist-box-title"><i class="fas fa-toolbox"></i> Matériel à emporter</h2>
+              <div class="progress-container">
+                <div class="progress-labels">
+                  <span id="eq-count">0 / 0</span>
+                  <span id="eq-pct">0%</span>
                 </div>
-                <div class="checklist-progress-bar">
-                  <div class="checklist-progress-fill" id="equipment-progress-fill" style="width: 0%"></div>
+                <div class="progress-track">
+                  <div class="progress-fill" id="eq-progress-fill"></div>
                 </div>
               </div>
             </div>
-            <div class="checklist-section-body" id="equipment-list">
-              <div class="checklist-empty">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Chargement...</p>
-              </div>
+            <div class="checklist-box-content" id="equipment-list">
+              <div class="empty-state"><i class="fas fa-spinner fa-spin"></i> Chargement...</div>
             </div>
           </div>
 
-          <!-- Section Tâches (IDENTIQUE au matériel) -->
-          <div class="checklist-section">
-            <div class="checklist-section-header">
-              <div class="checklist-section-header-top">
-                <h2 class="checklist-section-title">
-                  <i class="fas fa-tasks"></i>
-                  Tâches à réaliser
-                </h2>
-              </div>
-              <div class="checklist-section-progress">
-                <div class="checklist-progress-info">
-                  <span id="tasks-count-text">0 / 0 complété</span>
-                  <span id="tasks-progress-text">0%</span>
+          <div class="checklist-box">
+            <div class="checklist-box-header">
+              <h2 class="checklist-box-title"><i class="fas fa-tasks"></i> Tâches à réaliser</h2>
+              <div class="progress-container">
+                <div class="progress-labels">
+                  <span id="task-count">0 / 0</span>
+                  <span id="task-pct">0%</span>
                 </div>
-                <div class="checklist-progress-bar">
-                  <div class="checklist-progress-fill" id="tasks-progress-fill" style="width: 0%"></div>
+                <div class="progress-track">
+                  <div class="progress-fill" id="task-progress-fill"></div>
                 </div>
               </div>
             </div>
-            <div class="checklist-section-body" id="tasks-list">
-              <div class="checklist-empty">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Chargement...</p>
-              </div>
+            <div class="checklist-box-content" id="tasks-list">
+              <div class="empty-state"><i class="fas fa-spinner fa-spin"></i> Chargement...</div>
             </div>
           </div>
+
         </div>
       </div>
-
-      <footer class="app-footer">
-        <div class="footer-content">
-          <div class="footer-brand">
-            <div class="footer-logo">
-              <i class="fas fa-stethoscope"></i>
-            </div>
-            <div class="footer-info">
-              <h3>KB Medizin Technik GmbH</h3>
-              <p>Solutions médicales professionnelles</p>
-            </div>
-          </div>
-          
-          <div class="footer-links">
-            <div class="footer-section">
-              <h4>Contact</h4>
-              <ul>
-                <li><a href="tel:+41617211111"><i class="fas fa-phone"></i> +41 61 721 11 11</a></li>
-                <li><a href="mailto:info@kbmedizin.ch"><i class="fas fa-envelope"></i> info@kbmedizin.ch</a></li>
-                <li><a href="#"><i class="fas fa-map-marker-alt"></i> Biel-Benken, Suisse</a></li>
-              </ul>
-            </div>
-          </div>
-        </div>
-        
-        <div class="footer-bottom">
-          <p>&copy; 2025 KB Medizin Technik GmbH. Tous droits réservés.</p>
-        </div>
-      </footer>
     </main>
   </div>
 
-  <div id="notification-container" class="notification-container"></div>
-
   <script src="/js/checklist-view.js"></script>
-<script src="/js/page-transitions.js"></script>
+  <script src="/js/page-transitions.js"></script>
 </body>
 </html>
