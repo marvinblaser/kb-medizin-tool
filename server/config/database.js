@@ -34,6 +34,14 @@ function initDatabase() {
         )
       `);
 
+      // Table device_types (NOUVEAU)
+      db.run(`
+        CREATE TABLE IF NOT EXISTS device_types (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT UNIQUE NOT NULL
+        )
+      `);
+
       // Table equipment_catalog
       db.run(`
         CREATE TABLE IF NOT EXISTS equipment_catalog (
@@ -51,6 +59,11 @@ function initDatabase() {
           const columnNames = columns.map(col => col.name);
           if (!columnNames.includes('type')) {
             db.run("ALTER TABLE equipment_catalog ADD COLUMN type TEXT DEFAULT 'Autre'");
+          }
+          // NOUVEAU CHAMP device_type
+          if (!columnNames.includes('device_type')) {
+            console.log('🔧 Ajout colonne device_type à equipment_catalog...');
+            db.run("ALTER TABLE equipment_catalog ADD COLUMN device_type TEXT");
           }
         }
       });
@@ -73,6 +86,8 @@ function initDatabase() {
           technician_id INTEGER,
           notes TEXT,
           created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          latitude REAL,
+          longitude REAL,
           FOREIGN KEY (technician_id) REFERENCES users(id)
         )
       `);
@@ -80,12 +95,10 @@ function initDatabase() {
       db.all("PRAGMA table_info(clients)", (err, columns) => {
         if (!err) {
           const columnNames = columns.map(col => col.name);
-          if (!columnNames.includes('postal_code')) {
-            db.run("ALTER TABLE clients ADD COLUMN postal_code TEXT");
-          }
-          if (!columnNames.includes('technician_id')) {
-            db.run("ALTER TABLE clients ADD COLUMN technician_id INTEGER REFERENCES users(id)");
-          }
+          if (!columnNames.includes('postal_code')) db.run("ALTER TABLE clients ADD COLUMN postal_code TEXT");
+          if (!columnNames.includes('technician_id')) db.run("ALTER TABLE clients ADD COLUMN technician_id INTEGER REFERENCES users(id)");
+          if (!columnNames.includes('latitude')) db.run("ALTER TABLE clients ADD COLUMN latitude REAL");
+          if (!columnNames.includes('longitude')) db.run("ALTER TABLE clients ADD COLUMN longitude REAL");
         }
       });
 
@@ -105,22 +118,6 @@ function initDatabase() {
           FOREIGN KEY (equipment_id) REFERENCES equipment_catalog(id)
         )
       `);
-
-      db.all("PRAGMA table_info(client_equipment)", (err, columns) => {
-        if (!err) {
-          const columnNames = columns.map(col => col.name);
-          
-          if (!columnNames.includes('last_maintenance_date')) {
-            db.run("ALTER TABLE client_equipment ADD COLUMN last_maintenance_date TEXT");
-          }
-          if (!columnNames.includes('maintenance_interval')) {
-            db.run("ALTER TABLE client_equipment ADD COLUMN maintenance_interval INTEGER DEFAULT 1");
-          }
-          if (!columnNames.includes('next_maintenance_date')) {
-            db.run("ALTER TABLE client_equipment ADD COLUMN next_maintenance_date TEXT");
-          }
-        }
-      });
 
       // Table activity_logs
       db.run(`
@@ -144,7 +141,7 @@ function initDatabase() {
           appointment_date TEXT NOT NULL,
           task_description TEXT,
           technician_id INTEGER,
-          report_id INTEGER, -- NOUVEAU CHAMP
+          report_id INTEGER,
           created_at TEXT DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
           FOREIGN KEY (technician_id) REFERENCES users(id),
@@ -152,18 +149,7 @@ function initDatabase() {
         )
       `);
 
-      // 🔥 MIGRATION AUTOMATIQUE POUR L'HISTORIQUE
-      db.all("PRAGMA table_info(appointments_history)", (err, columns) => {
-        if (!err) {
-          const columnNames = columns.map(col => col.name);
-          if (!columnNames.includes('report_id')) {
-            console.log('🔧 Ajout colonne report_id à appointments_history...');
-            db.run("ALTER TABLE appointments_history ADD COLUMN report_id INTEGER REFERENCES reports(id)");
-          }
-        }
-      });
-
-      // Table pour lier équipements aux rendez-vous
+      // Table appointment_equipment
       db.run(`
         CREATE TABLE IF NOT EXISTS appointment_equipment (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -198,15 +184,6 @@ function initDatabase() {
           FOREIGN KEY (checklist_id) REFERENCES checklists(id) ON DELETE CASCADE
         )
       `);
-
-      db.all("PRAGMA table_info(checklist_equipment)", (err, columns) => {
-        if (!err) {
-          const columnNames = columns.map(col => col.name);
-          if (!columnNames.includes('equipment_order')) {
-            db.run("ALTER TABLE checklist_equipment ADD COLUMN equipment_order INTEGER DEFAULT 0");
-          }
-        }
-      });
       
       // Table checklist_tasks
       db.run(`
@@ -230,7 +207,7 @@ function initDatabase() {
         )
       `);
 
-      // Table reports (SANS report_type)
+      // Table reports
       db.run(`
         CREATE TABLE IF NOT EXISTS reports (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -259,30 +236,16 @@ function initDatabase() {
         )
       `);
 
-      // ✅ FIX: C'est ici que la magie opère. On force l'ajout des colonnes si elles manquent.
+      // Mises à jour structure reports
       db.all("PRAGMA table_info(reports)", (err, columns) => {
         if (!err) {
           const columnNames = columns.map(col => col.name);
-          
-          // Fix pour ton erreur "no column named travel_location"
-          if (!columnNames.includes('travel_location')) {
-            console.log('🔧 Ajout de la colonne manquante : travel_location');
-            db.run("ALTER TABLE reports ADD COLUMN travel_location TEXT");
-          }
-          
-          // Je rajoute celle-ci par sécurité car elle va souvent avec
-          if (!columnNames.includes('travel_included')) {
-            console.log('🔧 Ajout de la colonne manquante : travel_included');
-            db.run("ALTER TABLE reports ADD COLUMN travel_included INTEGER DEFAULT 0");
-          }
-
-          if (columnNames.includes('report_type')) {
-            console.log('⚠️ Colonne report_type détectée, migration nécessaire');
-          }
+          if (!columnNames.includes('travel_location')) db.run("ALTER TABLE reports ADD COLUMN travel_location TEXT");
+          if (!columnNames.includes('travel_included')) db.run("ALTER TABLE reports ADD COLUMN travel_included INTEGER DEFAULT 0");
         }
       });
 
-      // Table report_technicians (intervenants)
+      // Table report_technicians
       db.run(`
         CREATE TABLE IF NOT EXISTS report_technicians (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -297,7 +260,7 @@ function initDatabase() {
         )
       `);
 
-      // Table report_materials (matériel utilisé)
+      // Table report_materials
       db.run(`
         CREATE TABLE IF NOT EXISTS report_materials (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -313,21 +276,16 @@ function initDatabase() {
         )
       `);
 
-      // ✅ Ajouter les colonnes manquantes à la table report_materials
+      // Mises à jour structure report_materials
       db.all("PRAGMA table_info(report_materials)", (err, columns) => {
         if (!err) {
           const columnNames = columns.map(col => col.name);
-          
-          if (!columnNames.includes('material_id')) {
-            db.run("ALTER TABLE report_materials ADD COLUMN material_id INTEGER REFERENCES materials(id)");
-          }
-          if (!columnNames.includes('product_code')) {
-            db.run("ALTER TABLE report_materials ADD COLUMN product_code TEXT");
-          }
+          if (!columnNames.includes('material_id')) db.run("ALTER TABLE report_materials ADD COLUMN material_id INTEGER REFERENCES materials(id)");
+          if (!columnNames.includes('product_code')) db.run("ALTER TABLE report_materials ADD COLUMN product_code TEXT");
         }
       });
 
-      // ✅ NOUVEAU : Table pour les tests STK
+      // Table report_stk_tests
       db.run(`
         CREATE TABLE IF NOT EXISTS report_stk_tests (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -337,15 +295,9 @@ function initDatabase() {
           included INTEGER DEFAULT 0,
           FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
         )
-      `, (err) => {
-        if (err) {
-          console.error('Erreur création table report_stk_tests:', err);
-        } else {
-          console.log('✅ Table report_stk_tests prête');
-        }
-      });
+      `);
 
-      // Table pour les équipements associés au rapport (optionnel)
+      // Table report_equipment
       db.run(`
         CREATE TABLE IF NOT EXISTS report_equipment (
           id INTEGER PRIMARY KEY AUTOINCREMENT,

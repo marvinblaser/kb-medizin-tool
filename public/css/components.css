@@ -1,5 +1,6 @@
 /**
- * KB Medizin Technik - Components (VERSION COMPLETE)
+ * KB Medizin Technik - Components
+ * Version: Indigo Spacious - Equipment Cards Redesign
  */
 
 /* ========== BUTTONS ========== */
@@ -13,7 +14,6 @@
 .btn:disabled { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
 .btn:active { transform: translateY(1px); }
 
-/* Variants */
 .btn-primary, .btn-success {
   background-image: var(--gradient-primary); color: white; border: none; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);
 }
@@ -25,14 +25,12 @@
 .btn-danger { background: #fee2e2; color: #b91c1c; border-color: #fecaca; box-shadow: none; }
 .btn-danger:hover { background: #fecaca; color: #991b1b; }
 
-/* Checklist Save Btn */
 .btn-save {
   background: var(--color-success); color: white; border: none; display: inline-flex; align-items: center; justify-content: center;
   gap: 0.5rem; padding: 0 1rem; min-height: 38px; font-weight: 600; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;
 }
 .btn-save:hover { background: #059669; }
 
-/* Sizes & Icons */
 .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.75rem; min-height: 32px; }
 .btn-icon, .btn-icon-sm {
   display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent;
@@ -57,8 +55,6 @@
 .badge-info, .badge-primary { background: var(--color-primary-light); color: var(--color-primary); border-color: #c7d2fe; }
 .badge-secondary { background: var(--neutral-100); color: var(--neutral-600); border-color: var(--neutral-200); }
 
-/* ========== AVATARS (Manquants précédemment) ========== */
-/* Utilisé dans le tableau Admin > Utilisateurs */
 .user-avatar-sm {
   width: 32px; height: 32px; background: var(--color-primary-light); color: var(--color-primary);
   border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
@@ -90,7 +86,7 @@
   padding: 1rem 1.5rem; background: var(--neutral-50); border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 0.75rem; position: sticky; bottom: 0; z-index: 10;
 }
 
-/* ========== ALERTS / NOTIFICATIONS ========== */
+/* ========== ALERTS ========== */
 .alert {
   padding: 1rem; border-radius: var(--radius-md); border: 1px solid transparent; margin-bottom: 1.5rem; display: flex; align-items: flex-start; gap: 0.75rem; font-size: 0.875rem; line-height: 1.4;
 }
@@ -109,94 +105,20 @@
 .notification-error { border-left-color: var(--color-danger); } .notification-error i { color: var(--color-danger); }
 .notification-warning { border-left-color: var(--color-warning); } .notification-warning i { color: var(--color-warning); }
 
-/* ========== TABS (Admin) ========== */
-/* ... (Gardez le début de components.css) ... */
-
-/* ========== TABS (ADMIN NAVIGATION) - NOUVEAU DESIGN ========== */
-.tabs {
-  display: flex;
-  gap: 0.5rem; /* Espace entre les "pilules" */
-  padding: 0.5rem;
-  background: var(--neutral-100); /* Fond gris clair pour le conteneur */
-  border-radius: var(--radius-lg); /* Arrondi global */
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-  border-bottom: none; /* On enlève la ligne du bas classique */
-}
-
+/* ========== TABS ========== */
+.tabs { display: flex; gap: 0.5rem; padding: 0.5rem; background: var(--neutral-100); border-radius: var(--radius-lg); margin-bottom: 2rem; flex-wrap: wrap; border-bottom: none; }
 .tab {
-  padding: 0.75rem 1.5rem;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md); /* Arrondi individuel */
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--neutral-600);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex: 1; /* Les onglets prennent toute la largeur dispo équitablement */
-  text-align: center;
-  min-width: 120px;
+  padding: 0.75rem 1.5rem; background: transparent; border: none; border-radius: var(--radius-md); font-weight: 600; font-size: 0.9rem;
+  color: var(--neutral-600); cursor: pointer; transition: all 0.2s ease; flex: 1; text-align: center; min-width: 120px;
 }
-
-.tab:hover {
-  background: rgba(255, 255, 255, 0.5);
-  color: var(--neutral-900);
-}
-
-.tab.active {
-  background: white;
-  color: var(--color-primary);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Effet "carte" levée */
-  transform: scale(1.02); /* Léger grossissement */
-}
-
+.tab:hover { background: rgba(255, 255, 255, 0.5); color: var(--neutral-900); }
+.tab.active { background: white; color: var(--color-primary); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); transform: scale(1.02); }
 .tab-content { display: none; animation: fadeIn 0.3s ease-out; }
 .tab-content.active { display: block; }
 
-
-/* ========== TABLEAUX ADMIN (AMÉLIORATION) ========== */
-/* Ces styles s'appliquent déjà via table.css mais on peaufine ici */
-
-/* Avatar Admin plus stylé */
-.user-avatar-sm {
-  width: 36px; height: 36px; /* Un peu plus grand */
-  background: white;
-  border: 2px solid var(--color-primary-light);
-  color: var(--color-primary);
-  font-weight: 800;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-/* Actions (Boutons Modifier/Supprimer) */
-.table-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
-}
-
-.table-actions button {
-  opacity: 0.7;
-  transition: all 0.2s;
-}
-.table-actions button:hover {
-  opacity: 1;
-  transform: scale(1.1);
-}
-
-/* Badges Statut Admin (Actif/Inactif) */
-.badge {
-  padding: 0.35rem 0.85rem; /* Plus large */
-  font-size: 0.75rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-/* ========== ACTIONS & MENUS ========== */
-/* Utilisé pour les boutons 'Modifier / Supprimer' dans les tableaux admin */
-.admin-table-actions, .table-actions {
-  display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;
-}
+.table-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+.table-actions button { opacity: 0.7; transition: all 0.2s; }
+.table-actions button:hover { opacity: 1; transform: scale(1.1); }
 
 .action-menu { position: relative; display: inline-block; }
 .action-menu-trigger {
@@ -217,16 +139,129 @@
 .action-menu-item.danger { color: var(--color-danger); }
 .action-menu-item.danger:hover { background: #fee2e2; }
 
-/* ========== EQUIPMENT DETAILS (Clients Table & Modal) ========== */
-.equipment-badges { display: flex; flex-direction: column; gap: 0.5rem; }
-.equipment-badge-item {
-  display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--neutral-50);
-  border: 1px solid var(--border-color); border-left: 3px solid var(--color-primary); border-radius: var(--radius-sm); font-size: 0.8rem;
+/* ========== EQUIPMENT CARDS (NOUVEAU DESIGN ÉPURÉ) ========== */
+.equipment-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Espace aéré entre les cartes */
 }
-.equipment-badge-name { font-weight: 600; color: var(--neutral-900); }
-.equipment-badge-days { font-size: 0.7rem; color: var(--neutral-500); background: var(--neutral-200); padding: 1px 6px; border-radius: 4px; }
-.equipment-empty { font-size: 0.8rem; color: var(--neutral-400); font-style: italic; display: flex; align-items: center; gap: 0.5rem; }
 
+/* La carte elle-même */
+.equipment-card {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+/* La barre de statut à gauche (couleur) */
+.equipment-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--neutral-300); /* Défaut */
+}
+
+.equipment-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border-color: var(--color-primary-light);
+}
+
+/* Variantes de statut pour la barre */
+.equipment-card.status-ok::before { background-color: var(--color-success); }
+.equipment-card.status-warning::before { background-color: var(--color-warning); }
+.equipment-card.status-expired::before { background-color: var(--color-danger); }
+
+/* Infos Gauche (Nom + Série) */
+.equipment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.equipment-name {
+  font-weight: 700;
+  color: var(--neutral-800);
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.equipment-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--neutral-500);
+}
+
+.equipment-brand {
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+
+.equipment-serial {
+  font-family: var(--font-family-mono);
+  background: var(--neutral-100);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--neutral-600);
+}
+
+/* Infos Droite (Badge + Date) */
+.equipment-status {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.equipment-days {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.text-danger { color: var(--color-danger); }
+.text-warning { color: #b45309; }
+.text-success { color: var(--color-success); }
+
+/* Le badge en forme de pilule (pill) */
+.status-pill {
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.status-pill.ok { background: var(--status-jour-bg); color: var(--status-jour-text); border: 1px solid var(--status-jour-border); }
+.status-pill.warning { background: var(--status-soon-bg); color: var(--status-soon-text); border: 1px solid var(--status-soon-border); }
+.status-pill.expired { background: var(--status-expire-bg); color: var(--status-expire-text); border: 1px solid var(--status-expire-border); }
+
+/* État vide ou filtré */
+.equipment-empty {
+  color: var(--neutral-400);
+  font-size: 0.85rem;
+  font-style: italic;
+  padding: 0.5rem;
+  background: var(--neutral-50);
+  border-radius: 6px;
+  text-align: center;
+}
+
+/* --- DETAILS CARDS --- */
 .equipment-detail-card {
   background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem;
   margin-bottom: 1rem; box-shadow: var(--shadow-sm); border-top: 3px solid var(--color-primary);
@@ -241,8 +276,11 @@
 
 /* History Items */
 .history-list { display: flex; flex-direction: column; gap: 0.75rem; }
-.history-item { background: white; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; border-left: 3px solid var(--neutral-300); transition: all 0.2s; }
+.history-item { background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; border-left: 3px solid var(--neutral-300); transition: all 0.2s; }
 .history-item:hover { border-left-color: var(--color-primary); box-shadow: var(--shadow-sm); }
-.history-item-date { font-weight: 600; color: var(--neutral-900); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
-.history-item-date i { color: var(--color-primary); }
-.history-item-content { display: flex; flex-direction: column; gap: 0.25rem; color: var(--neutral-600); font-size: 0.85rem; }
+.history-item-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+.history-date { font-weight: 600; color: var(--neutral-900); display: flex; align-items: center; gap: 0.5rem; }
+.history-tech { font-size: 0.75rem; background: var(--neutral-100); padding: 2px 8px; border-radius: 12px; color: var(--neutral-600); }
+.history-content { color: var(--neutral-600); font-size: 0.85rem; line-height: 1.4; }
+.history-actions { display: flex; gap: 5px; }
+.btn-xs { padding: 2px 6px; font-size: 0.7rem; height: 22px; line-height: 1; }

@@ -1,5 +1,6 @@
 /**
  * KB Medizin Technik - Base Styles
+ * Adjusted for 90% Scale Look
  */
 
 *, *::before, *::after {
@@ -11,14 +12,14 @@
 }
 
 html {
-  font-size: 16px;
+  font-size: 14.5px; /* 16px * 0.9 = ~14.4px -> Simule le zoom 90% */
   scroll-behavior: smooth;
 }
 
 body {
   font-family: var(--font-family);
   font-size: var(--font-size-sm);
-  line-height: var(--line-height-relaxed); /* Lecture plus agréable */
+  line-height: var(--line-height-relaxed);
   color: var(--neutral-700);
   background: var(--gradient-page);
   min-height: 100vh;

@@ -76,11 +76,13 @@ function renderReports(reports) {
         <td>${escapeHtml(r.cabinet_name)}</td>
         <td>${formatDate(r.created_at)}</td>
         <td>${r.technicians_count || 0}</td>
-        <td>${badges[r.status] || r.status}</td>
+        <td><span class="badge ${r.status === 'completed' ? 'badge-success' : r.status === 'sent' ? 'badge-primary' : 'badge-secondary'}">${badges[r.status] || r.status}</span></td>
         <td>
-          <button class="btn-icon-sm" onclick="viewReport(${r.id})"><i class="fas fa-eye"></i></button>
-          <button class="btn-icon-sm" onclick="openReportModal(${r.id})"><i class="fas fa-edit"></i></button>
-          <button class="btn-icon-sm" onclick="openDeleteModal(${r.id}, '${r.report_number}')"><i class="fas fa-trash"></i></button>
+          <div class="table-actions">
+            <button class="btn-icon-sm btn-icon-primary" onclick="viewReport(${r.id})" title="Voir PDF"><i class="fas fa-eye"></i></button>
+            <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${r.id})" title="Modifier"><i class="fas fa-edit"></i></button>
+            <button class="btn-icon-sm btn-icon-danger" onclick="openDeleteModal(${r.id}, '${r.report_number}')" title="Supprimer"><i class="fas fa-trash"></i></button>
+          </div>
         </td>
       </tr>`;
   }).join('');
@@ -97,7 +99,7 @@ async function openReportModal(reportId = null) {
   document.getElementById('materials-list').innerHTML = '';
   document.getElementById('stk-tests-list').innerHTML = '';
   document.getElementById('work-list').innerHTML = '';
-  document.getElementById('client-equipment-list').innerHTML = '<p style="color:#999">Sélectionnez un client...</p>';
+  document.getElementById('client-equipment-list').innerHTML = '<p style="color:#999; font-style:italic;">Veuillez sélectionner un client ci-dessus.</p>';
 
   if (reportId) {
     title.innerHTML = '<i class="fas fa-edit"></i> Modifier le rapport';
@@ -135,7 +137,7 @@ async function openReportModal(reportId = null) {
          document.getElementById('tech-signature').value = getInitials(report.technicians[0].technician_name);
       }
       
-      if (report.client_id) await loadClientEquipmentForReport(report.client_id, report.installation);
+      if (report.client_id) await loadClientEquipmentForReport(report.client_id);
       if (report.technicians) report.technicians.forEach(t => addTechnicianRow(t));
       if (report.stk_tests) report.stk_tests.forEach(t => addStkTestRow(t));
       if (report.materials) report.materials.forEach(m => addMaterialRow(m));
@@ -156,16 +158,50 @@ async function openReportModal(reportId = null) {
   modal.classList.add('active');
 }
 
-// --- DYNAMIC ROWS ---
+// --- DYNAMIC ROWS (CORRIGÉ POUR ALIGNEMENT) ---
 
 function addWorkRow(text = '') {
   const container = document.getElementById('work-list');
   const div = document.createElement('div');
   div.className = 'form-row';
-  div.style.display = 'flex'; div.style.gap = '5px'; div.style.marginBottom = '5px';
+  // Correction alignement : alignItems center pour que le bouton X soit centré avec l'input
+  div.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:center;';
+  
   div.innerHTML = `
-    <input type="text" class="work-line-input" value="${escapeHtml(text)}" placeholder="Description..." style="flex:1;" />
-    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+    <input type="text" class="work-line-input" value="${escapeHtml(text)}" placeholder="Description des travaux..." style="flex:1;" />
+    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" tabindex="-1"><i class="fas fa-times"></i></button>
+  `;
+  container.appendChild(div);
+}
+
+function addTechnicianRow(data = null) {
+  const container = document.getElementById('technicians-list');
+  const div = document.createElement('div');
+  div.className = 'form-row';
+  // Alignement 'flex-end' car il y a des labels au-dessus des champs
+  div.style.cssText = 'display:flex; gap:15px; margin-bottom:15px; align-items:flex-end;';
+  
+  div.innerHTML = `
+    <div class="form-group" style="flex:1; margin-bottom:0;">
+        <label>Intervenant</label>
+        <select class="technician-select">
+            <option value="">--</option>
+            ${technicians.map(t => `<option value="${t.id}" ${data && data.technician_id == t.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}
+        </select>
+    </div>
+    <div class="form-group" style="width:160px; margin-bottom:0;">
+        <label>Date</label>
+        <input type="date" class="tech-date" value="${data ? data.work_date : new Date().toISOString().split('T')[0]}" />
+    </div>
+    <div class="form-group" style="width:80px; margin-bottom:0;">
+        <label>Norm.</label>
+        <input type="number" class="tech-hours-normal" step="0.5" value="${data ? data.hours_normal : 0}" />
+    </div>
+    <div class="form-group" style="width:80px; margin-bottom:0;">
+        <label>Sup.</label>
+        <input type="number" class="tech-hours-extra" step="0.5" value="${data ? data.hours_extra : 0}" />
+    </div>
+    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" style="height:46px; width:46px;"><i class="fas fa-times"></i></button>
   `;
   container.appendChild(div);
 }
@@ -174,7 +210,7 @@ function addStkTestRow(data = null) {
   const container = document.getElementById('stk-tests-list');
   const div = document.createElement('div');
   div.className = 'form-row';
-  div.style.display = 'flex'; div.style.gap = '5px'; div.style.alignItems = 'center'; div.style.marginBottom = '5px';
+  div.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:center; background:#f9fafb; padding:10px; border-radius:6px; border:1px solid #e5e7eb;';
 
   const prefix = "Test de sécurité électrique obligatoire i.O - ";
   let val = '';
@@ -185,15 +221,16 @@ function addStkTestRow(data = null) {
   }
 
   div.innerHTML = `
-    <div style="flex:2; display:flex; align-items:center; gap:5px;">
-      <span style="font-size:12px; font-weight:bold; white-space:nowrap;">${prefix}</span>
-      <input type="text" class="stk-input-name" value="${escapeHtml(val)}" placeholder="Unité" required style="flex:1;" />
+    <div style="flex:1; display:flex; align-items:center; gap:10px;">
+      <span style="font-size:0.85rem; font-weight:600; white-space:nowrap; color:var(--neutral-700);">${prefix}</span>
+      <input type="text" class="stk-input-name" value="${escapeHtml(val)}" placeholder="Désignation unité" required style="flex:1;" />
     </div>
-    <div style="width:100px;">
-      <input type="number" class="stk-price" step="0.01" value="${data ? data.price : 75.00}" />
+    <div style="width:120px; display:flex; align-items:center; gap:5px;">
+      <input type="number" class="stk-price" step="0.01" value="${data ? data.price : 75.00}" style="text-align:right;" />
+      <span style="font-size:0.8rem;">CHF</span>
     </div>
-    <div style="width:70px; text-align:center;">
-       <label><input type="checkbox" class="stk-incl" ${data && data.included ? 'checked' : ''}> Incl.</label>
+    <div style="width:80px; text-align:center;">
+       <label style="font-size:0.85rem; cursor:pointer;"><input type="checkbox" class="stk-incl" ${data && data.included ? 'checked' : ''}> Incl.</label>
     </div>
     <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
   `;
@@ -204,12 +241,12 @@ function addMaterialRow(data = null) {
   const container = document.getElementById('materials-list');
   const div = document.createElement('div');
   div.className = 'form-row';
-  div.style.display = 'flex'; div.style.gap = '10px'; div.style.alignItems = 'flex-end'; div.style.marginBottom = '5px';
+  div.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:flex-end;';
   
   div.innerHTML = `
-    <div class="form-group" style="flex:2;">
+    <div class="form-group" style="flex:2; margin-bottom:0;">
       <label>Matériel</label>
-      <select class="material-select" style="width:100%;">
+      <select class="material-select">
         <option value="">-- Choix --</option>
         ${materials.map(m => `
           <option value="${m.id}" data-price="${m.unit_price}" data-code="${m.product_code}" ${data && data.material_id == m.id ? 'selected' : ''}>
@@ -217,11 +254,11 @@ function addMaterialRow(data = null) {
           </option>`).join('')}
       </select>
     </div>
-    <div class="form-group"><label>Code</label><input type="text" class="material-code" value="${data ? (data.product_code||'') : ''}" readonly style="width:80px; background:#eee;" /></div>
-    <div class="form-group"><label>Qté</label><input type="number" class="material-qty" min="1" value="${data ? data.quantity : 1}" style="width:60px;" /></div>
-    <div class="form-group"><label>Prix</label><input type="number" class="material-price" step="0.01" value="${data ? data.unit_price : 0}" style="width:90px;" /></div>
-    <div class="form-group"><label>Total</label><input type="number" class="material-total" step="0.01" value="${data ? data.total_price : 0}" readonly style="width:90px; background:#eee;" /></div>
-    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();" style="margin-bottom:5px;"><i class="fas fa-times"></i></button>
+    <div class="form-group" style="width:100px; margin-bottom:0;"><label>Code</label><input type="text" class="material-code" value="${data ? (data.product_code||'') : ''}" readonly style="background:#f3f4f6;" /></div>
+    <div class="form-group" style="width:70px; margin-bottom:0;"><label>Qté</label><input type="number" class="material-qty" min="1" value="${data ? data.quantity : 1}" /></div>
+    <div class="form-group" style="width:100px; margin-bottom:0;"><label>Prix</label><input type="number" class="material-price" step="0.01" value="${data ? data.unit_price : 0}" /></div>
+    <div class="form-group" style="width:100px; margin-bottom:0;"><label>Total</label><input type="number" class="material-total" step="0.01" value="${data ? data.total_price : 0}" readonly style="background:#f3f4f6; font-weight:bold;" /></div>
+    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();" style="height:46px; width:46px;"><i class="fas fa-times"></i></button>
   `;
   container.appendChild(div);
 
@@ -256,38 +293,44 @@ function updateMaterialsTotal() {
   document.getElementById('materials-total').innerText = total.toFixed(2);
 }
 
-function addTechnicianRow(data = null) {
-  const container = document.getElementById('technicians-list');
-  const div = document.createElement('div');
-  div.className = 'form-row';
-  div.style.display = 'flex'; div.style.gap = '10px'; div.style.alignItems = 'flex-end'; div.style.marginBottom = '5px';
-  div.innerHTML = `
-    <div class="form-group"><label>Intervenant</label><select class="technician-select"><option value="">--</option>${technicians.map(t => `<option value="${t.id}" ${data && data.technician_id == t.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}</select></div>
-    <div class="form-group"><label>Date</label><input type="date" class="tech-date" value="${data ? data.work_date : new Date().toISOString().split('T')[0]}" /></div>
-    <div class="form-group"><label>Norm.</label><input type="number" class="tech-hours-normal" step="0.5" value="${data ? data.hours_normal : 0}" style="width:70px;" /></div>
-    <div class="form-group"><label>Sup.</label><input type="number" class="tech-hours-extra" step="0.5" value="${data ? data.hours_extra : 0}" style="width:70px;" /></div>
-    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" style="margin-bottom:5px;"><i class="fas fa-times"></i></button>
-  `;
-  container.appendChild(div);
-}
-
+// --- ÉQUIPEMENTS DU CLIENT (FIXÉ POUR AFFICHER LE NOM) ---
 async function loadClientEquipmentForReport(clientId) {
   try {
     const res = await fetch(`/api/clients/${clientId}/equipment`);
     const eqs = await res.json();
     const container = document.getElementById('client-equipment-list');
-    if(eqs.length===0) { container.innerHTML='<p>Aucun équipement.</p>'; return; }
     
-    container.innerHTML = eqs.map(e => `
-      <div style="margin-bottom:5px;"><label><input type="checkbox" class="eq-cb" value="${e.id}" data-txt="${escapeHtml(e.name)} ${escapeHtml(e.model||'')} S/N:${escapeHtml(e.serial_number||'')}"> ${escapeHtml(e.name)}</label></div>
-    `).join('');
+    if(eqs.length === 0) { 
+        container.innerHTML = '<p style="color:#666; padding:10px;">Aucun équipement installé.</p>'; 
+        return; 
+    }
+    
+    container.innerHTML = eqs.map(e => {
+      // LOGIQUE DE NOM ROBUSTE (Identique à clients.js)
+      let display = e.final_name || e.name;
+      if (!display || display === 'undefined') {
+         display = (e.final_brand || e.brand || '') + ' ' + (e.final_device_type || e.device_type || e.final_type || e.type || 'Équipement');
+      }
+      const serial = e.serial_number ? `S/N:${escapeHtml(e.serial_number)}` : '';
+      const fullTxt = `${display} ${serial}`.trim();
+
+      return `
+      <div style="margin-bottom:8px; display:flex; align-items:center;">
+        <input type="checkbox" class="eq-cb" id="rep-eq-${e.id}" value="${e.id}" data-txt="${escapeHtml(fullTxt)}" style="width:18px; height:18px; margin-right:10px;"> 
+        <label for="rep-eq-${e.id}" style="cursor:pointer; font-size:0.9rem;">
+            <strong>${escapeHtml(display)}</strong> 
+            <span style="color:#666; font-size:0.8rem;">${serial}</span>
+        </label>
+      </div>
+    `;
+    }).join('');
     
     // Auto-add to text field
     const txt = document.getElementById('installation-text');
     container.querySelectorAll('.eq-cb').forEach(cb => {
         cb.addEventListener('change', () => {
             const selected = Array.from(container.querySelectorAll('.eq-cb:checked')).map(c => c.dataset.txt);
-            if(selected.length > 0) txt.value = selected.join(', ');
+            txt.value = selected.join(', ');
         });
     });
   } catch(e) { console.error(e); }
@@ -353,48 +396,27 @@ async function saveReport() {
     const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
     
     if(res.ok) { closeReportModal(); loadReports(); alert('Enregistré !'); }
-    else { alert('Erreur enregistrement'); }
+    else { const err = await res.json(); alert('Erreur: ' + err.error); }
 
   } catch(e) { console.error(e); }
   btn.innerHTML = 'Enregistrer'; btn.disabled = false;
 }
 
-// Helpers... (copie des helpers habituels)
+// Helpers
 function closeReportModal() { document.getElementById('report-modal').classList.remove('active'); }
 function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); }
-// Remplacer l'ancienne fonction checkAuth à la fin du fichier par ceci :
+
 async function checkAuth() {
   try {
     const response = await fetch('/api/me');
-    if (!response.ok) {
-      window.location.href = '/login.html';
-      return;
-    }
+    if (!response.ok) { window.location.href = '/login.html'; return; }
     const data = await response.json();
-    
-    // C'est cette partie qui manquait pour afficher le nom :
-    const userInfoEl = document.getElementById('user-info');
-    if (userInfoEl) {
-      userInfoEl.innerHTML = `
-        <div class="user-avatar">${data.user.name.charAt(0)}</div>
-        <div class="user-details">
-          <strong>${escapeHtml(data.user.name)}</strong>
-          <span>${data.user.role === 'admin' ? 'Administrateur' : 'Technicien'}</span>
-        </div>
-      `;
-    }
-
-    // Afficher le lien admin si nécessaire
-    if (data.user.role === 'admin') {
-      const adminLink = document.getElementById('admin-link');
-      if(adminLink) adminLink.classList.remove('hidden');
-    }
-    
-    return data; // Retourne les données pour usage ultérieur
-  } catch (error) {
-    window.location.href = '/login.html';
-  }
+    const ui = document.getElementById('user-info');
+    if(ui) ui.innerHTML=`<div class="user-avatar">${data.user.name[0]}</div><div class="user-details"><strong>${data.user.name}</strong><span>${data.user.role}</span></div>`;
+    if(data.user.role==='admin') document.getElementById('admin-link')?.classList.remove('hidden');
+  } catch { window.location.href = '/login.html'; }
 }
+
 function loadClients() { fetch('/api/clients?limit=1000').then(r=>r.json()).then(d=>{ clients=d.clients; document.getElementById('client-select').innerHTML='<option value="">-- Client --</option>'+clients.map(c=>`<option value="${c.id}">${escapeHtml(c.cabinet_name)}</option>`).join(''); }); }
 function loadTechnicians() { fetch('/api/admin/users').then(r=>r.json()).then(d=>technicians=d); }
 function loadMaterials() { fetch('/api/admin/materials').then(r=>r.json()).then(d=>materials=d); }
@@ -406,6 +428,6 @@ function handleFilters() { currentFilters.search=document.getElementById('global
 function clearFilters() { document.getElementById('global-search').value=''; document.getElementById('filter-type').value=''; document.getElementById('filter-status').value=''; handleFilters(); }
 function updatePagination(p) { totalPages=p.totalPages; document.getElementById('pagination-info').textContent=`Page ${p.page} / ${totalPages}`; document.getElementById('prev-page').disabled=p.page===1; document.getElementById('next-page').disabled=p.page===totalPages; }
 function formatDate(s) { return s?new Date(s).toLocaleDateString('fr-CH'):'-'; }
-function escapeHtml(t) { if(!t)return ''; const d=document.createElement('div'); d.innerText=t; return d.innerHTML; }
+function escapeHtml(t) { if(!t)return ''; return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function debounce(f,w) { let t; return function(...a){ clearTimeout(t); t=setTimeout(()=>f.apply(this,a),w); }; }
 function getInitials(n) { return n ? n.split(' ').map(x=>x[0]).join('.').toUpperCase() : ''; }

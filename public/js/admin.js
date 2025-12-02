@@ -1,5 +1,6 @@
 /**
  * KB Medizin Technik - Administration
+ * Version: Complete (Users, Sectors, Device Types, Equipment, Materials, Logs)
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -9,387 +10,166 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('logout-btn').addEventListener('click', logout);
 
-  // Users
+  // --- USERS EVENTS ---
   document.getElementById('add-user-btn').addEventListener('click', () => openUserModal());
   document.getElementById('cancel-user-btn').addEventListener('click', closeUserModal);
   document.getElementById('save-user-btn').addEventListener('click', saveUser);
   document.getElementById('cancel-reset-btn').addEventListener('click', closeResetModal);
   document.getElementById('confirm-reset-btn').addEventListener('click', confirmResetPassword);
 
-  // Sectors
+  // --- SECTORS EVENTS ---
   document.getElementById('add-sector-btn').addEventListener('click', openSectorModal);
   document.getElementById('cancel-sector-btn').addEventListener('click', closeSectorModal);
   document.getElementById('save-sector-btn').addEventListener('click', saveSector);
 
-  // Equipment
+  // --- DEVICE TYPES EVENTS (NOUVEAU) ---
+  const addDeviceTypeBtn = document.getElementById('add-device-type-btn');
+  if(addDeviceTypeBtn) addDeviceTypeBtn.addEventListener('click', openDeviceTypeModal);
+  
+  const saveDeviceTypeBtn = document.getElementById('save-device-type-btn');
+  if(saveDeviceTypeBtn) saveDeviceTypeBtn.addEventListener('click', saveDeviceType);
+
+  // --- EQUIPMENT EVENTS ---
   document.getElementById('add-equipment-btn').addEventListener('click', () => openEquipmentModal());
   document.getElementById('cancel-equipment-btn').addEventListener('click', closeEquipmentModal);
   document.getElementById('save-equipment-btn').addEventListener('click', saveEquipment);
 
+  // --- MATERIALS EVENTS ---
   document.getElementById('add-material-btn').addEventListener('click', () => openMaterialModal());
   document.getElementById('cancel-material-btn').addEventListener('click', closeMaterialModal);
   document.getElementById('save-material-btn').addEventListener('click', saveMaterial);
+  
+  // Close Modals on click outside
+  document.querySelectorAll('.modal').forEach(m => {
+    m.addEventListener('click', e => { if(e.target === m) m.classList.remove('active'); });
+  });
 });
 
+// ========== MODAL HELPERS ==========
 function closeUserModal() { document.getElementById('user-modal').classList.remove('active'); }
 function closeSectorModal() { document.getElementById('sector-modal').classList.remove('active'); }
+function closeDeviceTypeModal() { document.getElementById('device-type-modal').classList.remove('active'); }
 function closeEquipmentModal() { document.getElementById('equipment-modal').classList.remove('active'); }
 function closeResetModal() { document.getElementById('reset-password-modal').classList.remove('active'); }
+function closeMaterialModal() { document.getElementById('material-modal').classList.remove('active'); }
 
 function showNotification(message, type = 'info') {
   let container = document.getElementById('notification-container');
   if (!container) {
-    const div = document.createElement('div');
-    div.id = 'notification-container';
-    div.className = 'notification-container';
-    document.body.appendChild(div);
-    container = div;
+    const div = document.createElement('div'); div.id = 'notification-container'; div.className = 'notification-container';
+    document.body.appendChild(div); container = div;
   }
-
-  const notification = document.createElement('div');
-  notification.className = `notification notification-${type}`;
-  
-  const icons = {
-    success: 'fa-check-circle',
-    error: 'fa-exclamation-circle',
-    warning: 'fa-exclamation-triangle',
-    info: 'fa-info-circle'
-  };
-
-  notification.innerHTML = `
-    <i class="fas ${icons[type]}"></i>
-    <span>${message}</span>
-  `;
-
-  container.appendChild(notification);
-  setTimeout(() => notification.classList.add('show'), 10);
-  setTimeout(() => {
-    notification.classList.remove('show');
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
+  const n = document.createElement('div'); n.className = `notification notification-${type}`;
+  n.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i> <span>${message}</span>`;
+  container.appendChild(n);
+  setTimeout(() => n.classList.add('show'), 10);
+  setTimeout(() => { n.classList.remove('show'); setTimeout(() => n.remove(), 300); }, 3000);
 }
 
+// ========== AUTH & INIT ==========
 async function checkAuth() {
   try {
     const response = await fetch('/api/me');
-    if (!response.ok) {
-      window.location.href = '/login.html';
-      return;
-    }
+    if (!response.ok) { window.location.href = '/login.html'; return; }
     const data = await response.json();
-
-    if (data.user.role !== 'admin') {
-      alert('Accès réservé aux administrateurs');
-      window.location.href = '/dashboard.html';
-      return;
-    }
-
+    if (data.user.role !== 'admin') { window.location.href = '/dashboard.html'; return; }
     document.getElementById('user-info').innerHTML = `
       <div class="user-avatar">${data.user.name.charAt(0)}</div>
-      <div class="user-details">
-        <strong>${data.user.name}</strong>
-        <span>Administrateur</span>
-      </div>
+      <div class="user-details"><strong>${escapeHtml(data.user.name)}</strong><span>Admin</span></div>
     `;
-  } catch (error) {
-    window.location.href = '/login.html';
-  }
+    // Store ID for self-delete check
+    window.currentUserId = data.user.id;
+  } catch { window.location.href = '/login.html'; }
 }
 
-async function logout() {
-  await fetch('/api/logout', { method: 'POST' });
-  window.location.href = '/login.html';
-}
+async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login.html'; }
 
 function setupTabs() {
-  document.querySelectorAll('.tab').forEach((tab) => {
+  document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach((c) => c.classList.remove('active'));
-
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       tab.classList.add('active');
-      document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+      const targetId = `tab-${tab.dataset.tab}`;
+      const targetContent = document.getElementById(targetId);
+      if(targetContent) targetContent.classList.add('active');
     });
   });
 }
 
 async function loadAllData() {
-  await Promise.all([loadUsers(), loadSectors(), loadEquipment(), loadLogs(), loadMaterials()]);
+  // Load dependencies first (for select options)
+  await Promise.all([loadSectors(), loadDeviceTypes()]);
+  // Load main data
+  await Promise.all([loadUsers(), loadEquipment(), loadMaterials(), loadLogs()]);
 }
 
-// 🔥 NOUVELLES FONCTIONS
-function closeMaterialModal() { 
-  document.getElementById('material-modal').classList.remove('active'); 
-}
-
-async function loadMaterials() {
-  try {
-    const response = await fetch('/api/admin/materials');
-    const materials = await response.json();
-
-    const tbody = document.getElementById('materials-tbody');
-    tbody.innerHTML = materials.map(mat => `
-      <tr>
-        <td data-label="Nom"><strong>${escapeHtml(mat.name)}</strong></td>
-        <td data-label="Code produit"><code>${escapeHtml(mat.product_code)}</code></td>
-        <td data-label="Prix unitaire">${mat.unit_price.toFixed(2)} CHF</td>
-        <td data-label="Actions">
-          <div class="table-actions">
-            <button class="btn-icon btn-icon-primary" onclick="openMaterialModal(${mat.id})" title="Modifier">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn-icon btn-icon-danger" onclick="deleteMaterial(${mat.id}, '${escapeHtml(mat.name).replace(/'/g, "\\'")}')">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
-  } catch (error) {
-    console.error('Erreur chargement matériel:', error);
-  }
-}
-
-async function openMaterialModal(materialId = null) {
-  const modal = document.getElementById('material-modal');
-  const title = document.getElementById('material-modal-title');
-  const form = document.getElementById('material-form');
-
-  form.reset();
-  document.getElementById('material-id').value = '';
-
-  if (materialId) {
-    title.innerHTML = '<i class="fas fa-edit"></i> Modifier le matériel';
-
-    try {
-      const response = await fetch('/api/admin/materials');
-      const materials = await response.json();
-      const mat = materials.find((m) => m.id === materialId);
-
-      if (mat) {
-        document.getElementById('material-id').value = mat.id;
-        document.getElementById('material-name').value = mat.name;
-        document.getElementById('material-code').value = mat.product_code;
-        document.getElementById('material-price').value = mat.unit_price;
-      }
-    } catch (error) {
-      console.error('Erreur chargement matériel:', error);
-    }
-  } else {
-    title.innerHTML = '<i class="fas fa-plus-circle"></i> Ajouter du matériel';
-  }
-
-  modal.classList.add('active');
-}
-
-async function saveMaterial() {
-  const btn = document.getElementById('save-material-btn');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
-  btn.disabled = true;
-
-  const materialId = document.getElementById('material-id').value;
-  const data = {
-    name: document.getElementById('material-name').value,
-    product_code: document.getElementById('material-code').value,
-    unit_price: parseFloat(document.getElementById('material-price').value)
-  };
-
-  try {
-    const url = materialId ? `/api/admin/materials/${materialId}` : '/api/admin/materials';
-    const method = materialId ? 'PUT' : 'POST';
-
-    const response = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-
-    if (response.ok) {
-      closeMaterialModal();
-      loadMaterials();
-      showNotification('Matériel enregistré avec succès', 'success');
-    } else {
-      const error = await response.json();
-      showNotification(error.error || 'Erreur inconnue', 'error');
-    }
-  } catch (error) {
-    console.error('Erreur sauvegarde matériel:', error);
-    showNotification('Erreur de connexion au serveur', 'error');
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
-}
-
-async function deleteMaterial(id, name) {
-  if (!confirm(`Supprimer le matériel "${name}" ?`)) return;
-
-  try {
-    const response = await fetch(`/api/admin/materials/${id}`, { method: 'DELETE' });
-
-    if (response.ok) {
-      loadMaterials();
-      showNotification('Matériel supprimé', 'success');
-    } else {
-      showNotification('Erreur lors de la suppression', 'error');
-    }
-  } catch (error) {
-    console.error('Erreur suppression matériel:', error);
-    showNotification('Erreur de connexion au serveur', 'error');
-  }
-}
-
-// Exposer globalement
-window.openMaterialModal = openMaterialModal;
-window.deleteMaterial = deleteMaterial;
-
-// ========== UTILISATEURS ==========
-
+// ========== USERS ==========
 async function loadUsers() {
   try {
-    const response = await fetch('/api/admin/users');
-    const users = await response.json();
-
-    const tbody = document.getElementById('users-tbody');
-    tbody.innerHTML = users.map(user => `
+    const r = await fetch('/api/admin/users'); 
+    const users = await r.json();
+    document.getElementById('users-tbody').innerHTML = users.map(u => `
       <tr>
-        <td data-label="Nom">
+        <td>
           <div class="user-cell">
-            <div class="user-avatar-sm">${user.name.charAt(0)}</div>
-            <strong>${escapeHtml(user.name)}</strong>
+            <div class="user-avatar-sm">${u.name.charAt(0)}</div>
+            <strong>${escapeHtml(u.name)}</strong>
           </div>
         </td>
-        <td data-label="Email">${escapeHtml(user.email)}</td>
-        <td data-label="Rôle">
-          <span class="badge ${user.role === 'admin' ? 'badge-primary' : 'badge-secondary'}">
-            <i class="fas ${user.role === 'admin' ? 'fa-shield-alt' : 'fa-user'}"></i>
-            ${user.role === 'admin' ? 'Admin' : 'Technicien'}
-          </span>
-        </td>
-        <td data-label="Téléphone">${escapeHtml(user.phone || '-')}</td>
-        <td data-label="Statut">
-          <span class="badge ${user.is_active ? 'badge-success' : 'badge-danger'}">
-            <i class="fas ${user.is_active ? 'fa-check-circle' : 'fa-times-circle'}"></i>
-            ${user.is_active ? 'Actif' : 'Inactif'}
-          </span>
-        </td>
-        <td data-label="Dernière connexion">${formatDateTime(user.last_login_at)}</td>
-        <td data-label="Actions">
-          <div class="admin-table-actions">
-            <button class="btn-icon-sm btn-icon-primary" onclick="openUserModal(${user.id})" title="Modifier">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn-icon-sm btn-icon-danger" onclick="openResetModal(${user.id})" title="Réinitialiser mot de passe">
-              <i class="fas fa-key"></i>
-            </button>
-            <!-- 🔥 NOUVEAU : Bouton de suppression -->
-            <button class="btn-icon-sm btn-icon-danger" onclick="deleteUser(${user.id}, '${escapeHtml(user.name).replace(/'/g, "\\'")}', ${user.id === currentUserId ? 'true' : 'false'})" title="Supprimer">
-              <i class="fas fa-trash"></i>
-            </button>
+        <td>${escapeHtml(u.email)}</td>
+        <td><span class="badge ${u.role==='admin'?'badge-primary':'badge-secondary'}">${u.role}</span></td>
+        <td>${escapeHtml(u.phone||'-')}</td>
+        <td><span class="badge ${u.is_active?'badge-success':'badge-danger'}">${u.is_active?'Actif':'Inactif'}</span></td>
+        <td>${formatDateTime(u.last_login_at)}</td>
+        <td>
+          <div class="table-actions">
+            <button class="btn-icon-sm btn-icon-primary" onclick="openUserModal(${u.id})"><i class="fas fa-edit"></i></button>
+            <button class="btn-icon-sm btn-icon-danger" onclick="openResetModal(${u.id})"><i class="fas fa-key"></i></button>
+            <button class="btn-icon-sm btn-icon-danger" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button>
           </div>
         </td>
       </tr>
     `).join('');
-  } catch (error) {
-    console.error('Erreur chargement utilisateurs:', error);
-  }
+  } catch(e) { console.error(e); }
 }
 
-// 🔥 NOUVELLE FONCTION
-async function deleteUser(userId, userName, isSelf) {
-  if (isSelf) {
-    showNotification('Vous ne pouvez pas supprimer votre propre compte', 'error');
-    return;
-  }
-  
-  if (!confirm(`Supprimer l'utilisateur "${userName}" ?\n\nCette action est irréversible.`)) {
-    return;
-  }
-  
-  try {
-    const response = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
-    
-    if (response.ok) {
-      showNotification('Utilisateur supprimé', 'success');
-      loadUsers();
-    } else {
-      const error = await response.json();
-      showNotification(error.error || 'Erreur lors de la suppression', 'error');
-    }
-  } catch (error) {
-    console.error('Erreur:', error);
-    showNotification('Erreur de connexion', 'error');
-  }
-}
-
-// Ajouter en haut pour récupérer l'ID de l'utilisateur connecté
-let currentUserId = null;
-
-async function checkAuth() {
-  try {
-    const response = await fetch('/api/me');
-    if (!response.ok) {
-      window.location.href = '/login.html';
-      return;
-    }
-    const data = await response.json();
-    currentUserId = data.user.id; // 🔥 STOCKER L'ID
-    
-    // ... reste du code
-  } catch (error) {
-    window.location.href = '/login.html';
-  }
-}
-
-async function openUserModal(userId = null) {
+async function openUserModal(id = null) {
   const modal = document.getElementById('user-modal');
-  const title = document.getElementById('user-modal-title');
   const form = document.getElementById('user-form');
-  const passwordGroup = document.getElementById('password-group');
-  const passwordInput = document.getElementById('user-password');
-
   form.reset();
   document.getElementById('user-id').value = '';
+  document.getElementById('password-group').style.display = 'block';
+  document.getElementById('user-password').required = true;
+  document.getElementById('user-modal-title').innerHTML = '<i class="fas fa-user-plus"></i> Ajouter un utilisateur';
 
-  if (userId) {
-    title.innerHTML = '<i class="fas fa-user-edit"></i> Modifier l\'utilisateur';
-    passwordGroup.style.display = 'none';
-    passwordInput.removeAttribute('required');
-
+  if(id) {
     try {
-      const response = await fetch('/api/admin/users');
-      const users = await response.json();
-      const user = users.find((u) => u.id === userId);
-
-      if (user) {
-        document.getElementById('user-id').value = user.id;
-        document.getElementById('user-name').value = user.name;
-        document.getElementById('user-email').value = user.email;
-        document.getElementById('user-role').value = user.role;
-        document.getElementById('user-phone').value = user.phone || '';
-        document.getElementById('user-active').checked = user.is_active === 1;
+      const r = await fetch('/api/admin/users');
+      const users = await r.json();
+      const u = users.find(x => x.id === id);
+      if(u) {
+        document.getElementById('user-id').value = u.id;
+        document.getElementById('user-name').value = u.name;
+        document.getElementById('user-email').value = u.email;
+        document.getElementById('user-role').value = u.role;
+        document.getElementById('user-phone').value = u.phone || '';
+        document.getElementById('user-active').checked = !!u.is_active;
+        
+        document.getElementById('password-group').style.display = 'none';
+        document.getElementById('user-password').required = false;
+        document.getElementById('user-modal-title').innerHTML = '<i class="fas fa-user-edit"></i> Modifier l\'utilisateur';
       }
-    } catch (error) {
-      console.error('Erreur chargement utilisateur:', error);
-    }
-  } else {
-    title.innerHTML = '<i class="fas fa-user-plus"></i> Ajouter un utilisateur';
-    passwordGroup.style.display = 'block';
-    passwordInput.setAttribute('required', 'required');
-    document.getElementById('user-active').checked = true;
+    } catch(e) { console.error(e); }
   }
-
   modal.classList.add('active');
 }
 
 async function saveUser() {
   const btn = document.getElementById('save-user-btn');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
   btn.disabled = true;
-
-  const userId = document.getElementById('user-id').value;
+  const id = document.getElementById('user-id').value;
+  
   const data = {
     name: document.getElementById('user-name').value,
     email: document.getElementById('user-email').value,
@@ -397,375 +177,323 @@ async function saveUser() {
     phone: document.getElementById('user-phone').value,
     is_active: document.getElementById('user-active').checked ? 1 : 0
   };
-
-  if (!userId) {
+  
+  if(!id) {
     data.password = document.getElementById('user-password').value;
-    if (!data.password || data.password.length < 6) {
-      showNotification('Le mot de passe doit contenir au moins 6 caractères', 'error');
-      btn.innerHTML = originalText;
+    if(data.password.length < 6) {
+      showNotification('Mot de passe trop court (min 6)', 'error');
       btn.disabled = false;
       return;
     }
   }
 
   try {
-    const url = userId ? `/api/admin/users/${userId}` : '/api/admin/users';
-    const method = userId ? 'PUT' : 'POST';
-
-    const response = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch(id ? `/api/admin/users/${id}` : '/api/admin/users', {
+      method: id ? 'PUT' : 'POST',
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(data)
     });
-
-    if (response.ok) {
-      showNotification('Utilisateur enregistré avec succès', 'success');
+    
+    if(res.ok) {
+      showNotification('Utilisateur enregistré', 'success');
       closeUserModal();
       loadUsers();
     } else {
-      const error = await response.json();
-      showNotification(error.error || 'Erreur inconnue', 'error');
+      const err = await res.json();
+      showNotification(err.error || 'Erreur', 'error');
     }
-  } catch (error) {
-    console.error('Erreur sauvegarde utilisateur:', error);
-    showNotification('Erreur de connexion au serveur', 'error');
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
+  } catch(e) { console.error(e); }
+  btn.disabled = false;
 }
 
-function openResetModal(userId) {
-  document.getElementById('reset-user-id').value = userId;
+async function deleteUser(id) {
+  if(id === window.currentUserId) return showNotification('Impossible de supprimer votre compte', 'warning');
+  if(!confirm('Supprimer cet utilisateur ?')) return;
+  
+  try {
+    const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+    if(res.ok) { showNotification('Supprimé', 'success'); loadUsers(); }
+    else { const err = await res.json(); showNotification(err.error, 'error'); }
+  } catch(e) { console.error(e); }
+}
+
+async function confirmResetPassword() {
+  const id = document.getElementById('reset-user-id').value;
+  const password = document.getElementById('new-password').value;
+  if(password.length < 6) return showNotification('Mot de passe trop court', 'warning');
+  
+  try {
+    const res = await fetch(`/api/admin/users/${id}/reset-password`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({password})
+    });
+    if(res.ok) { showNotification('Mot de passe réinitialisé', 'success'); closeResetModal(); }
+    else showNotification('Erreur', 'error');
+  } catch(e) { console.error(e); }
+}
+
+function openResetModal(id) {
+  document.getElementById('reset-user-id').value = id;
   document.getElementById('new-password').value = '';
   document.getElementById('reset-password-modal').classList.add('active');
 }
 
-async function confirmResetPassword() {
-  const btn = document.getElementById('confirm-reset-btn');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Réinitialisation...';
-  btn.disabled = true;
-
-  const userId = document.getElementById('reset-user-id').value;
-  const password = document.getElementById('new-password').value;
-
-  if (!password || password.length < 6) {
-    showNotification('Le mot de passe doit contenir au moins 6 caractères', 'error');
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-    return;
-  }
-
-  try {
-    const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
-    });
-
-    if (response.ok) {
-      showNotification('Mot de passe réinitialisé avec succès', 'success');
-      closeResetModal();
-    } else {
-      const error = await response.json();
-      showNotification(error.error || 'Erreur inconnue', 'error');
-    }
-  } catch (error) {
-    console.error('Erreur réinitialisation:', error);
-    showNotification('Erreur de connexion au serveur', 'error');
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
-}
-
-// ========== SECTEURS ==========
-
+// ========== SECTORS ==========
 async function loadSectors() {
   try {
-    const response = await fetch('/api/admin/sectors');
-    const sectors = await response.json();
-
-    const tbody = document.getElementById('sectors-tbody');
-    tbody.innerHTML = sectors.map(sector => `
+    const r = await fetch('/api/admin/sectors');
+    const sectors = await r.json();
+    document.getElementById('sectors-tbody').innerHTML = sectors.map(s => `
       <tr>
-        <td data-label="Nom"><strong>${escapeHtml(sector.name)}</strong></td>
-        <td data-label="Slug"><code>${escapeHtml(sector.slug)}</code></td>
-        <td data-label="Date création">${formatDate(sector.created_at)}</td>
-        <td data-label="Actions">
-          <button class="btn-icon btn-icon-danger" onclick="deleteSector(${sector.id}, '${escapeHtml(sector.name).replace(/'/g, "\\'")}')">
-            <i class="fas fa-trash"></i>
-          </button>
-        </td>
+        <td><strong>${escapeHtml(s.name)}</strong></td>
+        <td><code>${escapeHtml(s.slug)}</code></td>
+        <td>${formatDate(s.created_at)}</td>
+        <td><button class="btn-icon-sm btn-icon-danger" onclick="deleteSector(${s.id})"><i class="fas fa-trash"></i></button></td>
       </tr>
     `).join('');
-  } catch (error) {
-    console.error('Erreur chargement secteurs:', error);
-  }
+    updateSelectOptions('equipment-type', sectors);
+  } catch(e) { console.error(e); }
 }
 
-function openSectorModal() {
-  document.getElementById('sector-name').value = '';
-  document.getElementById('sector-modal').classList.add('active');
+function openSectorModal() { 
+  document.getElementById('sector-name').value = ''; 
+  document.getElementById('sector-modal').classList.add('active'); 
 }
 
 async function saveSector() {
-  const btn = document.getElementById('save-sector-btn');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
-  btn.disabled = true;
-
   const name = document.getElementById('sector-name').value;
-
-  if (!name) {
-    showNotification('Le nom est requis', 'error');
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-    return;
-  }
-
+  if(!name) return;
   try {
-    const response = await fetch('/api/admin/sectors', {
+    const res = await fetch('/api/admin/sectors', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name })
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name})
     });
-
-    if (response.ok) {
-      showNotification('Secteur créé avec succès', 'success');
-      closeSectorModal();
-      loadSectors();
-    } else {
-      const error = await response.json();
-      showNotification(error.error || 'Erreur inconnue', 'error');
-    }
-  } catch (error) {
-    console.error('Erreur sauvegarde secteur:', error);
-    showNotification('Erreur de connexion au serveur', 'error');
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
+    if(res.ok) { showNotification('Secteur ajouté', 'success'); closeSectorModal(); loadSectors(); }
+    else showNotification('Erreur', 'error');
+  } catch(e) { console.error(e); }
 }
 
-async function deleteSector(id, name) {
-  if (!confirm(`Supprimer le secteur "${name}" ?`)) return;
+async function deleteSector(id) {
+  if(!confirm('Supprimer ce secteur ?')) return;
+  await fetch(`/api/admin/sectors/${id}`, { method: 'DELETE' });
+  loadSectors();
+}
 
+// ========== DEVICE TYPES (TYPES D'APPAREILS) ==========
+async function loadDeviceTypes() {
   try {
-    const response = await fetch(`/api/admin/sectors/${id}`, { method: 'DELETE' });
-
-    if (response.ok) {
-      showNotification('Secteur supprimé', 'success');
-      loadSectors();
-    } else {
-      showNotification('Erreur lors de la suppression', 'error');
-    }
-  } catch (error) {
-    console.error('Erreur suppression secteur:', error);
-    showNotification('Erreur de connexion au serveur', 'error');
-  }
+    const r = await fetch('/api/admin/device-types');
+    const types = await r.json();
+    document.getElementById('device-types-tbody').innerHTML = types.map(t => `
+      <tr>
+        <td><strong>${escapeHtml(t.name)}</strong></td>
+        <td><button class="btn-icon-sm btn-icon-danger" onclick="deleteDeviceType(${t.id})"><i class="fas fa-trash"></i></button></td>
+      </tr>
+    `).join('');
+    updateSelectOptions('equipment-device-type', types);
+  } catch(e) { console.error(e); }
 }
 
-// ========== ÉQUIPEMENTS ==========
+function openDeviceTypeModal() {
+  document.getElementById('device-type-name').value = '';
+  document.getElementById('device-type-modal').classList.add('active');
+}
 
+async function saveDeviceType() {
+  const name = document.getElementById('device-type-name').value;
+  if(!name) return;
+  try {
+    const res = await fetch('/api/admin/device-types', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name})
+    });
+    if(res.ok) { showNotification('Type ajouté', 'success'); closeDeviceTypeModal(); loadDeviceTypes(); }
+    else showNotification('Erreur', 'error');
+  } catch(e) { console.error(e); }
+}
+
+async function deleteDeviceType(id) {
+  if(!confirm('Supprimer ce type ?')) return;
+  await fetch(`/api/admin/device-types/${id}`, { method: 'DELETE' });
+  loadDeviceTypes();
+}
+
+// ========== EQUIPMENT ==========
 async function loadEquipment() {
   try {
-    const response = await fetch('/api/admin/equipment');
-    const equipment = await response.json();
-
-    const tbody = document.getElementById('equipment-tbody');
-    tbody.innerHTML = equipment.map(eq => `
+    const r = await fetch('/api/admin/equipment'); 
+    const eq = await r.json();
+    document.getElementById('equipment-tbody').innerHTML = eq.map(e => `
       <tr>
-        <td data-label="Modèle"><strong>${escapeHtml(eq.name)}</strong></td>
-        <td data-label="Marque">${escapeHtml(eq.brand)}</td>
-        <td data-label="Type"><span class="badge badge-info">${escapeHtml(eq.type)}</span></td>
+        <td data-label="Modèle"><strong>${escapeHtml(e.name)}</strong></td>
+        <td data-label="Marque">${escapeHtml(e.brand)}</td>
+        <td data-label="Appareil">${escapeHtml(e.device_type || '-')}</td>
+        <td data-label="Secteur"><span class="badge badge-info">${escapeHtml(e.type)}</span></td>
         <td data-label="Actions">
           <div class="table-actions">
-            <button class="btn-icon btn-icon-primary" onclick="openEquipmentModal(${eq.id})" title="Modifier">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn-icon btn-icon-danger" onclick="deleteEquipment(${eq.id}, '${escapeHtml(eq.name).replace(/'/g, "\\'")}')">
-              <i class="fas fa-trash"></i>
-            </button>
+            <button class="btn-icon-sm btn-icon-primary" onclick="openEquipmentModal(${e.id})"><i class="fas fa-edit"></i></button>
+            <button class="btn-icon-sm btn-icon-danger" onclick="deleteEquipment(${e.id})"><i class="fas fa-trash"></i></button>
           </div>
         </td>
       </tr>
     `).join('');
-  } catch (error) {
-    console.error('Erreur chargement équipements:', error);
-  }
+  } catch(e) { console.error(e); }
 }
 
-async function openEquipmentModal(equipmentId = null) {
+async function openEquipmentModal(id = null) {
   const modal = document.getElementById('equipment-modal');
-  const title = document.getElementById('equipment-modal-title');
   const form = document.getElementById('equipment-form');
-
   form.reset();
   document.getElementById('equipment-id').value = '';
+  document.getElementById('equipment-modal-title').innerHTML = '<i class="fas fa-tools"></i> Ajouter un équipement';
 
-  if (equipmentId) {
-    title.innerHTML = '<i class="fas fa-tools"></i> Modifier l\'équipement';
-
+  if(id) {
     try {
-      const response = await fetch('/api/admin/equipment');
-      const equipment = await response.json();
-      const eq = equipment.find((e) => e.id === equipmentId);
-
-      if (eq) {
-        document.getElementById('equipment-id').value = eq.id;
-        document.getElementById('equipment-name').value = eq.name;
-        document.getElementById('equipment-brand').value = eq.brand;
-        document.getElementById('equipment-type').value = eq.type;
+      const r = await fetch('/api/admin/equipment');
+      const eqs = await r.json();
+      const e = eqs.find(x => x.id === id);
+      if(e) {
+        document.getElementById('equipment-id').value = e.id;
+        document.getElementById('equipment-name').value = e.name; // Modèle
+        document.getElementById('equipment-brand').value = e.brand;
+        document.getElementById('equipment-type').value = e.type; // Secteur
+        document.getElementById('equipment-device-type').value = e.device_type || ''; // Appareil
+        document.getElementById('equipment-modal-title').innerHTML = '<i class="fas fa-edit"></i> Modifier l\'équipement';
       }
-    } catch (error) {
-      console.error('Erreur chargement équipement:', error);
-    }
-  } else {
-    title.innerHTML = '<i class="fas fa-plus-circle"></i> Ajouter un équipement';
+    } catch(err) { console.error(err); }
   }
-
   modal.classList.add('active');
 }
 
 async function saveEquipment() {
-  const btn = document.getElementById('save-equipment-btn');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
-  btn.disabled = true;
-
-  const equipmentId = document.getElementById('equipment-id').value;
+  const id = document.getElementById('equipment-id').value;
   const data = {
-    name: document.getElementById('equipment-name').value,
+    name: document.getElementById('equipment-name').value, // Modèle
     brand: document.getElementById('equipment-brand').value,
-    type: document.getElementById('equipment-type').value
+    type: document.getElementById('equipment-type').value, // Secteur
+    device_type: document.getElementById('equipment-device-type').value // Appareil
   };
 
   try {
-    const url = equipmentId ? `/api/admin/equipment/${equipmentId}` : '/api/admin/equipment';
-    const method = equipmentId ? 'PUT' : 'POST';
-
-    const response = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch(id ? `/api/admin/equipment/${id}` : '/api/admin/equipment', {
+      method: id ? 'PUT' : 'POST',
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify(data)
     });
-
-    if (response.ok) {
-      showNotification('Équipement enregistré avec succès', 'success');
+    if(res.ok) {
+      showNotification('Équipement enregistré', 'success');
       closeEquipmentModal();
       loadEquipment();
     } else {
-      const error = await response.json();
-      showNotification(error.error || 'Erreur inconnue', 'error');
+      showNotification('Erreur', 'error');
     }
-  } catch (error) {
-    console.error('Erreur sauvegarde équipement:', error);
-    showNotification('Erreur de connexion au serveur', 'error');
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
+  } catch(e) { console.error(e); }
 }
 
-async function deleteEquipment(id, name) {
-  if (!confirm(`Supprimer l'équipement "${name}" ?`)) return;
+async function deleteEquipment(id) {
+  if(!confirm('Supprimer cet équipement ?')) return;
+  await fetch(`/api/admin/equipment/${id}`, { method: 'DELETE' });
+  loadEquipment();
+}
+
+// ========== MATERIALS ==========
+async function loadMaterials() {
+  try {
+    const r = await fetch('/api/admin/materials');
+    const mats = await r.json();
+    document.getElementById('materials-tbody').innerHTML = mats.map(m => `
+      <tr>
+        <td data-label="Nom"><strong>${escapeHtml(m.name)}</strong></td>
+        <td data-label="Code"><code>${escapeHtml(m.product_code)}</code></td>
+        <td data-label="Prix">${parseFloat(m.unit_price).toFixed(2)} CHF</td>
+        <td data-label="Actions">
+          <div class="table-actions">
+            <button class="btn-icon-sm btn-icon-primary" onclick="openMaterialModal(${m.id})"><i class="fas fa-edit"></i></button>
+            <button class="btn-icon-sm btn-icon-danger" onclick="deleteMaterial(${m.id})"><i class="fas fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function openMaterialModal(id = null) {
+  const modal = document.getElementById('material-modal');
+  const form = document.getElementById('material-form');
+  form.reset();
+  document.getElementById('material-id').value = '';
+  document.getElementById('material-modal-title').innerHTML = '<i class="fas fa-plus-circle"></i> Ajouter du matériel';
+
+  if(id) {
+    try {
+      const r = await fetch('/api/admin/materials');
+      const mats = await r.json();
+      const m = mats.find(x => x.id === id);
+      if(m) {
+        document.getElementById('material-id').value = m.id;
+        document.getElementById('material-name').value = m.name;
+        document.getElementById('material-code').value = m.product_code;
+        document.getElementById('material-price').value = m.unit_price;
+        document.getElementById('material-modal-title').innerHTML = '<i class="fas fa-edit"></i> Modifier le matériel';
+      }
+    } catch(e) { console.error(e); }
+  }
+  modal.classList.add('active');
+}
+
+async function saveMaterial() {
+  const id = document.getElementById('material-id').value;
+  const data = {
+    name: document.getElementById('material-name').value,
+    product_code: document.getElementById('material-code').value,
+    unit_price: parseFloat(document.getElementById('material-price').value)
+  };
 
   try {
-    const response = await fetch(`/api/admin/equipment/${id}`, { method: 'DELETE' });
+    const res = await fetch(id ? `/api/admin/materials/${id}` : '/api/admin/materials', {
+      method: id ? 'PUT' : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    if(res.ok) { showNotification('Matériel enregistré', 'success'); closeMaterialModal(); loadMaterials(); }
+    else showNotification('Erreur', 'error');
+  } catch(e) { console.error(e); }
+}
 
-    if (response.ok) {
-      showNotification('Équipement supprimé', 'success');
-      loadEquipment();
-    } else {
-      showNotification('Erreur lors de la suppression', 'error');
-    }
-  } catch (error) {
-    console.error('Erreur suppression équipement:', error);
-    showNotification('Erreur de connexion au serveur', 'error');
-  }
+async function deleteMaterial(id) {
+  if(!confirm('Supprimer ce matériel ?')) return;
+  await fetch(`/api/admin/materials/${id}`, { method: 'DELETE' });
+  loadMaterials();
 }
 
 // ========== LOGS ==========
-
 async function loadLogs() {
   try {
-    const response = await fetch('/api/admin/logs?limit=100');
-    const logs = await response.json();
-
-    const tbody = document.getElementById('logs-tbody');
-
-    const actionLabels = {
-      login: 'Connexion',
-      create: 'Création',
-      update: 'Modification',
-      delete: 'Suppression',
-      reset_password: 'Réinit. MDP'
-    };
-
-    const entityLabels = {
-      user: 'Utilisateur',
-      client: 'Client',
-      equipment: 'Équipement',
-      sector: 'Secteur'
-    };
-
-    const actionIcons = {
-      login: 'fa-sign-in-alt',
-      create: 'fa-plus-circle',
-      update: 'fa-edit',
-      delete: 'fa-trash',
-      reset_password: 'fa-key'
-    };
-
-    tbody.innerHTML = logs.map(log => `
+    const r = await fetch('/api/admin/logs?limit=50');
+    const logs = await r.json();
+    document.getElementById('logs-tbody').innerHTML = logs.map(l => `
       <tr>
-        <td data-label="Date/Heure">${formatDateTime(log.created_at)}</td>
-        <td data-label="Utilisateur">
-          <div class="user-cell">
-            <div class="user-avatar-sm">${(log.user_name || 'S').charAt(0)}</div>
-            ${escapeHtml(log.user_name || 'Système')}
-          </div>
-        </td>
-        <td data-label="Action">
-          <span class="badge badge-secondary">
-            <i class="fas ${actionIcons[log.action] || 'fa-circle'}"></i>
-            ${actionLabels[log.action] || log.action}
-          </span>
-        </td>
-        <td data-label="Entité">${entityLabels[log.entity] || log.entity}</td>
-        <td data-label="ID"><code>${log.entity_id || '-'}</code></td>
+        <td>${formatDateTime(l.created_at)}</td>
+        <td><div class="user-cell"><div class="user-avatar-sm">${(l.user_name||'S').charAt(0)}</div> ${escapeHtml(l.user_name||'Système')}</div></td>
+        <td><span class="badge badge-secondary">${l.action}</span></td>
+        <td>${l.entity}</td>
+        <td><code>${l.entity_id||'-'}</code></td>
       </tr>
     `).join('');
-  } catch (error) {
-    console.error('Erreur chargement logs:', error);
-  }
+  } catch(e) { console.error(e); }
 }
 
 // ========== UTILS ==========
-
-function formatDate(dateString) {
-  if (!dateString) return '-';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('fr-CH');
+function updateSelectOptions(elementId, items) {
+  const sel = document.getElementById(elementId);
+  if(!sel) return;
+  sel.innerHTML = '<option value="">-- Sélectionner --</option>' + 
+    items.map(i => `<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)}</option>`).join('');
 }
 
-function formatDateTime(dateString) {
-  if (!dateString) return '-';
-  const date = new Date(dateString);
-  return date.toLocaleString('fr-CH', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+function formatDate(s) { if(!s) return '-'; return new Date(s).toLocaleDateString('fr-CH'); }
+function formatDateTime(s) { if(!s) return '-'; return new Date(s).toLocaleString('fr-CH', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); }
+function escapeHtml(t) { if(!t) return ''; return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
