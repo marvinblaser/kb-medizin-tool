@@ -144,11 +144,24 @@ function initDatabase() {
           appointment_date TEXT NOT NULL,
           task_description TEXT,
           technician_id INTEGER,
+          report_id INTEGER, -- NOUVEAU CHAMP
           created_at TEXT DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
-          FOREIGN KEY (technician_id) REFERENCES users(id)
+          FOREIGN KEY (technician_id) REFERENCES users(id),
+          FOREIGN KEY (report_id) REFERENCES reports(id)
         )
       `);
+
+      // 🔥 MIGRATION AUTOMATIQUE POUR L'HISTORIQUE
+      db.all("PRAGMA table_info(appointments_history)", (err, columns) => {
+        if (!err) {
+          const columnNames = columns.map(col => col.name);
+          if (!columnNames.includes('report_id')) {
+            console.log('🔧 Ajout colonne report_id à appointments_history...');
+            db.run("ALTER TABLE appointments_history ADD COLUMN report_id INTEGER REFERENCES reports(id)");
+          }
+        }
+      });
 
       // Table pour lier équipements aux rendez-vous
       db.run(`

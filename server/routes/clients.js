@@ -249,21 +249,35 @@ router.delete('/:id/equipment/:itemId', requireAuth, (req, res) => {
   });
 });
 
-// GET /api/clients/:id/appointments (Historique)
+// GET /api/clients/:id/appointments (Historique avec infos Rapport)
 router.get('/:id/appointments', requireAuth, (req, res) => {
-  db.all('SELECT * FROM appointments_history WHERE client_id = ? ORDER BY appointment_date DESC', [req.params.id], (err, rows) => {
+  const sql = `
+    SELECT ah.*, 
+           u.name as technician_name,
+           r.report_number
+    FROM appointments_history ah
+    LEFT JOIN users u ON ah.technician_id = u.id
+    LEFT JOIN reports r ON ah.report_id = r.id
+    WHERE ah.client_id = ? 
+    ORDER BY ah.appointment_date DESC
+  `;
+  
+  db.all(sql, [req.params.id], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-// POST /api/clients/:id/appointments (Ajouter historique)
+// POST /api/clients/:id/appointments (Avec report_id)
 router.post('/:id/appointments', requireAuth, (req, res) => {
-  const { appointment_date, task_description, technician_id, equipment_ids } = req.body;
-  const techId = technician_id ? parseInt(technician_id) : null;
+  const { appointment_date, task_description, technician_id, report_id, equipment_ids } = req.body;
   
-  db.run(`INSERT INTO appointments_history (client_id, appointment_date, task_description, technician_id) VALUES (?, ?, ?, ?)`, 
-    [req.params.id, appointment_date, task_description, techId], function(err) {
+  // Sécurisation des IDs
+  const techId = technician_id ? parseInt(technician_id) : null;
+  const repId = report_id ? parseInt(report_id) : null;
+  
+  db.run(`INSERT INTO appointments_history (client_id, appointment_date, task_description, technician_id, report_id) VALUES (?, ?, ?, ?, ?)`, 
+    [req.params.id, appointment_date, task_description, techId, repId], function(err) {
       if (err) return res.status(500).json({ error: err.message });
       
       const appointmentId = this.lastID;

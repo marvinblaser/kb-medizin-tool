@@ -1,6 +1,6 @@
 /**
  * KB Medizin Technik - Pages
- * Updated: Flexible Filters Layout + New Modal Styles
+ * Updated: Dashboard Centering & Strict Equipment Alignment
  */
 
 /* ========== LOGIN ========== */
@@ -96,7 +96,7 @@
 }
 
 .search-box::before {
-  content: '\f002'; /* FontAwesome Search */
+  content: '\f002';
   font-family: "Font Awesome 6 Free";
   font-weight: 900;
   position: absolute;
@@ -148,10 +148,55 @@
 .stat-card.info .stat-card-icon { background: var(--color-primary-light); color: var(--color-primary); }
 .stat-card .value { font-size: 2.5rem; font-weight: 700; color: var(--neutral-900); }
 
-.widgets-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; margin: 2rem 3rem; }
-.widget { background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
-.widget-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--neutral-50); display: flex; justify-content: space-between; align-items: center; }
+/* --- DASHBOARD WIDGETS --- */
+.widgets-grid { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); 
+  gap: 2rem; 
+  margin: 2rem 3rem; 
+  align-items: start;
+}
+
+.widget { 
+  background: white; 
+  border: 1px solid var(--border-color); 
+  border-radius: var(--radius-lg); 
+  box-shadow: var(--shadow-sm); 
+  overflow: hidden;
+  display: flex; /* Permet au header et content de s'empiler */
+  flex-direction: column;
+}
+
+.widget-header { 
+  padding: 1.5rem; 
+  border-bottom: 1px solid var(--border-color); 
+  background: var(--neutral-50); 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+}
 .widget-header h2 { font-size: 1rem; font-weight: 600; margin: 0; color: var(--neutral-900); display: flex; align-items: center; gap: 0.5rem; }
+
+/* Conteneur principal du contenu du widget */
+.widget-content {
+  flex: 1; /* Prend l'espace restant */
+  display: flex;
+  flex-direction: column;
+  min-height: 100px; /* Hauteur min pour l'esthétique */
+}
+
+/* Style spécifique pour l'état vide (ajouté via JS) */
+.widget-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--neutral-500);
+  font-style: italic;
+  background: var(--neutral-50); /* Légère teinte pour différencier */
+}
+
 .widget-item { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color-light); }
 .widget-item strong { display: block; font-size: 0.9rem; color: var(--neutral-900); margin-bottom: 0.2rem; }
 .widget-item small { color: var(--neutral-500); font-size: 0.8rem; display: flex; align-items: center; gap: 0.4rem; }
@@ -191,78 +236,7 @@
 .footer-bottom { text-align: center; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); color: var(--neutral-400); font-size: 0.8rem; }
 
 /* ==========================================================================
-   STYLE CORRECTIONS (Client Details, Map, Widgets)
-   ========================================================================== */
-
-/* --- 1. FICHE CLIENT DÉTAILLÉE (Modale) --- */
-.client-details-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.detail-block {
-  background: var(--neutral-50);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  transition: all 0.2s;
-}
-
-.detail-block:hover {
-  background: white;
-  box-shadow: var(--shadow-sm);
-  border-color: var(--color-primary-light);
-}
-
-.detail-block-title {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  color: var(--neutral-900);
-  margin-bottom: 1.25rem;
-  font-size: 1rem;
-  border-bottom: 2px solid var(--color-primary-light);
-  padding-bottom: 0.75rem;
-}
-
-.detail-block-title i {
-  color: var(--color-primary);
-  background: white;
-  padding: 8px;
-  border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-  font-size: 0.9rem;
-  border-bottom: 1px dashed var(--neutral-200);
-  padding-bottom: 0.5rem;
-}
-
-.detail-row:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.detail-label {
-  color: var(--neutral-500);
-  font-weight: 500;
-}
-
-.detail-value {
-  color: var(--neutral-900);
-  font-weight: 600;
-  text-align: right;
-}
-
-/* ==========================================================================
-   STYLE MIS A JOUR (Map Popup, Widgets, Client Details)
+   STYLE MIS A JOUR (Map Popup, Widgets, Client Details, Equipment List)
    ========================================================================== */
 
 /* --- 1. POPUP CARTE (Style KB Medizin Bleu) --- */
@@ -279,7 +253,7 @@
 }
 
 .map-popup-header {
-  background: var(--gradient-primary); /* BLEU ici */
+  background: var(--gradient-primary);
   color: white;
   padding: 1rem 1.25rem;
   display: flex;
@@ -373,7 +347,7 @@
   position: absolute;
   top: 10px;
   right: 10px;
-  pointer-events: none; /* Le clic sur la carte active la checkbox */
+  pointer-events: none;
 }
 
 .widget-selector-icon {
@@ -399,3 +373,138 @@
   color: var(--neutral-500);
   margin: 0;
 }
+
+/* --- 3. EQUIPMENT BADGES (TABLE CLIENTS - ALIGNEMENT PARFAIT) --- */
+/* On utilise CSS Grid pour que tout soit aligné peu importe la longueur du texte */
+
+.equipment-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.equipment-badge-item {
+  display: grid; /* 🔥 C'est ici que la magie opère */
+  grid-template-columns: 1fr 90px 100px; /* Colonne 1: Nom (fluide), Col 2: Badge (fixe), Col 3: Date (fixe) */
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  background: white;
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+
+.equipment-badge-item:hover {
+  background: var(--neutral-50);
+  border-color: var(--border-color);
+}
+
+.equipment-badge-name {
+  font-weight: 600;
+  color: var(--neutral-800);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+/* Le conteneur du badge centré */
+.equipment-badge-status {
+  text-align: center;
+  display: flex;
+  justify-content: center;
+}
+
+/* La date alignée à droite */
+.equipment-badge-days {
+  font-size: 0.7rem;
+  color: var(--neutral-500);
+  background: var(--neutral-100);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  text-align: center;
+  justify-self: end; /* Pousse à droite de sa cellule */
+}
+
+.equipment-empty {
+  font-size: 0.8rem;
+  color: var(--neutral-400);
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* --- 4. FICHE CLIENT DÉTAILLÉE (Modale) --- */
+.client-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.detail-block {
+  background: var(--neutral-50);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  transition: all 0.2s;
+}
+
+.detail-block:hover {
+  background: white;
+  box-shadow: var(--shadow-sm);
+  border-color: var(--color-primary-light);
+}
+
+.detail-block-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--neutral-900);
+  margin-bottom: 1.25rem;
+  font-size: 1rem;
+  border-bottom: 2px solid var(--color-primary-light);
+  padding-bottom: 0.75rem;
+}
+
+.detail-block-title i {
+  color: var(--color-primary);
+  background: white;
+  padding: 8px;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  border-bottom: 1px dashed var(--neutral-200);
+  padding-bottom: 0.5rem;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.detail-label { color: var(--neutral-500); font-weight: 500; }
+.detail-value { color: var(--neutral-900); font-weight: 600; text-align: right; }
+
+/* Style des cartes équipement dans la fiche détaillée */
+.equipment-detail-card {
+  background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem;
+  margin-bottom: 1rem; box-shadow: var(--shadow-sm); border-top: 3px solid var(--color-primary);
+}
+.equipment-detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color-light); }
+.equipment-detail-name { font-size: 1rem; font-weight: 700; color: var(--neutral-900); }
+.equipment-detail-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--neutral-500); margin-top: 0.25rem; }
+.equipment-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.equipment-detail-item strong { display: block; color: var(--neutral-900); font-size: 0.9rem; }
+.equipment-detail-item small { color: var(--neutral-500); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; margin-bottom: 2px; display: block; }
+.equipment-detail-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color-light); }

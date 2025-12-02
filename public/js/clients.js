@@ -296,18 +296,22 @@ function renderClients(clients) {
 
 function renderEquipmentColumn(client) {
   if (!client.equipment || client.equipment.length === 0) return '<div class="equipment-empty"><i class="fas fa-box-open"></i> Vide</div>';
+  
   return `<div class="equipment-badges">
     ${client.equipment.map(eq => {
       const { badge, daysLeft } = getMaintenanceBadge(eq.next_maintenance_date);
+      
       let display = eq.final_name || eq.name;
       if (!display || display === 'undefined') {
          display = (eq.final_brand || eq.brand || '') + ' ' + (eq.final_type || eq.type || '');
          if (!display.trim()) display = 'Équipement';
       }
+
+      // FIX ALIGNEMENT GRID
       return `<div class="equipment-badge-item">
-        <span class="equipment-badge-name">${escapeHtml(display)}</span>
-        ${badge}
-        ${daysLeft ? `<small class="equipment-badge-days">${daysLeft}</small>` : '<div></div>'}
+        <span class="equipment-badge-name" title="${escapeHtml(display)}">${escapeHtml(display)}</span>
+        <div class="equipment-badge-status">${badge}</div>
+        <div class="equipment-badge-days">${daysLeft ? daysLeft : ''}</div>
       </div>`;
     }).join('')}
   </div>`;
@@ -629,10 +633,174 @@ async function logout() { await fetch('/api/logout', {method:'POST'}); window.lo
 function showNotification(msg, type) { const d=document.createElement('div'); d.className=`notification notification-${type} show`; d.innerHTML=`<i class="fas fa-info-circle"></i> ${msg}`; document.body.appendChild(d); setTimeout(()=>d.remove(),3000); }
 function handleSort(col) { if(currentSort.column===col) currentSort.order=currentSort.order==='ASC'?'DESC':'ASC'; else {currentSort.column=col; currentSort.order='ASC';} loadClients(); }
 
-async function openHistoryModal() { const cid = document.getElementById('client-id').value; if(!cid) return showNotification('Enregistrez le client d\'abord', 'warning'); document.getElementById('history-client-id').value = cid; document.getElementById('history-form').reset(); const res = await fetch(`/api/clients/${cid}/equipment`); const eqs = await res.json(); document.getElementById('history-equipment-list').innerHTML = eqs.map(e => `<div class="checkbox-group"><input type="checkbox" id="heq-${e.id}" value="${e.id}"><label for="heq-${e.id}">${e.name} (${e.brand})</label></div>`).join(''); document.getElementById('history-modal').classList.add('active'); }
-function closeHistoryModal() { document.getElementById('history-modal').classList.remove('active'); }
-async function saveHistoryEntry() { const cid = document.getElementById('history-client-id').value; const eqIds = Array.from(document.querySelectorAll('#history-equipment-list input:checked')).map(i => i.value); const data = { appointment_date: document.getElementById('history-date').value, task_description: document.getElementById('history-task').value, technician_id: document.getElementById('history-technician').value, equipment_ids: eqIds }; await fetch(`/api/clients/${cid}/appointments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)}); closeHistoryModal(); showNotification('Historique ajouté', 'success'); }
-async function loadAppointmentsHistory(cid) { const res = await fetch(`/api/clients/${cid}/appointments`); const appts = await res.json(); const cont = document.getElementById('appointments-history'); if(appts.length===0) { cont.innerHTML='<p style="text-align:center;color:var(--text-muted)">Vide</p>'; return; } cont.innerHTML = appts.map(a => `<div style="border-bottom:1px solid var(--border-color);padding:0.5rem;"><strong>${formatDate(a.appointment_date)}</strong> - ${a.task_description || 'Intervention'}</div>`).join(''); }
+// --- HISTORIQUE & INTERVENTIONS ---
+
+async function openHistoryModal() {
+  const cid = document.getElementById('client-id').value;
+  
+  if (!cid) {
+    return showNotification('Veuillez d\'abord enregistrer le client', 'warning');
+  }
+  
+  document.getElementById('history-client-id').value = cid;
+  document.getElementById('history-form').reset();
+  
+  // Date du jour par défaut
+  document.getElementById('history-date').value = new Date().toISOString().split('T')[0];
+
+  // 1. Charger Techniciens (si pas déjà fait ou refresh)
+  const techSelect = document.getElementById('history-technician');
+  if (techSelect.options.length <= 1 && technicians.length > 0) {
+    techSelect.innerHTML = '<option value="">-- Sélectionner --</option>' + 
+      technicians.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+  }
+
+  // 2. Charger les Rapports du client
+  try {
+    // On utilise le filtre search côté serveur ou on filtre ici si pas d'endpoint dédié
+    // Pour simplifier, on fetch tout et on filtre (optimisation possible plus tard)
+    const repRes = await fetch(`/api/reports?limit=1000`); 
+    const repData = await repRes.json();
+    
+    // Filtrer pour ce client
+    const clientReports = repData.reports.filter(r => r.client_id == cid);
+    
+    const reportSelect = document.getElementById('history-report');
+    if (clientReports.length > 0) {
+      reportSelect.innerHTML = '<option value="">-- Aucun rapport lié --</option>' + 
+        clientReports.map(r => `<option value="${r.id}">${r.report_number} - ${formatDate(r.created_at)} (${r.work_type})</option>`).join('');
+    } else {
+      reportSelect.innerHTML = '<option value="">Aucun rapport disponible</option>';
+    }
+  } catch (e) {
+    console.error("Erreur chargement rapports", e);
+  }
+
+  // 3. Charger les Équipements du client (Checkboxes)
+  try {
+    const res = await fetch(`/api/clients/${cid}/equipment`);
+    const eqs = await res.json();
+    const container = document.getElementById('history-equipment-list');
+    
+    if (eqs.length === 0) {
+      container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:10px;">Aucun équipement installé.</p>';
+    } else {
+      container.innerHTML = eqs.map(e => {
+        let display = e.final_name || e.name || 'Équipement';
+        return `
+          <div class="checkbox-group" style="margin-bottom:5px; padding-bottom:5px; border-bottom:1px dashed #eee;">
+            <input type="checkbox" id="heq-${e.id}" value="${e.id}">
+            <label for="heq-${e.id}" style="font-size:0.9rem;">
+              <strong>${escapeHtml(display)}</strong>
+              <span style="color:var(--neutral-500); font-size:0.8rem;"> - ${escapeHtml(e.brand)} (${escapeHtml(e.serial_number||'No S/N')})</span>
+            </label>
+          </div>
+        `;
+      }).join('');
+    }
+  } catch (e) {
+    console.error("Erreur chargement équipements", e);
+  }
+
+  document.getElementById('history-modal').classList.add('active');
+}
+
+function closeHistoryModal() {
+  document.getElementById('history-modal').classList.remove('active');
+}
+
+async function saveHistoryEntry() {
+  const btn = document.getElementById('save-history-btn');
+  btn.disabled = true;
+  
+  const cid = document.getElementById('history-client-id').value;
+  const date = document.getElementById('history-date').value;
+  const task = document.getElementById('history-task').value;
+  const techId = document.getElementById('history-technician').value;
+  const reportId = document.getElementById('history-report').value;
+  
+  if(!date || !task || !techId) {
+    showNotification('Veuillez remplir les champs obligatoires (*)', 'error');
+    btn.disabled = false;
+    return;
+  }
+
+  const eqIds = Array.from(document.querySelectorAll('#history-equipment-list input:checked')).map(i => i.value);
+  
+  const data = { 
+    appointment_date: date, 
+    task_description: task, 
+    technician_id: techId, 
+    report_id: reportId || null,
+    equipment_ids: eqIds 
+  };
+
+  try {
+    const res = await fetch(`/api/clients/${cid}/appointments`, {
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify(data)
+    });
+    
+    if(res.ok) {
+      closeHistoryModal();
+      showNotification('Intervention ajoutée', 'success');
+      loadAppointmentsHistory(cid); // Rafraîchir la liste
+    } else {
+      showNotification('Erreur lors de l\'enregistrement', 'error');
+    }
+  } catch (e) {
+    console.error(e);
+    showNotification('Erreur serveur', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function loadAppointmentsHistory(cid) {
+  const container = document.getElementById('appointments-history');
+  container.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin"></i></div>';
+
+  try {
+    const res = await fetch(`/api/clients/${cid}/appointments`);
+    const appts = await res.json();
+    
+    if(appts.length === 0) { 
+      container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:20px;">Aucune intervention enregistrée.</p>'; 
+      return; 
+    }
+    
+    container.innerHTML = `<div class="history-list">` + appts.map(a => {
+      // Badge Technicien
+      const techBadge = a.technician_name 
+        ? `<span class="badge badge-secondary" style="font-size:0.75rem;"><i class="fas fa-user-hard-hat"></i> ${escapeHtml(a.technician_name)}</span>` 
+        : '';
+        
+      // Lien Rapport
+      const reportLink = a.report_id && a.report_number
+        ? `<a href="/report-view.html?id=${a.report_id}" target="_blank" class="badge badge-primary" style="text-decoration:none; margin-left:5px;">
+             <i class="fas fa-file-alt"></i> ${a.report_number}
+           </a>`
+        : '';
+
+      return `
+        <div class="history-item">
+          <div class="history-item-date">
+            <span><i class="fas fa-calendar-day"></i> ${formatDate(a.appointment_date)}</span>
+            <div style="margin-left:auto;">${techBadge} ${reportLink}</div>
+          </div>
+          <div class="history-item-content">
+            ${escapeHtml(a.task_description)}
+          </div>
+        </div>
+      `;
+    }).join('') + `</div>`;
+    
+  } catch(e) {
+    console.error(e);
+    container.innerHTML = '<p style="color:red; text-align:center;">Erreur de chargement</p>';
+  }
+}
 
 // Exports
 window.openClientDetails=openClientDetails; window.openClientModal=openClientModal; window.openEquipmentModal=openEquipmentModal; window.openDeleteModal=openDeleteModal; window.toggleActionMenu=toggleActionMenu; window.editEquipmentItem=editEquipmentItem; window.deleteEquipmentItem=deleteEquipmentItem; window.saveEquipmentItem=saveEquipmentItem; window.handleSort=handleSort;

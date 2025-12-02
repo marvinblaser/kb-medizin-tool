@@ -476,26 +476,59 @@
       </div>
     </div>
     <div class="modal" id="history-modal">
-      <div class="modal-content">
+      <div class="modal-content" style="max-width: 600px">
         <div class="modal-header">
-          <h2>Historique</h2>
-          <button class="modal-close" onclick="closeHistoryModal()">x</button>
+          <h2><i class="fas fa-calendar-check"></i> Nouvelle intervention</h2>
+          <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
         </div>
         <div class="modal-body">
           <form id="history-form">
-            <input type="hidden" id="history-id" /><input
-              type="hidden"
-              id="history-client-id"
-            /><input type="date" id="history-date" /><textarea
-              id="history-task"
-            ></textarea
-            ><select id="history-technician"></select>
-            <div id="history-equipment-list"></div>
+            <input type="hidden" id="history-client-id" />
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="history-date">Date de l'intervention *</label>
+                <input type="date" id="history-date" required />
+              </div>
+              <div class="form-group">
+                <label for="history-technician">Technicien *</label>
+                <select id="history-technician" required>
+                  <option value="">-- Sélectionner --</option>
+                  </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="history-report">Lier un rapport (Optionnel)</label>
+              <select id="history-report">
+                <option value="">-- Aucun rapport lié --</option>
+                </select>
+              <small style="color: var(--neutral-500)">Permet d'accéder au PDF directement depuis l'historique.</small>
+            </div>
+
+            <div class="form-group">
+              <label for="history-task">Description des travaux *</label>
+              <textarea id="history-task" rows="3" placeholder="Ex: Maintenance annuelle, remplacement filtre..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Équipements concernés</label>
+              <div id="history-equipment-list" style="
+                border: 1px solid var(--border-color); 
+                border-radius: var(--radius-md); 
+                padding: 10px; 
+                max-height: 150px; 
+                overflow-y: auto;
+                background: var(--neutral-50);
+              ">
+                <p style="color: var(--neutral-500); text-align:center;">Chargement...</p>
+              </div>
+            </div>
           </form>
         </div>
         <div class="modal-footer">
-          <button id="cancel-history-btn">Annuler</button
-          ><button id="save-history-btn">Sauver</button>
+          <button class="btn btn-secondary" onclick="closeHistoryModal()">Annuler</button>
+          <button class="btn btn-success" id="save-history-btn"><i class="fas fa-save"></i> Enregistrer</button>
         </div>
       </div>
     </div>

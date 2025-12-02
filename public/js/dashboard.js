@@ -162,9 +162,12 @@ async function loadUpcomingAppointments() {
   try {
     const r = await fetch('/api/dashboard/upcoming-appointments'); const appts = await r.json();
     const l = document.getElementById('appointments-list');
-    if (appts.length === 0) { l.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucun rendez-vous.</p>'; return; }
+    if (appts.length === 0) { 
+      // FIX CENTRAGE: Utilisation de widget-empty
+      l.innerHTML = '<div class="widget-empty"><i class="fas fa-calendar-check" style="margin-right:8px; opacity:0.5;"></i> Aucun rendez-vous.</div>'; 
+      return; 
+    }
     
-    // FIX: Affichage du Technicien dans la liste
     l.innerHTML = appts.map(a => `
       <div class="widget-item">
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -185,7 +188,11 @@ async function loadClientsToContact() {
   try {
     const r = await fetch('/api/dashboard/clients-to-contact'); const clients = await r.json();
     const l = document.getElementById('contacts-list');
-    if (clients.length === 0) { l.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucun client.</p>'; return; }
+    if (clients.length === 0) { 
+      // FIX CENTRAGE
+      l.innerHTML = '<div class="widget-empty"><i class="fas fa-check-circle" style="margin-right:8px; opacity:0.5;"></i> Aucun client à contacter.</div>'; 
+      return; 
+    }
     l.innerHTML = clients.map(c => `
       <div class="widget-item">
         <strong>${escapeHtml(c.cabinet_name)}</strong>
@@ -203,7 +210,11 @@ async function loadMaintenanceMonth() {
     const r = await fetch('/api/clients?page=1&limit=1000'); const d = await r.json();
     const m = d.clients.filter(c => c.maintenance_due_date >= start && c.maintenance_due_date <= end);
     const l = document.getElementById('maintenance-month-list');
-    if (m.length === 0) { l.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucune maintenance.</p>'; return; }
+    if (m.length === 0) { 
+      // FIX CENTRAGE
+      l.innerHTML = '<div class="widget-empty"><i class="fas fa-clipboard-check" style="margin-right:8px; opacity:0.5;"></i> Aucune maintenance.</div>'; 
+      return; 
+    }
     l.innerHTML = m.map(c => `<div class="widget-item"><strong>${escapeHtml(c.cabinet_name)}</strong><small><i class="fas fa-calendar-check"></i> ${formatDate(c.maintenance_due_date)} • ${escapeHtml(c.city)}</small></div>`).join('');
   } catch {}
 }
@@ -219,7 +230,11 @@ async function loadWarrantyExpiring() {
     });
     const all = (await Promise.all(promises)).flat();
     const l = document.getElementById('warranty-list');
-    if (all.length === 0) { l.innerHTML = '<p style="text-align: center; color: var(--neutral-500)">Aucune garantie.</p>'; return; }
+    if (all.length === 0) { 
+      // FIX CENTRAGE
+      l.innerHTML = '<div class="widget-empty"><i class="fas fa-shield-alt" style="margin-right:8px; opacity:0.5;"></i> Aucune garantie expirante.</div>'; 
+      return; 
+    }
     l.innerHTML = all.sort((a,b)=>a.warranty_until.localeCompare(b.warranty_until)).map(e => `<div class="widget-item"><strong>${escapeHtml(e.name)} - ${escapeHtml(e.client_name)}</strong><small><i class="fas fa-shield-alt"></i> ${formatDate(e.warranty_until)}</small></div>`).join('');
   } catch {}
 }
