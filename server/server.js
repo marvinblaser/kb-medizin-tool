@@ -33,8 +33,11 @@ app.use(
   })
 );
 
-// Fichiers statiques
+// Fichiers statiques (Site Web)
 app.use(express.static(path.join(__dirname, '../public')));
+
+// Fichiers statiques (Uploads/Photos) - IMPORTANT POUR LES PROFILS
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // Routes API
 app.use('/api', authRoutes);

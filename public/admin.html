@@ -1,5 +1,3 @@
-<!-- public/admin.html -->
-
 <!DOCTYPE html>
 <html lang="fr">
   <head>
@@ -27,32 +25,16 @@
           <h2>KB Medizin</h2>
         </div>
         <nav class="sidebar-nav">
-          <a href="/dashboard.html">
-            <i class="fas fa-chart-line"></i>
-            <span>Tableau de bord</span>
-          </a>
-          <a href="/clients.html">
-            <i class="fas fa-users"></i>
-            <span>Clients</span>
-          </a>
-          <a href="/checklists.html">
-            <i class="fas fa-clipboard-check"></i>
-            <span>Checklists</span>
-          </a>
-          <a href="/reports.html">
-            <i class="fas fa-file-alt"></i>
-            <span>Rapports</span>
-          </a>
-          <a href="/admin.html" id="admin-link" class="active">
-            <i class="fas fa-cog"></i>
-            <span>Administration</span>
-          </a>
+          <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
+          <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
+          <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
+          <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+          <a href="/admin.html" id="admin-link" class="active"><i class="fas fa-cog"></i><span>Administration</span></a>
         </nav>
         <div class="sidebar-footer">
           <div class="user-info" id="user-info"></div>
           <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%">
-            <i class="fas fa-sign-out-alt"></i>
-            Déconnexion
+            <i class="fas fa-sign-out-alt"></i>Déconnexion
           </button>
         </div>
       </aside>
@@ -64,129 +46,104 @@
 
         <div class="tabs">
           <button class="tab active" data-tab="users">Utilisateurs</button>
-          <button class="tab" data-tab="equipment">Catalogue équipements</button>
-          <button class="tab" data-tab="device-types">Types d'appareils</button>
+          <button class="tab" data-tab="roles">Rôles & Permissions</button>
+          <button class="tab" data-tab="equipment">Catalogue Équip.</button>
+          <button class="tab" data-tab="device-types">Types Appareils</button>
           <button class="tab" data-tab="sectors">Secteurs</button>
           <button class="tab" data-tab="materials">Matériel</button>
-          <button class="tab" data-tab="logs">Logs d'activité</button>
+          <button class="tab" data-tab="logs">Logs Système</button>
         </div>
 
         <div class="tab-content active" id="tab-users">
           <div style="margin-bottom: 20px">
-            <button class="btn btn-success" id="add-user-btn">
-              <i class="fas fa-user-plus"></i> Ajouter un utilisateur
-            </button>
+            <button class="btn btn-success" id="add-user-btn"><i class="fas fa-user-plus"></i> Ajouter un utilisateur</button>
           </div>
           <div class="table-container">
             <div class="table-wrapper">
               <table class="table">
-                <thead>
-                  <tr>
-                    <th>Nom</th><th>Email</th><th>Rôle</th><th>Téléphone</th><th>Statut</th><th>Dernière connexion</th><th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="users-tbody">
-                  <tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>
-                </tbody>
+                <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Tél</th><th>Statut</th><th>Dernière connexion</th><th>Actions</th></tr></thead>
+                <tbody id="users-tbody"><tr><td colspan="7" class="text-center">Chargement...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+        <div class="tab-content" id="tab-roles">
+          <div style="margin-bottom: 20px">
+            <button class="btn btn-success" id="add-role-btn"><i class="fas fa-id-badge"></i> Créer un rôle</button>
+            <span style="margin-left:10px; color:#666; font-size:0.9em;">* Vous avez le contrôle total sur tous les rôles.</span>
+          </div>
+          <div class="table-container">
+            <div class="table-wrapper">
+              <table class="table">
+                <thead><tr><th>Nom du rôle</th><th>Identifiant (Slug)</th><th>Permissions</th><th>Actions</th></tr></thead>
+                <tbody id="roles-tbody"><tr><td colspan="4" class="text-center">Chargement...</td></tr></tbody>
               </table>
             </div>
           </div>
         </div>
 
         <div class="tab-content" id="tab-equipment">
-          <div style="margin-bottom: 20px">
-            <button class="btn btn-success" id="add-equipment-btn">
-              <i class="fas fa-tools"></i> Ajouter un équipement
-            </button>
-          </div>
+          <div style="margin-bottom: 20px"><button class="btn btn-success" id="add-equipment-btn"><i class="fas fa-tools"></i> Ajouter un équipement</button></div>
           <div class="table-container">
             <div class="table-wrapper">
               <table class="table">
-                <thead>
-                  <tr>
-                    <th>Modèle</th><th>Marque</th><th>Appareil</th><th>Secteur</th><th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="equipment-tbody">
-                  <tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>
-                </tbody>
+                <thead><tr><th>Modèle</th><th>Marque</th><th>Appareil</th><th>Secteur</th><th>Actions</th></tr></thead>
+                <tbody id="equipment-tbody"><tr><td colspan="5" class="text-center">Chargement...</td></tr></tbody>
               </table>
             </div>
           </div>
         </div>
 
         <div class="tab-content" id="tab-device-types">
-          <div style="margin-bottom: 20px">
-            <button class="btn btn-success" id="add-device-type-btn">
-              <i class="fas fa-plus"></i> Ajouter un type
-            </button>
-          </div>
+          <div style="margin-bottom: 20px"><button class="btn btn-success" id="add-device-type-btn"><i class="fas fa-plus"></i> Ajouter un type</button></div>
           <div class="table-container">
             <div class="table-wrapper">
               <table class="table">
-                <thead>
-                  <tr>
-                    <th>Nom</th><th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="device-types-tbody">
-                  <tr><td colspan="2" class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>
-                </tbody>
+                <thead><tr><th>Nom</th><th>Actions</th></tr></thead>
+                <tbody id="device-types-tbody"><tr><td colspan="2" class="text-center">Chargement...</td></tr></tbody>
               </table>
             </div>
           </div>
         </div>
 
         <div class="tab-content" id="tab-sectors">
-          <div style="margin-bottom: 20px">
-            <button class="btn btn-success" id="add-sector-btn">
-              <i class="fas fa-plus"></i> Ajouter un secteur
-            </button>
-          </div>
+          <div style="margin-bottom: 20px"><button class="btn btn-success" id="add-sector-btn"><i class="fas fa-plus"></i> Ajouter un secteur</button></div>
           <div class="table-container">
             <div class="table-wrapper">
               <table class="table">
-                <thead>
-                  <tr><th>Nom</th><th>Slug</th><th>Date création</th><th>Actions</th></tr>
-                </thead>
-                <tbody id="sectors-tbody">
-                  <tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>
-                </tbody>
+                <thead><tr><th>Nom</th><th>Slug</th><th>Date</th><th>Actions</th></tr></thead>
+                <tbody id="sectors-tbody"><tr><td colspan="4" class="text-center">Chargement...</td></tr></tbody>
               </table>
             </div>
           </div>
         </div>
 
         <div class="tab-content" id="tab-materials">
-          <div style="margin-bottom: 20px">
-            <button class="btn btn-success" id="add-material-btn">
-              <i class="fas fa-plus"></i> Ajouter du matériel
-            </button>
-          </div>
+          <div style="margin-bottom: 20px"><button class="btn btn-success" id="add-material-btn"><i class="fas fa-plus"></i> Ajouter du matériel</button></div>
           <div class="table-container">
             <div class="table-wrapper">
               <table class="table">
-                <thead>
-                  <tr><th>Nom</th><th>Code produit</th><th>Prix unitaire (CHF)</th><th>Actions</th></tr>
-                </thead>
-                <tbody id="materials-tbody">
-                  <tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>
-                </tbody>
+                <thead><tr><th>Nom</th><th>Code</th><th>Prix (CHF)</th><th>Actions</th></tr></thead>
+                <tbody id="materials-tbody"><tr><td colspan="4" class="text-center">Chargement...</td></tr></tbody>
               </table>
             </div>
           </div>
         </div>
 
         <div class="tab-content" id="tab-logs">
+          <div style="margin-bottom: 20px" class="log-filters">
+            <button class="btn btn-sm btn-secondary active" onclick="filterLogs('all', this)">Tous</button>
+            <button class="btn btn-sm btn-secondary" onclick="filterLogs('auth', this)">Connexions</button>
+            <button class="btn btn-sm btn-secondary" onclick="filterLogs('users', this)">Utilisateurs & Rôles</button>
+            <button class="btn btn-sm btn-secondary" onclick="filterLogs('reports', this)">Rapports & Clients</button>
+            <button class="btn btn-sm btn-secondary" onclick="filterLogs('stock', this)">Stocks & Matériel</button>
+          </div>
           <div class="table-container">
             <div class="table-wrapper">
               <table class="table">
-                <thead>
-                  <tr><th>Date/Heure</th><th>Utilisateur</th><th>Action</th><th>Entité</th><th>ID</th></tr>
-                </thead>
-                <tbody id="logs-tbody">
-                  <tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>
-                </tbody>
+                <thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Entité</th><th>ID</th></tr></thead>
+                <tbody id="logs-tbody"><tr><td colspan="5" class="text-center">Chargement...</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -194,94 +151,45 @@
 
         <div class="modal" id="user-modal">
           <div class="modal-content">
-            <div class="modal-header">
-              <h2 id="user-modal-title"><i class="fas fa-user-plus"></i> Ajouter un utilisateur</h2>
-              <button class="modal-close" onclick="closeUserModal()">&times;</button>
-            </div>
+            <div class="modal-header"><h2 id="user-modal-title"></h2><button class="modal-close" onclick="closeUserModal()">&times;</button></div>
             <div class="modal-body">
-              <form id="user-form">
+              <form id="user-form" enctype="multipart/form-data">
                 <input type="hidden" id="user-id" />
                 <div class="form-group"><label>Nom complet *</label><input type="text" id="user-name" required /></div>
                 <div class="form-group"><label>Email *</label><input type="email" id="user-email" required /></div>
+                <div class="form-group"><label>Photo</label><input type="file" id="user-photo" accept="image/*" /></div>
                 <div class="form-group" id="password-group"><label>Mot de passe *</label><input type="password" id="user-password" /></div>
-                <div class="form-group"><label>Rôle *</label><select id="user-role"><option value="tech">Technicien</option><option value="admin">Administrateur</option></select></div>
+                <div class="form-group"><label>Rôle *</label><select id="user-role" required></select></div>
                 <div class="form-group"><label>Téléphone</label><input type="tel" id="user-phone" /></div>
                 <div class="checkbox-group"><input type="checkbox" id="user-active" checked /><label>Compte actif</label></div>
               </form>
             </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" id="cancel-user-btn">Annuler</button>
-              <button class="btn btn-success" id="save-user-btn">Enregistrer</button>
-            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" id="cancel-user-btn">Annuler</button><button class="btn btn-success" id="save-user-btn">Enregistrer</button></div>
           </div>
         </div>
-
-        <div class="modal" id="equipment-modal">
+        
+        <div class="modal" id="role-modal">
           <div class="modal-content">
-            <div class="modal-header">
-              <h2 id="equipment-modal-title"><i class="fas fa-tools"></i> Ajouter un équipement</h2>
-              <button class="modal-close" onclick="closeEquipmentModal()">&times;</button>
-            </div>
+            <div class="modal-header"><h2 id="role-modal-title">Nouveau Rôle</h2><button class="modal-close" onclick="closeRoleModal()">&times;</button></div>
             <div class="modal-body">
-              <form id="equipment-form">
-                <input type="hidden" id="equipment-id" />
-                <div class="form-group"><label>Modèle *</label><input type="text" id="equipment-name" required placeholder="ex: Vacuklav 31B+" /></div>
-                <div class="form-group"><label>Marque *</label><input type="text" id="equipment-brand" required placeholder="ex: Melag" /></div>
-                <div class="form-group">
-                  <label>Appareil *</label>
-                  <select id="equipment-device-type" required><option value="">-- Sélectionner --</option></select>
-                </div>
-                <div class="form-group">
-                  <label>Secteur (ex: Type) *</label>
-                  <select id="equipment-type" required><option value="">-- Sélectionner --</option></select>
-                </div>
-              </form>
+              <input type="hidden" id="role-slug-original" />
+              <div class="form-group"><label>Nom du rôle *</label><input type="text" id="role-name" placeholder="Ex: Stagiaire" required /></div>
+              
+              <div class="form-group">
+                <label style="margin-bottom: 10px; display:block;">Permissions (Cochez pour autoriser)</label>
+                <div id="permissions-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                  </div>
+              </div>
             </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" id="cancel-equipment-btn">Annuler</button>
-              <button class="btn btn-success" id="save-equipment-btn">Enregistrer</button>
-            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeRoleModal()">Annuler</button><button class="btn btn-success" id="save-role-btn">Enregistrer</button></div>
           </div>
         </div>
 
-        <div class="modal" id="device-type-modal">
-          <div class="modal-content" style="max-width: 400px">
-            <div class="modal-header"><h2><i class="fas fa-plus"></i> Ajouter un type d'appareil</h2><button class="modal-close" onclick="closeDeviceTypeModal()">&times;</button></div>
-            <div class="modal-body"><div class="form-group"><label>Nom *</label><input type="text" id="device-type-name" required /></div></div>
-            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeDeviceTypeModal()">Annuler</button><button class="btn btn-success" id="save-device-type-btn">Enregistrer</button></div>
-          </div>
-        </div>
-
-        <div class="modal" id="material-modal">
-          <div class="modal-content">
-            <div class="modal-header"><h2 id="material-modal-title"><i class="fas fa-plus-circle"></i> Ajouter du matériel</h2><button class="modal-close" onclick="closeMaterialModal()">&times;</button></div>
-            <div class="modal-body">
-              <form id="material-form">
-                <input type="hidden" id="material-id" />
-                <div class="form-group"><label>Nom *</label><input type="text" id="material-name" required /></div>
-                <div class="form-group"><label>Code produit *</label><input type="text" id="material-code" required /></div>
-                <div class="form-group"><label>Prix unitaire (CHF) *</label><input type="number" id="material-price" step="0.01" min="0" required /></div>
-              </form>
-            </div>
-            <div class="modal-footer"><button class="btn btn-secondary" id="cancel-material-btn">Annuler</button><button class="btn btn-success" id="save-material-btn">Enregistrer</button></div>
-          </div>
-        </div>
-
-        <div class="modal" id="sector-modal">
-          <div class="modal-content" style="max-width: 400px">
-            <div class="modal-header"><h2><i class="fas fa-plus"></i> Ajouter un secteur</h2><button class="modal-close" onclick="closeSectorModal()">&times;</button></div>
-            <div class="modal-body"><div class="form-group"><label>Nom du secteur *</label><input type="text" id="sector-name" required /></div></div>
-            <div class="modal-footer"><button class="btn btn-secondary" id="cancel-sector-btn">Annuler</button><button class="btn btn-success" id="save-sector-btn">Enregistrer</button></div>
-          </div>
-        </div>
-
-        <div class="modal" id="reset-password-modal">
-          <div class="modal-content" style="max-width: 400px">
-            <div class="modal-header"><h2><i class="fas fa-key"></i> Réinitialiser MDP</h2><button class="modal-close" onclick="closeResetModal()">&times;</button></div>
-            <div class="modal-body"><input type="hidden" id="reset-user-id" /><div class="form-group"><label>Nouveau mot de passe</label><input type="password" id="new-password" required /></div></div>
-            <div class="modal-footer"><button class="btn btn-secondary" id="cancel-reset-btn">Annuler</button><button class="btn btn-success" id="confirm-reset-btn">Réinitialiser</button></div>
-          </div>
-        </div>
+        <div class="modal" id="equipment-modal"><div class="modal-content"><div class="modal-header"><h2 id="equipment-modal-title"></h2><button class="modal-close" onclick="closeEquipmentModal()">&times;</button></div><div class="modal-body"><form id="equipment-form"><input type="hidden" id="equipment-id" /><div class="form-group"><label>Modèle *</label><input type="text" id="equipment-name" required /></div><div class="form-group"><label>Marque *</label><input type="text" id="equipment-brand" required /></div><div class="form-group"><label>Appareil *</label><select id="equipment-device-type" required></select></div><div class="form-group"><label>Secteur *</label><select id="equipment-type" required></select></div></form></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeEquipmentModal()">Annuler</button><button class="btn btn-success" id="save-equipment-btn">Enregistrer</button></div></div></div>
+        <div class="modal" id="device-type-modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h2>Ajouter Type</h2><button class="modal-close" onclick="closeDeviceTypeModal()">&times;</button></div><div class="modal-body"><div class="form-group"><label>Nom *</label><input type="text" id="device-type-name" required /></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeDeviceTypeModal()">Annuler</button><button class="btn btn-success" id="save-device-type-btn">Enregistrer</button></div></div></div>
+        <div class="modal" id="material-modal"><div class="modal-content"><div class="modal-header"><h2 id="material-modal-title"></h2><button class="modal-close" onclick="closeMaterialModal()">&times;</button></div><div class="modal-body"><form id="material-form"><input type="hidden" id="material-id" /><div class="form-group"><label>Nom *</label><input type="text" id="material-name" required /></div><div class="form-group"><label>Code *</label><input type="text" id="material-code" required /></div><div class="form-group"><label>Prix *</label><input type="number" id="material-price" step="0.01" required /></div></form></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeMaterialModal()">Annuler</button><button class="btn btn-success" id="save-material-btn">Enregistrer</button></div></div></div>
+        <div class="modal" id="sector-modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h2>Ajouter Secteur</h2><button class="modal-close" onclick="closeSectorModal()">&times;</button></div><div class="modal-body"><div class="form-group"><label>Nom *</label><input type="text" id="sector-name" required /></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeSectorModal()">Annuler</button><button class="btn btn-success" id="save-sector-btn">Enregistrer</button></div></div></div>
+        <div class="modal" id="reset-password-modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h2>Réinitialiser MDP</h2><button class="modal-close" onclick="closeResetModal()">&times;</button></div><div class="modal-body"><input type="hidden" id="reset-user-id" /><div class="form-group"><label>Nouveau MDP</label><input type="password" id="new-password" required /></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeResetModal()">Annuler</button><button class="btn btn-success" id="confirm-reset-btn">Valider</button></div></div></div>
 
         <div id="notification-container" class="notification-container"></div>
         <script src="/js/admin.js"></script>
