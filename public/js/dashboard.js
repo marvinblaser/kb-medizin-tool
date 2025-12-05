@@ -1,3 +1,5 @@
+// public/js/dashboard.js
+
 let map = null;
 let markers = [];
 let allClients = [];

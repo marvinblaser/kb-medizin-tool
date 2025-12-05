@@ -1,3 +1,5 @@
+// public/js/checklist-view.js
+
 /**
  * KB Medizin Technik - Checklist View Logic
  * Version: Admin Link Fixed & Layout

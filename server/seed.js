@@ -1,3 +1,5 @@
+// server/seed.js
+
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');

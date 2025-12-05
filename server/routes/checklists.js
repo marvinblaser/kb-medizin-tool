@@ -1,3 +1,5 @@
+// server/routes/checklists.js
+
 const express = require('express');
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');

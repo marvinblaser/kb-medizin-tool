@@ -1,3 +1,5 @@
+// public/js/checklists.js
+
 let checklists = [];
 let currentChecklist = null;
 let checklistToDelete = null;

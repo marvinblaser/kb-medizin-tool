@@ -1,3 +1,5 @@
+// public/js/page-transitions.js
+
 /**
  * KB Medizin Technik - Page Transitions
  * View Transitions API for smooth page navigation

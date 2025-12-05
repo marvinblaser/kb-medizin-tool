@@ -1,3 +1,5 @@
+// public/js/admin.js
+
 /**
  * KB Medizin Technik - Administration
  * Version: Complete (Users, Sectors, Device Types, Equipment, Materials, Logs)

@@ -1,3 +1,5 @@
+// public/js/report-view.js
+
 document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
     if(params.get('id')) await loadReport(params.get('id'));

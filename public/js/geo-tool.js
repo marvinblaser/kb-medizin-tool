@@ -1,3 +1,5 @@
+// public/js/geo-tool.js
+
 document.addEventListener('DOMContentLoaded', () => {
     const streetInput = document.getElementById('street');
     const zipInput = document.getElementById('zip');

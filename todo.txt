@@ -1,0 +1,106 @@
+-------------------------------------
+|              GLOBAL               |
+-------------------------------------
+
+- Trouver un design pro, médical, confort
+- Refaire tout le design
+- Notifications partout (plus besoin d'aller dans la console)
+- Mode sombre
+- Responsive : Site utilisable sur téléphone, tablette
+- Footer à modifier
+
+?? Faire une PWA (Utilisable hors-ligne puis actualisation une fois en ligne) ??
+
+           !! REMPLIR LA BDD !!
+         !! SÉCURITÉ RENFORCÉE !!
+             !! FORMATION !!
+!! LE SITE DOIT ÊTRE FONCTIONNEL POUR 2026 !!
+
+
+
+
+
+
+-------------------------------------
+|            DASHBOARD              |
+-------------------------------------
+
+- Trajets sur la carte
+- Changer le style de la carte
+- Ajouter Widget "Rapports à valider" 
+
+
+
+
+
+
+-------------------------------------
+|           PAGE CLIENTS            |
+-------------------------------------
+
+Fiche client (Bouton voir) : 
+- Équipements : Afficher toutes les informations
+- Historique : Afficher l'équipement qui a subi l'intervention
+
+Équipements :
+- Afficher toutes les infos de chaque équipements
+
+Icon pour tri ABC -> CBA sur les en-têtes des colonnes du tableau
+
+?? Filtres avancés : enlever "Secteur" ??
+
+Ajouter un client :
+- Rendre NPA (Code postal) obligatoire
+- Indiquer à quoi servent "Lat" & "Lon" (Latitude & Longitude) (petit icon info)
+- Changer bouton "Carte"
+
+
+
+
+
+
+-------------------------------------
+|          PAGE CHECKLISTS          |
+-------------------------------------
+
+?? Dossiers ??
+
+- Filtres
+
+
+
+
+
+
+-------------------------------------
+|           PAGE RAPPORTS           |
+-------------------------------------
+
+Tableau rapports :
+- Remplacer le nombre d'intervenants par les noms
+- Indiquer l'installation du rapport dans le tableau
+- Mettre des rabais en % sur le matériel
+- Tâches prédéfinies
+- Frais de déplacements prédéfinis
+
+- Une fois le rapport terminé : "En attente de validation"
+- Ajouter les rapports en Allemand
+- Dossiers + Filtres
+
+- Ajouter une signature par utilisateur (Techniciens)
+
+
+
+
+
+
+-------------------------------------
+|            PANEL ADMIN            |
+-------------------------------------
+
+- Créer un rôle secrétaire, Technico-commercial et Directeur des ventes
+- Ajouter tous les utilisateurs (Plus tard, lors du déploiement)
+- Logs plus détaillés avec des sections + Backups (plus tard pour les backups, lors du déploiement)
+- Ajouter rôles "Verif" (Pour vérifier et valider les rapports)
+- Gérer les permissions
+- Photo de profil pour les utilisateurs

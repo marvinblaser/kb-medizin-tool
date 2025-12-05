@@ -1,3 +1,5 @@
+// public/js/clients.js
+
 /**
  * KB Medizin Technik - Clients Logic
  * Version: Complete & Fixed

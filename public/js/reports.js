@@ -1,3 +1,5 @@
+// public/js/reports.js
+
 let currentPage = 1;
 let currentFilters = { search: '', type: '', status: '' };
 let totalPages = 1;
