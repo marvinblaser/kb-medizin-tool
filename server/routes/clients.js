@@ -186,7 +186,11 @@ router.get('/:id/appointments', requireAuth, (req, res) => {
     ORDER BY ah.appointment_date DESC
   `;
   db.all(sql, [req.params.id], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      // AJOUT : On log l'erreur dans le terminal pour comprendre ce qui se passe
+      console.error("Erreur SQL (GET History) :", err.message);
+      return res.status(500).json({ error: err.message });
+    }
     res.json(rows);
   });
 });

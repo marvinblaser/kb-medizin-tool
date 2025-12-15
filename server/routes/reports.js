@@ -1,214 +1,206 @@
 // server/routes/reports.js
-
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
 
-// Helper Logs
-const logActivity = (userId, action, entity, entityId, meta = {}) => {
-  db.run(
-    "INSERT INTO activity_logs (user_id, action, entity, entity_id, meta_json) VALUES (?, ?, ?, ?, ?)",
-    [userId, action, entity, entityId, JSON.stringify(meta)]
-  );
+// === GET ALL (Liste des rapports) ===
+router.get('/', requireAuth, (req, res) => {
+    const { page = 1, limit = 25, search, type, status } = req.query;
+    const offset = (page - 1) * limit;
+    let where = ["1=1"];
+    let params = [];
+
+    if (search) {
+        where.push(`(r.cabinet_name LIKE ? OR r.city LIKE ? OR r.report_number LIKE ?)`);
+        const s = `%${search}%`;
+        params.push(s, s, s);
+    }
+    if (type) { where.push("r.work_type = ?"); params.push(type); }
+    if (status) { where.push("r.status = ?"); params.push(status); }
+
+    try {
+        // On essaie d'abord la requête complète avec le compteur de techniciens
+        const sql = `
+            SELECT r.*, 
+            (SELECT COUNT(*) FROM report_technicians rt WHERE rt.report_id = r.id) as technicians_count 
+            FROM reports r 
+            WHERE ${where.join(' AND ')} 
+            ORDER BY r.created_at DESC LIMIT ? OFFSET ?`;
+
+        const countSql = `SELECT count(*) as count FROM reports r WHERE ${where.join(' AND ')}`;
+
+        db.get(countSql, params, (err, countRow) => {
+            if (err) {
+                console.error("⚠️ Erreur SQL Count:", err.message);
+                return res.status(500).json({ error: "Erreur base de données (Count)" });
+            }
+
+            db.all(sql, [...params, limit, offset], (err, rows) => {
+                if (err) {
+                    // Si l'erreur vient de la table report_technicians qui manque, on fait un fallback
+                    if (err.message.includes('no such table')) {
+                         console.warn("⚠️ Table report_technicians manquante. Chargement simplifié.");
+                         const simpleSql = `SELECT * FROM reports r WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+                         db.all(simpleSql, [...params, limit, offset], (err2, rows2) => {
+                             if(err2) return res.status(500).json({ error: err2.message });
+                             res.json({ reports: rows2, pagination: { page: parseInt(page), totalPages: Math.ceil(countRow.count / limit), totalItems: countRow.count } });
+                         });
+                         return;
+                    }
+                    return res.status(500).json({ error: err.message });
+                }
+                res.json({ reports: rows, pagination: { page: parseInt(page), totalPages: Math.ceil(countRow.count / limit), totalItems: countRow.count } });
+            });
+        });
+    } catch (e) {
+        console.error("CRASH ROUTE GET /:", e);
+        res.status(500).json({ error: "Erreur serveur critique" });
+    }
+});
+
+// === GET ONE (Chargement d'un rapport spécifique) ===
+router.get('/:id', requireAuth, (req, res) => {
+    const id = req.params.id;
+    console.log(`Chargement rapport ID: ${id}...`);
+
+    db.get("SELECT * FROM reports WHERE id = ?", [id], async (err, report) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!report) return res.status(404).json({ error: "Rapport introuvable" });
+
+        // Fonction helper : essaie de charger une liste, renvoie vide si erreur (table manquante)
+        const safeGet = (sql, logName) => {
+            return new Promise((resolve) => {
+                db.all(sql, [id], (e, rows) => {
+                    if (e) {
+                        console.error(`⚠️ Impossible de charger ${logName}: ${e.message}`);
+                        resolve([]); // On renvoie un tableau vide pour ne pas planter
+                    } else {
+                        resolve(rows);
+                    }
+                });
+            });
+        };
+
+        // Chargement parallèle sécurisé
+        const [techs, stks, mats, eqs] = await Promise.all([
+            safeGet("SELECT * FROM report_technicians WHERE report_id = ?", "Techniciens"),
+            safeGet("SELECT * FROM report_stk_tests WHERE report_id = ?", "Tests STK"),
+            safeGet("SELECT * FROM report_materials WHERE report_id = ?", "Matériel"),
+            safeGet("SELECT equipment_id FROM report_equipment WHERE report_id = ?", "Équipements liés")
+        ]);
+
+        report.technicians = techs;
+        report.stk_tests = stks;
+        report.materials = mats;
+        report.equipment_ids = eqs.map(e => e.equipment_id); // Format simple [1, 5, 8]
+
+        res.json(report);
+    });
+});
+
+// === SAVE DATA (Fonction commune CREATE / UPDATE) ===
+const saveReportData = (req, res, reportId = null) => {
+    const { 
+        client_id, work_type, status, cabinet_name, address, postal_code, city, interlocutor, 
+        installation, remarks, travel_costs, travel_included, travel_location, 
+        technician_signature_date, work_accomplished,
+        technicians, stk_tests, materials, equipment_ids 
+    } = req.body;
+
+    const reportData = [
+        client_id, work_type, status, cabinet_name, address, postal_code, city, interlocutor, 
+        installation, remarks, travel_costs, travel_included ? 1 : 0, travel_location, 
+        technician_signature_date, work_accomplished
+    ];
+
+    const runQuery = reportId 
+        ? `UPDATE reports SET client_id=?, work_type=?, status=?, cabinet_name=?, address=?, postal_code=?, city=?, interlocutor=?, installation=?, remarks=?, travel_costs=?, travel_included=?, travel_location=?, technician_signature_date=?, work_accomplished=? WHERE id=?`
+        : `INSERT INTO reports (client_id, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+
+    if (reportId) reportData.push(reportId);
+
+    db.run(runQuery, reportData, function(err) {
+        if (err) {
+            console.error("❌ Erreur SQL Save Report:", err.message);
+            return res.status(500).json({ error: "Erreur sauvegarde rapport: " + err.message });
+        }
+        
+        const finalId = reportId || this.lastID;
+
+        // Mise à jour des tables liées (Delete All + Insert New)
+        db.serialize(() => {
+            
+            // 1. TECHNICIENS
+            db.run("DELETE FROM report_technicians WHERE report_id=?", [finalId], (e) => { if(e) console.error("Err Delete Techs:", e.message); });
+            if (technicians && technicians.length > 0) {
+                const stmt = db.prepare("INSERT INTO report_technicians (report_id, technician_id, technician_name, work_date, hours_normal, hours_extra) VALUES (?,?,?,?,?,?)");
+                technicians.forEach(t => {
+                    stmt.run(finalId, t.technician_id, t.technician_name, t.work_date, t.hours_normal, t.hours_extra, (e) => {
+                        if(e) console.error("Err Insert Tech:", e.message);
+                    });
+                });
+                stmt.finalize();
+            }
+
+            // 2. TESTS STK
+            db.run("DELETE FROM report_stk_tests WHERE report_id=?", [finalId], (e) => { if(e) console.error("Err Delete STK:", e.message); });
+            if (stk_tests && stk_tests.length > 0) {
+                const stmt = db.prepare("INSERT INTO report_stk_tests (report_id, test_name, price, included) VALUES (?,?,?,?)");
+                stk_tests.forEach(t => {
+                    stmt.run(finalId, t.test_name, t.price, t.included ? 1 : 0, (e) => {
+                        if(e) console.error("Err Insert STK:", e.message);
+                    });
+                });
+                stmt.finalize();
+            }
+
+            // 3. MATÉRIEL
+            db.run("DELETE FROM report_materials WHERE report_id=?", [finalId], (e) => { if(e) console.error("Err Delete Mats:", e.message); });
+            if (materials && materials.length > 0) {
+                // MODIFICATION ICI : Ajout de la colonne 'discount'
+                const stmt = db.prepare("INSERT INTO report_materials (report_id, material_id, material_name, product_code, quantity, unit_price, discount, total_price) VALUES (?,?,?,?,?,?,?,?)");
+                materials.forEach(m => {
+                    // MODIFICATION ICI : Ajout de m.discount dans les valeurs
+                    stmt.run(finalId, m.material_id, m.material_name, m.product_code, m.quantity, m.unit_price, m.discount || 0, m.total_price, (e) => {
+                        if(e) console.error("Err Insert Mat:", e.message);
+                    });
+                });
+                stmt.finalize();
+            }
+
+            // 4. ÉQUIPEMENTS (CASES COCHÉES)
+            db.run("DELETE FROM report_equipment WHERE report_id=?", [finalId], (e) => { if(e) console.error("Err Delete Eqs:", e.message); });
+            if (equipment_ids && equipment_ids.length > 0) {
+                const stmt = db.prepare("INSERT INTO report_equipment (report_id, equipment_id) VALUES (?,?)");
+                equipment_ids.forEach(eid => {
+                    stmt.run(finalId, eid, (e) => {
+                        if(e) console.error("Err Insert Eq:", e.message);
+                    });
+                });
+                stmt.finalize();
+            }
+
+            // Mise à jour du numéro de rapport si c'est une création
+            if (!reportId) {
+                const reportNumber = `${new Date().getFullYear()}-${String(finalId).padStart(4, '0')}`;
+                db.run("UPDATE reports SET report_number = ? WHERE id = ?", [reportNumber, finalId]);
+            }
+        });
+
+        res.json({ success: true, id: finalId });
+    });
 };
 
-// LISTE RAPPORTS
-router.get('/', requireAuth, (req, res) => {
-  const { page = 1, limit = 25, search, type, status } = req.query;
-  const offset = (page - 1) * limit;
-  
-  let where = ["1=1"];
-  let params = [];
+router.post('/', requireAuth, (req, res) => saveReportData(req, res));
+router.put('/:id', requireAuth, (req, res) => saveReportData(req, res, req.params.id));
 
-  if (search) {
-    where.push(`(r.report_number LIKE ? OR r.cabinet_name LIKE ? OR r.city LIKE ?)`);
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-  }
-  if (type) { where.push("r.work_type = ?"); params.push(type); }
-  if (status) { where.push("r.status = ?"); params.push(status); }
-
-  const sql = `
-    SELECT r.*, 
-    (SELECT COUNT(*) FROM report_technicians rt WHERE rt.report_id = r.id) as technicians_count
-    FROM reports r 
-    WHERE ${where.join(' AND ')} 
-    ORDER BY r.created_at DESC 
-    LIMIT ? OFFSET ?
-  `;
-  
-  const countSql = `SELECT count(*) as count FROM reports r WHERE ${where.join(' AND ')}`;
-
-  db.get(countSql, params, (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    const totalItems = row.count;
-    const totalPages = Math.ceil(totalItems / limit);
-
-    db.all(sql, [...params, limit, offset], (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ reports: rows, pagination: { page: parseInt(page), totalPages, totalItems } });
-    });
-  });
-});
-
-// GET ONE
-router.get('/:id', requireAuth, (req, res) => {
-  const id = req.params.id;
-  
-  const sqlReport = "SELECT * FROM reports WHERE id = ?";
-  const sqlTechs = "SELECT * FROM report_technicians WHERE report_id = ?";
-  const sqlMats = "SELECT * FROM report_materials WHERE report_id = ?";
-  const sqlTests = "SELECT * FROM report_stk_tests WHERE report_id = ?";
-
-  db.get(sqlReport, [id], (err, report) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!report) return res.status(404).json({ error: "Rapport introuvable" });
-
-    Promise.all([
-      new Promise((resolve) => db.all(sqlTechs, [id], (e, r) => resolve(r || []))),
-      new Promise((resolve) => db.all(sqlMats, [id], (e, r) => resolve(r || []))),
-      new Promise((resolve) => db.all(sqlTests, [id], (e, r) => resolve(r || [])))
-    ]).then(([techs, mats, tests]) => {
-      report.technicians = techs;
-      report.materials = mats;
-      report.stk_tests = tests;
-      res.json(report);
-    });
-  });
-});
-
-// CREATE (MODIFIÉ POUR AJOUTER AUTOMATIQUEMENT L'HISTORIQUE)
-router.post('/', requireAuth, (req, res) => {
-  const data = req.body;
-  
-  // Génération numéro rapport (Ex: RE-2025-0001)
-  const typeMap = { 'Mise en marche': 'IN', 'Service d\'entretien': 'SE', 'Réparation': 'RE', 'Contrôle': 'CO', 'Montage': 'MO' };
-  const prefix = typeMap[data.work_type] || 'RP';
-  const year = new Date().getFullYear();
-  
-  db.get("SELECT report_number FROM reports WHERE report_number LIKE ? ORDER BY id DESC LIMIT 1", [`${prefix}-${year}-%`], (err, row) => {
-    let nextNum = 1;
-    if (row && row.report_number) {
-      const parts = row.report_number.split('-');
-      nextNum = parseInt(parts[2]) + 1;
-    }
-    const reportNumber = `${prefix}-${year}-${String(nextNum).padStart(4, '0')}`;
-
-    db.run(
-      `INSERT INTO reports (
-        report_number, client_id, cabinet_name, address, postal_code, city, interlocutor,
-        work_type, installation, work_accomplished, travel_location, travel_costs, travel_included,
-        remarks, status, technician_signature_date, created_by
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [
-        reportNumber, data.client_id, data.cabinet_name, data.address, data.postal_code, data.city, data.interlocutor,
-        data.work_type, data.installation, data.work_accomplished, data.travel_location, data.travel_costs, data.travel_included ? 1 : 0,
-        data.remarks, data.status || 'draft', data.technician_signature_date, req.session.userId
-      ],
-      function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        const reportId = this.lastID;
-        
-        insertRelatedData(reportId, data);
-        
-        // --- AUTO-CREATE HISTORY ENTRY ---
-        // On prend le premier technicien de la liste comme responsable, ou null
-        const mainTechId = (data.technicians && data.technicians.length > 0) ? data.technicians[0].technician_id : null;
-        // On utilise la date de signature ou aujourd'hui
-        const interventionDate = data.technician_signature_date || new Date().toISOString().split('T')[0];
-        
-        db.run(
-          "INSERT INTO appointments_history (client_id, appointment_date, task_description, technician_id, report_id) VALUES (?, ?, ?, ?, ?)",
-          [
-            data.client_id, 
-            interventionDate, 
-            `Rapport: ${data.work_type}`, // Nom de l'intervention basé sur le type
-            mainTechId, 
-            reportId
-          ],
-          (histErr) => {
-            if (histErr) console.error("Erreur création historique auto:", histErr);
-            // On ne bloque pas la réponse si l'historique échoue, mais on le loggue
-          }
-        );
-        // ----------------------------------
-
-        logActivity(req.session.userId, 'create', 'report', reportId, { report_number: reportNumber });
-        res.json({ id: reportId, report_number: reportNumber });
-      }
-    );
-  });
-});
-
-// UPDATE
-router.put('/:id', requireAuth, (req, res) => {
-  const id = req.params.id;
-  const data = req.body;
-
-  db.run(
-    `UPDATE reports SET 
-      client_id=?, cabinet_name=?, address=?, postal_code=?, city=?, interlocutor=?,
-      work_type=?, installation=?, work_accomplished=?, travel_location=?, travel_costs=?, travel_included=?,
-      remarks=?, status=?, technician_signature_date=?, updated_at=CURRENT_TIMESTAMP
-    WHERE id=?`,
-    [
-      data.client_id, data.cabinet_name, data.address, data.postal_code, data.city, data.interlocutor,
-      data.work_type, data.installation, data.work_accomplished, data.travel_location, data.travel_costs, data.travel_included ? 1 : 0,
-      data.remarks, data.status, data.technician_signature_date, id
-    ],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      
-      db.run("DELETE FROM report_technicians WHERE report_id=?", [id]);
-      db.run("DELETE FROM report_materials WHERE report_id=?", [id]);
-      db.run("DELETE FROM report_stk_tests WHERE report_id=?", [id]);
-      
-      insertRelatedData(id, data);
-      logActivity(req.session.userId, 'update', 'report', id);
-      res.json({ success: true });
-    }
-  );
-});
-
-// DELETE
+// === DELETE ===
 router.delete('/:id', requireAuth, (req, res) => {
-  const id = req.params.id;
-  
-  db.serialize(() => {
-    // 1. Délier les rendez-vous de l'historique (NULL)
-    // Optionnel : Si vous préférez supprimer l'entrée d'historique quand le rapport est supprimé :
-    // db.run("DELETE FROM appointments_history WHERE report_id = ?", [id]); 
-    // Ici on garde l'historique mais on enlève le lien
-    db.run("UPDATE appointments_history SET report_id = NULL WHERE report_id = ?", [id]);
-    
-    // 2. Supprimer le rapport
-    db.run("DELETE FROM reports WHERE id = ?", [id], function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      logActivity(req.session.userId, 'delete', 'report', id);
-      res.json({ success: true });
+    db.run("DELETE FROM reports WHERE id = ?", [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
     });
-  });
 });
-
-// Helper insertion
-function insertRelatedData(reportId, data) {
-  if (data.technicians && data.technicians.length > 0) {
-    const stmt = db.prepare("INSERT INTO report_technicians (report_id, technician_id, technician_name, work_date, hours_normal, hours_extra) VALUES (?,?,?,?,?,?)");
-    data.technicians.forEach(t => stmt.run(reportId, t.technician_id, t.technician_name, t.work_date, t.hours_normal, t.hours_extra));
-    stmt.finalize();
-  }
-
-  if (data.materials && data.materials.length > 0) {
-    const stmt = db.prepare("INSERT INTO report_materials (report_id, material_id, material_name, product_code, quantity, unit_price, total_price) VALUES (?,?,?,?,?,?,?)");
-    data.materials.forEach(m => stmt.run(reportId, m.material_id, m.material_name, m.product_code, m.quantity, m.unit_price, m.total_price));
-    stmt.finalize();
-  }
-
-  if (data.stk_tests && data.stk_tests.length > 0) {
-    const stmt = db.prepare("INSERT INTO report_stk_tests (report_id, test_name, price, included) VALUES (?,?,?,?)");
-    data.stk_tests.forEach(t => stmt.run(reportId, t.test_name, t.price, t.included ? 1 : 0));
-    stmt.finalize();
-  }
-}
 
 module.exports = router;

@@ -465,39 +465,119 @@ async function saveEquipmentItem() {
 
 // ========== FICHE DÉTAILLÉE (READ-ONLY) ==========
 async function openClientDetails(id) {
-  const res = await fetch(`/api/clients/${id}`); const c = await res.json();
-  const req = await fetch(`/api/clients/${id}/equipment`); const eq = await req.json();
-  const raph = await fetch(`/api/clients/${id}/appointments`); const hist = await raph.json();
-  
-  const content = document.getElementById('client-details-content');
-  
-  // HTML Historique (Lecture seule)
-  const historyHtml = hist.length === 0 
-    ? '<p class="text-center text-muted">Aucun historique.</p>' 
-    : `<div class="history-list">` + hist.map(a => {
-        const techName = a.technician_name ? `<span class="history-tech">${escapeHtml(a.technician_name)}</span>` : '';
-        const reportLink = a.report_id && a.report_number ? `<a href="/report-view.html?id=${a.report_id}" target="_blank" class="btn btn-xs btn-secondary"><i class="fas fa-file-alt"></i> ${escapeHtml(a.report_number)}</a>` : '';
-        return `
-          <div class="history-item">
-            <div class="history-item-header">
-              <div class="history-date"><i class="fas fa-calendar-day"></i> ${formatDate(a.appointment_date)} ${techName}</div>
-              <div class="history-actions">${reportLink}</div>
-            </div>
-            <div class="history-content">${escapeHtml(a.task_description)}</div>
-          </div>`;
-      }).join('') + `</div>`;
+    const contentDiv = document.getElementById('client-details-content');
+    const modal = document.getElementById('client-details-details'); // Correction potentielle selon ton ID exact
 
-  content.innerHTML = `
-    <div class="client-details-grid">
-      <div class="detail-block"><h4 class="detail-block-title">Coordonnées</h4><div class="detail-row"><span class="detail-label">Contact:</span><span class="detail-value">${escapeHtml(c.contact_name)}</span></div><div class="detail-row"><span class="detail-label">Tel:</span><span class="detail-value">${c.phone||'-'}</span></div><div class="detail-row"><span class="detail-label">Email:</span><span class="detail-value">${c.email||'-'}</span></div></div>
-      <div class="detail-block"><h4 class="detail-block-title">Localisation</h4><div class="detail-row"><span class="detail-label">Adr:</span><span class="detail-value">${escapeHtml(c.address)}</span></div><div class="detail-row"><span class="detail-label">Ville:</span><span class="detail-value">${c.postal_code} ${c.city}</span></div></div>
-    </div>
-    <div class="form-section"><h3 class="form-section-title">Équipements</h3>${renderEquipmentColumn({equipment: eq})}</div>
-    <div class="form-section"><h3 class="form-section-title">Historique</h3>${historyHtml}</div>
-  `;
-  document.getElementById('edit-from-details-btn').onclick = () => { closeClientDetailsModal(); openClientModal(id); };
-  document.getElementById('client-details-modal').classList.add('active');
+    try {
+        // 1. Ouvrir la modale
+        const modalEl = document.getElementById('client-details-modal');
+        if (modalEl) modalEl.classList.add('active');
+
+        // 2. Afficher un chargement
+        if (contentDiv) {
+            contentDiv.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Chargement...</div>';
+        }
+
+        // 3. Récupérer les données
+        const [clientResponse, historyResponse] = await Promise.all([
+            fetch(`/api/clients/${id}`),
+            fetch(`/api/clients/${id}/appointments`)
+        ]);
+
+        if (!clientResponse.ok) throw new Error('Client introuvable');
+
+        const client = await clientResponse.json();
+        const hist = await historyResponse.json();
+
+        // 4. Configurer le bouton "Modifier" (qui est dans le footer de la modale)
+        const editBtn = document.getElementById('edit-from-details-btn');
+        if (editBtn) {
+            // On clone le bouton pour supprimer les anciens event listeners accumulés
+            const newBtn = editBtn.cloneNode(true);
+            editBtn.parentNode.replaceChild(newBtn, editBtn);
+            
+            newBtn.addEventListener('click', () => {
+                closeClientDetailsModal();
+                // Assure-toi que cette fonction existe pour ouvrir le formulaire d'édition
+                if (typeof openClientModal === 'function') {
+                    openClientModal(id); 
+                } else {
+                    console.warn("Fonction d'édition non trouvée");
+                }
+            });
+        }
+
+        // 5. Générer le HTML
+        if (contentDiv) {
+            contentDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div>
+                        <h3 style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; color: var(--color-primary);">
+                            <i class="fas fa-building"></i> Informations
+                        </h3>
+                        <p><strong>Cabinet :</strong> ${client.cabinet_name || '-'}</p>
+                        <p><strong>Contact :</strong> ${client.contact_name || '-'}</p>
+                        <p><strong>Activité :</strong> ${client.activity || '-'}</p>
+                        <p><strong>Email :</strong> <a href="mailto:${client.email}">${client.email || '-'}</a></p>
+                        <p><strong>Tél :</strong> <a href="tel:${client.phone}">${client.phone || '-'}</a></p>
+                    </div>
+                    <div>
+                        <h3 style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; color: var(--color-primary);">
+                            <i class="fas fa-map-marker-alt"></i> Adresse
+                        </h3>
+                        <p>${client.address || ''}</p>
+                        <p>${client.postal_code || ''} ${client.city || ''}</p>
+                        <p>${client.canton ? 'Canton : ' + client.canton : ''}</p>
+                        ${client.latitude ? `<p style="margin-top:5px; font-size:0.9em; color:#666;"><i class="fas fa-globe"></i> GPS: ${client.latitude}, ${client.longitude}</p>` : ''}
+                    </div>
+                </div>
+
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="margin-top:0; font-size: 1.1em;"><i class="fas fa-sticky-note"></i> Notes</h3>
+                    <p style="white-space: pre-wrap; color: #555;">${client.notes || 'Aucune note.'}</p>
+                </div>
+
+                <div>
+                    <h3 style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; color: var(--color-primary);">
+                        <i class="fas fa-history"></i> Historique des interventions
+                    </h3>
+                    <div class="history-list">
+                        ${renderHistoryList(hist)}
+                    </div>
+                </div>
+            `;
+        }
+
+    } catch (error) {
+        console.error("Erreur openClientDetails:", error);
+        if (contentDiv) {
+            contentDiv.innerHTML = `<div class="alert alert-danger">Une erreur est survenue : ${error.message}</div>`;
+        }
+    }
 }
+
+// Petite fonction utilitaire pour rendre la liste proprement
+function renderHistoryList(hist) {
+    // Sécurité anti-crash si le serveur renvoie une erreur
+    if (!Array.isArray(hist) || hist.length === 0) {
+        return '<p style="color: #888; font-style: italic;">Aucune intervention enregistrée.</p>';
+    }
+
+    return hist.map(h => {
+        const dateStr = new Date(h.appointment_date).toLocaleDateString('fr-CH');
+        return `
+            <div style="border-left: 3px solid var(--color-primary); padding-left: 10px; margin-bottom: 10px; background: #fff;">
+                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:0.9em;">
+                    <span>${dateStr}</span>
+                    <span style="background:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em;">${h.technician_name || 'Non assigné'}</span>
+                </div>
+                <div style="margin-top: 4px;">${h.task_description || 'Pas de description'}</div>
+                ${h.report_number ? `<div style="font-size:0.85em; color: green; margin-top:2px;"><i class="fas fa-check"></i> Rapport #${h.report_number}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
 function closeClientDetailsModal() { document.getElementById('client-details-modal').classList.remove('active'); }
 
 // ========== HISTORY LOGIC ==========

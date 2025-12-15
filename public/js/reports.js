@@ -8,6 +8,14 @@ let clients = [];
 let technicians = [];
 let materials = [];
 
+// CONFIGURATION DES ZONES DE DÉPLACEMENT
+const TRAVEL_ZONES = {
+    50:  ['BS', 'BL'],
+    75:  ['AG', 'SO', 'JU'],
+    125: ['SH', 'ZH', 'BE', 'LU', 'NE', 'FR', 'ZG', 'UR', 'OW', 'NW', 'SZ'], // OB/NI corrigés en OW/NW (codes standard)
+    200: ['GE', 'VD', 'VS', 'TI', 'GR', 'SG', 'GL', 'TG', 'AI', 'AR']
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
   await checkAuth();
   await loadClients();
@@ -49,6 +57,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('add-material-btn').addEventListener('click', () => addMaterialRow());
   document.getElementById('add-stk-test-btn').addEventListener('click', () => addStkTestRow());
   document.getElementById('add-work-btn').addEventListener('click', () => addWorkRow());
+
+  document.getElementById('travel-canton').addEventListener('change', updateTravelCost);
 });
 
 // --- LOAD DATA ---
@@ -95,6 +105,7 @@ async function openReportModal(reportId = null) {
   const title = document.getElementById('report-modal-title');
   const form = document.getElementById('report-form');
   
+  // Reset complet du formulaire
   form.reset();
   document.getElementById('report-id').value = '';
   document.getElementById('technicians-list').innerHTML = '';
@@ -109,6 +120,7 @@ async function openReportModal(reportId = null) {
       const response = await fetch(`/api/reports/${reportId}`);
       const report = await response.json();
       
+      // Remplissage des champs simples
       document.getElementById('report-id').value = report.id;
       document.getElementById('report-type').value = report.work_type;
       document.getElementById('report-status').value = report.status || 'draft';
@@ -131,7 +143,7 @@ async function openReportModal(reportId = null) {
              document.getElementById('travel-city').value = report.travel_location;
          }
       }
-      document.getElementById('travel-costs').value = report.travel_costs || 0;
+      updateTravelCost();
       document.getElementById('travel-incl').checked = report.travel_included || false;
 
       if(report.technician_signature_date) document.getElementById('tech-signature-date').value = report.technician_signature_date.split('T')[0];
@@ -139,7 +151,19 @@ async function openReportModal(reportId = null) {
          document.getElementById('tech-signature').value = getInitials(report.technicians[0].technician_name);
       }
       
+      // --- CORRECTION MAJEURE ICI ---
+      // 1. On charge la liste des équipements (les cases à cocher)
       if (report.client_id) await loadClientEquipmentForReport(report.client_id);
+      
+      // 2. On recoche ceux qui étaient sauvegardés (IDs reçus du serveur)
+      if (report.equipment_ids && Array.isArray(report.equipment_ids)) {
+          report.equipment_ids.forEach(id => {
+              const checkbox = document.getElementById(`rep-eq-${id}`);
+              if (checkbox) checkbox.checked = true;
+          });
+      }
+      // -----------------------------
+
       if (report.technicians) report.technicians.forEach(t => addTechnicianRow(t));
       if (report.stk_tests) report.stk_tests.forEach(t => addStkTestRow(t));
       if (report.materials) report.materials.forEach(m => addMaterialRow(m));
@@ -153,6 +177,7 @@ async function openReportModal(reportId = null) {
 
     } catch (e) { console.error(e); }
   } else {
+    // Mode Nouveau Rapport
     title.innerHTML = '<i class="fas fa-plus-circle"></i> Nouveau rapport';
     addTechnicianRow();
     addWorkRow();
@@ -245,48 +270,77 @@ function addMaterialRow(data = null) {
   div.className = 'form-row';
   div.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:flex-end;';
   
+  const discountVal = data ? (data.discount || 0) : 0;
+  // Si on charge un rapport existant, on prend le nom sauvegardé, sinon vide
+  const currentName = data ? (data.material_name || '') : '';
+
   div.innerHTML = `
-    <div class="form-group" style="flex:2; margin-bottom:0;">
-      <label>Matériel</label>
-      <select class="material-select">
-        <option value="">-- Choix --</option>
+    <div class="form-group" style="width: 150px; margin-bottom:0;">
+      <label>Catalogue</label>
+      <select class="material-select" style="font-size:0.9em;">
+        <option value="">-- Choisir --</option>
         ${materials.map(m => `
-          <option value="${m.id}" data-price="${m.unit_price}" data-code="${m.product_code}" ${data && data.material_id == m.id ? 'selected' : ''}>
+          <option value="${m.id}" data-name="${escapeHtml(m.name)}" data-price="${m.unit_price}" data-code="${m.product_code}" ${data && data.material_id == m.id ? 'selected' : ''}>
             ${escapeHtml(m.name)}
           </option>`).join('')}
       </select>
     </div>
-    <div class="form-group" style="width:100px; margin-bottom:0;"><label>Code</label><input type="text" class="material-code" value="${data ? (data.product_code||'') : ''}" readonly style="background:#f3f4f6;" /></div>
-    <div class="form-group" style="width:70px; margin-bottom:0;"><label>Qté</label><input type="number" class="material-qty" min="1" value="${data ? data.quantity : 1}" /></div>
-    <div class="form-group" style="width:100px; margin-bottom:0;"><label>Prix</label><input type="number" class="material-price" step="0.01" value="${data ? data.unit_price : 0}" /></div>
-    <div class="form-group" style="width:100px; margin-bottom:0;"><label>Total</label><input type="number" class="material-total" step="0.01" value="${data ? data.total_price : 0}" readonly style="background:#f3f4f6; font-weight:bold;" /></div>
+
+    <div class="form-group" style="flex:2; margin-bottom:0;">
+        <label>Désignation (Modifiable)</label>
+        <input type="text" class="material-name-input" value="${escapeHtml(currentName)}" placeholder="Nom du produit..." />
+    </div>
+
+    <div class="form-group" style="width:80px; margin-bottom:0;"><label>Code</label><input type="text" class="material-code" value="${data ? (data.product_code||'') : ''}" readonly style="background:#f3f4f6; font-size:0.9em;" /></div>
+    <div class="form-group" style="width:60px; margin-bottom:0;"><label>Qté</label><input type="number" class="material-qty" min="1" value="${data ? data.quantity : 1}" /></div>
+    <div class="form-group" style="width:80px; margin-bottom:0;"><label>Prix</label><input type="number" class="material-price" step="0.01" value="${data ? data.unit_price : 0}" /></div>
+    
+    <div class="form-group" style="width:60px; margin-bottom:0;">
+        <label>Rabais %</label>
+        <input type="number" class="material-discount" min="0" max="100" step="1" value="${discountVal}" placeholder="%" style="border-color: #ffa500;" />
+    </div>
+    
+    <div class="form-group" style="width:90px; margin-bottom:0;"><label>Total</label><input type="number" class="material-total" step="0.01" value="${data ? data.total_price : 0}" readonly style="background:#f3f4f6; font-weight:bold;" /></div>
     <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();" style="height:46px; width:46px;"><i class="fas fa-times"></i></button>
   `;
   container.appendChild(div);
 
   const sel = div.querySelector('.material-select');
+  const nameIn = div.querySelector('.material-name-input'); // Nouveau champ
   const codeIn = div.querySelector('.material-code');
   const qtyIn = div.querySelector('.material-qty');
   const priceIn = div.querySelector('.material-price');
+  const discountIn = div.querySelector('.material-discount');
   const totalIn = div.querySelector('.material-total');
 
   const update = () => {
-      const q = parseFloat(qtyIn.value)||0;
-      const p = parseFloat(priceIn.value)||0;
-      totalIn.value = (q * p).toFixed(2);
+      const q = parseFloat(qtyIn.value) || 0;
+      const p = parseFloat(priceIn.value) || 0;
+      const d = parseFloat(discountIn.value) || 0;
+      const total = (q * p) * (1 - (d / 100));
+      totalIn.value = total.toFixed(2);
       updateMaterialsTotal();
   };
 
+  // Quand on choisit dans le catalogue, on remplit le champ Texte
   sel.addEventListener('change', function() {
       const opt = this.options[this.selectedIndex];
       if(opt.value) {
           priceIn.value = parseFloat(opt.dataset.price).toFixed(2);
           codeIn.value = opt.dataset.code || '';
+          // C'est ici que la magie opère : on copie le nom du select vers l'input
+          nameIn.value = opt.dataset.name || ''; 
       }
       update();
   });
+  
+  // Ecouteurs
   qtyIn.addEventListener('change', update);
+  qtyIn.addEventListener('input', update);
   priceIn.addEventListener('change', update);
+  priceIn.addEventListener('input', update);
+  discountIn.addEventListener('change', update);
+  discountIn.addEventListener('input', update);
 }
 
 function updateMaterialsTotal() {
@@ -362,7 +416,12 @@ async function saveReport() {
       travel_included: document.getElementById('travel-incl').checked,
       travel_location: tCanton ? `${tCity} (${tCanton})` : tCity,
       technician_signature_date: document.getElementById('tech-signature-date').value,
-      work_accomplished: Array.from(document.querySelectorAll('.work-line-input')).map(i=>i.value.trim()).filter(v=>v).join('\n')
+      work_accomplished: Array.from(document.querySelectorAll('.work-line-input')).map(i=>i.value.trim()).filter(v=>v).join('\n'),
+      
+      // --- AJOUT ICI ---
+      // On récupère la liste des IDs des équipements cochés
+      equipment_ids: Array.from(document.querySelectorAll('.eq-cb:checked')).map(cb => cb.value)
+      // ----------------
     };
 
     data.technicians = Array.from(document.querySelectorAll('#technicians-list .form-row')).map(r => ({
@@ -385,13 +444,17 @@ async function saveReport() {
     }).filter(t=>t);
 
     data.materials = Array.from(document.querySelectorAll('#materials-list .form-row')).map(r => ({
-       material_id: r.querySelector('.material-select').value,
-       material_name: r.querySelector('.material-select').selectedOptions[0]?.text,
+       material_id: r.querySelector('.material-select').value, // On garde l'ID pour les stats
+       
+       // MODIFICATION ICI : On prend la valeur du champ INPUT, plus du SELECT
+       material_name: r.querySelector('.material-name-input').value, 
+       
        product_code: r.querySelector('.material-code').value,
        quantity: parseFloat(r.querySelector('.material-qty').value)||1,
        unit_price: parseFloat(r.querySelector('.material-price').value)||0,
+       discount: parseFloat(r.querySelector('.material-discount').value)||0,
        total_price: parseFloat(r.querySelector('.material-total').value)||0
-    })).filter(m=>m.material_id);
+    })).filter(m => m.material_name); // On vérifie qu'il y a au moins un nom
 
     const method = reportId ? 'PUT' : 'POST';
     const url = reportId ? `/api/reports/${reportId}` : '/api/reports';
@@ -407,6 +470,38 @@ async function saveReport() {
 // Helpers
 function closeReportModal() { document.getElementById('report-modal').classList.remove('active'); }
 function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); }
+
+function updateTravelCost() {
+    const cantonSelect = document.getElementById('travel-canton');
+    const priceInput = document.getElementById('travel-costs');
+    const selectedCanton = cantonSelect.value;
+    
+    // Si aucun canton sélectionné, on débloque le champ pour permettre une saisie manuelle ou on le vide
+    if (!selectedCanton) {
+        priceInput.readOnly = false;
+        priceInput.style.backgroundColor = ""; // Reset couleur
+        return;
+    }
+
+    // Recherche du prix correspondant au canton
+    let priceFound = null;
+    for (const [price, cantons] of Object.entries(TRAVEL_ZONES)) {
+        if (cantons.includes(selectedCanton)) {
+            priceFound = parseInt(price);
+            break;
+        }
+    }
+
+    if (priceFound) {
+        priceInput.value = priceFound.toFixed(2);
+        priceInput.readOnly = true; // Empêche la modification
+        priceInput.style.backgroundColor = "#e9ecef"; // Grise visuellement le champ
+    } else {
+        // Cas rare : Canton inconnu ou non listé dans les zones
+        priceInput.readOnly = false;
+        priceInput.style.backgroundColor = "";
+    }
+}
 
 async function checkAuth() {
   try {
