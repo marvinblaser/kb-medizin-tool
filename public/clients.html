@@ -1,5 +1,3 @@
-<!-- public/clients.html -->
-
 <!DOCTYPE html>
 <html lang="fr">
   <head>
@@ -63,7 +61,6 @@
             <input type="text" id="filter-serial" placeholder="N° série..." />
             <input type="text" id="filter-category" placeholder="Secteur (ex: ORL)..." />
             <input type="text" id="filter-device" placeholder="Appareil (ex: Unité)..." />
-            
             <div style="width: 100%; display: flex; justify-content: flex-end; margin-top: 10px;">
               <button class="btn btn-sm btn-secondary" id="clear-filters-btn"><i class="fas fa-times"></i> Réinitialiser</button>
             </div>
@@ -75,29 +72,11 @@
             <table id="clients-table" class="table">
               <thead>
                 <tr>
-                  <th class="sortable" data-column="cabinet_name" style="min-width: 250px">
-                    <div class="th-content"><span><i class="fas fa-building"></i> Cabinet</span></div>
-                    <div class="column-search"><input type="text" data-column="cabinet_name" placeholder="Filtrer..." onclick="event.stopPropagation()" /></div>
-                  </th>
-                  <th class="sortable" data-column="activity" style="min-width: 100px; width: 120px;">
-                    <div class="th-content"><span><i class="fas fa-briefcase"></i> Activité</span></div>
-                    <div class="column-search"><input type="text" data-column="activity" placeholder="Filtrer..." onclick="event.stopPropagation()" /></div>
-                  </th>
-                  <th class="sortable" data-column="city" style="min-width: 180px">
-                    <div class="th-content"><span><i class="fas fa-map-marker-alt"></i> Localisation</span></div>
-                    <div class="column-search">
-                      <input type="text" data-column="city" placeholder="Ville..." onclick="event.stopPropagation()" style="margin-bottom: 4px" />
-                      <select data-column="canton" onclick="event.stopPropagation()" style="width: 100%; padding: 0.3rem; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; height: 32px; background: var(--bg-page); color: var(--text-main);">
-                        <option value="">Tous (Canton)</option>
-                        <option value="AG">AG</option><option value="AI">AI</option><option value="AR">AR</option><option value="BE">BE</option><option value="BL">BL</option><option value="BS">BS</option><option value="FR">FR</option><option value="GE">GE</option><option value="GL">GL</option><option value="GR">GR</option><option value="JU">JU</option><option value="LU">LU</option><option value="NE">NE</option><option value="NW">NW</option><option value="OW">OW</option><option value="SG">SG</option><option value="SH">SH</option><option value="SO">SO</option><option value="SZ">SZ</option><option value="TG">TG</option><option value="TI">TI</option><option value="UR">UR</option><option value="VD">VD</option><option value="VS">VS</option><option value="ZG">ZG</option><option value="ZH">ZH</option>
-                      </select>
-                    </div>
-                  </th>
+                  <th class="sortable" data-column="cabinet_name" style="min-width: 250px"><div class="th-content"><span><i class="fas fa-building"></i> Cabinet</span></div><div class="column-search"><input type="text" data-column="cabinet_name" placeholder="Filtrer..." onclick="event.stopPropagation()" /></div></th>
+                  <th class="sortable" data-column="activity" style="min-width: 100px; width: 120px;"><div class="th-content"><span><i class="fas fa-briefcase"></i> Activité</span></div><div class="column-search"><input type="text" data-column="activity" placeholder="Filtrer..." onclick="event.stopPropagation()" /></div></th>
+                  <th class="sortable" data-column="city" style="min-width: 180px"><div class="th-content"><span><i class="fas fa-map-marker-alt"></i> Localisation</span></div><div class="column-search"><input type="text" data-column="city" placeholder="Ville..." onclick="event.stopPropagation()" style="margin-bottom: 4px" /><select data-column="canton" onclick="event.stopPropagation()" style="width: 100%; padding: 0.3rem; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; height: 32px; background: var(--bg-page); color: var(--text-main);"><option value="">Tous (Canton)</option><option value="AG">AG</option><option value="BE">BE</option><option value="BL">BL</option><option value="BS">BS</option><option value="FR">FR</option><option value="GE">GE</option><option value="JU">JU</option><option value="NE">NE</option><option value="VD">VD</option><option value="VS">VS</option><option value="ZH">ZH</option></select></div></th>
                   <th style="min-width: 450px"><div class="th-content"><span><i class="fas fa-tools"></i> Équipements</span></div></th>
-                  <th class="sortable" data-column="appointment_at" style="min-width: 140px">
-                    <div class="th-content"><span><i class="fas fa-calendar"></i> Rendez-vous</span></div>
-                    <div class="column-search"><input type="date" data-column="appointment_at" onclick="event.stopPropagation()" /></div>
-                  </th>
+                  <th class="sortable" data-column="appointment_at" style="min-width: 140px"><div class="th-content"><span><i class="fas fa-calendar"></i> Rendez-vous</span></div><div class="column-search"><input type="date" data-column="appointment_at" onclick="event.stopPropagation()" /></div></th>
                   <th style="width: 60px;"></th>
                 </tr>
               </thead>
@@ -124,10 +103,11 @@
                 <div class="form-section"><h3 class="form-section-title">Adresse</h3><div class="form-group"><label>Adresse *</label><input type="text" id="address" required /></div><div class="form-row"><div class="form-group"><label>NPA</label><input type="text" id="postal-code" /></div><div class="form-group"><label>Ville *</label><input type="text" id="city" required /></div><div class="form-group"><label>Canton</label><select id="canton"><option value="">--</option><option value="BL">BL</option><option value="BS">BS</option><option value="ZH">ZH</option><option value="AG">AG</option><option value="SO">SO</option><option value="JU">JU</option><option value="BE">BE</option><option value="GE">GE</option><option value="VD">VD</option></select></div></div><div class="form-row" style="margin-top:10px;"><div class="form-group"><label>Lat</label><input type="number" id="client-lat" step="0.000001" /></div><div class="form-group"><label>Lon</label><input type="number" id="client-lon" step="0.000001" /></div><div class="form-group" style="display:flex;align-items:flex-end;"><button type="button" id="open-geo-tool-btn" class="btn btn-primary btn-sm">Carte</button></div></div></div>
                 <div class="form-section"><h3 class="form-section-title">Rendez-vous</h3><div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="appointment" /></div><div class="form-group"><label>Technicien</label><select id="technician"><option value="">--</option></select></div></div></div>
                 <div class="form-section"><h3 class="form-section-title">Notes</h3><div class="form-group"><textarea id="notes" rows="3"></textarea></div></div>
+                
                 <div class="form-section" id="history-section" style="display: none">
-                  <h3 class="form-section-title"><i class="fas fa-history"></i> Historique</h3>
+                  <h3 class="form-section-title"><i class="fas fa-history"></i> Historique Interventions</h3>
                   <div id="appointments-history"><p class="text-center">Chargement...</p></div>
-                  <button type="button" class="btn btn-secondary" id="add-history-btn" style="margin-top: 1rem"><i class="fas fa-plus"></i> Ajouter historique</button>
+                  <button type="button" class="btn btn-secondary" id="add-history-btn" style="margin-top: 1rem"><i class="fas fa-plus"></i> Ajouter note manuelle</button>
                 </div>
               </form>
             </div>
@@ -137,14 +117,12 @@
 
     <div class="modal" id="history-modal">
         <div class="modal-content" style="max-width: 600px">
-            <div class="modal-header"><h2>Nouvelle intervention</h2><button class="modal-close" onclick="closeHistoryModal()" id="cancel-history-btn">&times;</button></div>
+            <div class="modal-header"><h2>Nouvelle note manuelle</h2><button class="modal-close" onclick="closeHistoryModal()" id="cancel-history-btn">&times;</button></div>
             <div class="modal-body">
                 <form id="history-form">
                     <input type="hidden" id="history-client-id" />
                     <div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="history-date" required /></div><div class="form-group"><label>Technicien *</label><select id="history-technician" required><option value="">--</option></select></div></div>
-                    <div class="form-group"><label>Lier rapport</label><select id="history-report"><option value="">--</option></select></div>
-                    <div class="form-group"><label>Description *</label><textarea id="history-task" rows="3"></textarea></div>
-                    <div class="form-group"><label>Équipements</label><div id="history-equipment-list" style="border:1px solid #ddd;padding:10px;max-height:150px;overflow-y:auto;"></div></div>
+                    <div class="form-group"><label>Description *</label><textarea id="history-task" rows="3" placeholder="Ex: Livraison consommables..."></textarea></div>
                 </form>
             </div>
             <div class="modal-footer"><button class="btn btn-secondary" onclick="closeHistoryModal()">Annuler</button><button class="btn btn-success" id="save-history-btn">Enregistrer</button></div>

@@ -1,5 +1,3 @@
-<!-- public/reports.html -->
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -16,6 +14,21 @@
   <link rel="stylesheet" href="/css/utilities.css" />
   <link rel="stylesheet" href="/css/transitions.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    /* Styles Onglets & Badges */
+    .tabs-container { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid var(--border-color); overflow-x: auto; }
+    .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--text-light); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+    .tab-btn:hover { color: var(--color-primary); }
+    .tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+    
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 600; }
+    .status-draft { background: #e2e8f0; color: #475569; } 
+    .status-pending { background: #ffedd5; color: #c2410c; } 
+    .status-validated { background: #dcfce7; color: #15803d; } 
+    .status-archived { background: #dbeafe; color: #1e40af; } 
+
+    .rejection-alert { background: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: none; }
+  </style>
 </head>
 <body>
   <div class="app-container">
@@ -40,9 +53,16 @@
         <button class="btn btn-success" id="add-report-btn"><i class="fas fa-plus"></i> Nouveau rapport</button>
       </div>
 
+      <div class="tabs-container">
+        <button class="tab-btn active" id="tab-draft"><i class="fas fa-pencil-alt"></i> Brouillons</button>
+        <button class="tab-btn" id="tab-pending"><i class="fas fa-clock"></i> En attente</button>
+        <button class="tab-btn" id="tab-validated"><i class="fas fa-check-circle"></i> Validés</button>
+        <button class="tab-btn" id="tab-archived"><i class="fas fa-archive"></i> Archivés</button>
+      </div>
+
       <div class="table-controls">
         <div class="table-controls-row">
-          <div class="search-box"><input type="text" id="global-search" placeholder="Rechercher un rapport..." /></div>
+          <div class="search-box"><input type="text" id="global-search" placeholder="Rechercher..." /></div>
           <select id="filter-type">
             <option value="">Tous les types</option>
             <option value="Mise en marche">Mise en marche</option>
@@ -50,13 +70,7 @@
             <option value="Réparation">Réparation</option>
             <option value="Contrôle">Contrôle</option>
           </select>
-          <select id="filter-status">
-            <option value="">Tous les statuts</option>
-            <option value="draft">Brouillon</option>
-            <option value="completed">Complété</option>
-            <option value="sent">Envoyé</option>
-          </select>
-          <button class="btn btn-secondary" id="clear-filters-btn"><i class="fas fa-times"></i> Effacer</button>
+          <button class="btn btn-secondary" id="clear-filters-btn"><i class="fas fa-times"></i></button>
         </div>
       </div>
 
@@ -65,11 +79,11 @@
           <table class="table">
             <thead>
               <tr>
-                <th>N° Rapport</th><th>Type</th><th>Client</th><th>Date</th><th>Intervenants</th><th>Statut</th><th>Actions</th>
+                <th>N° Rapport</th><th>Type</th><th>Client</th><th>Date</th><th>Statut</th><th style="text-align:right;">Actions</th>
               </tr>
             </thead>
             <tbody id="reports-tbody">
-              <tr><td colspan="7" style="text-align: center; padding: 40px"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Chargement...</p></td></tr>
+              <tr><td colspan="6" style="text-align: center; padding: 40px"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Chargement...</p></td></tr>
             </tbody>
           </table>
         </div>
@@ -78,8 +92,8 @@
       <div class="pagination">
         <span class="pagination-info" id="pagination-info"></span>
         <div class="pagination-buttons">
-          <button class="btn btn-secondary" id="prev-page"><i class="fas fa-chevron-left"></i> Précédent</button>
-          <button class="btn btn-secondary" id="next-page">Suivant <i class="fas fa-chevron-right"></i></button>
+          <button class="btn btn-secondary" id="prev-page"><i class="fas fa-chevron-left"></i></button>
+          <button class="btn btn-secondary" id="next-page"><i class="fas fa-chevron-right"></i></button>
         </div>
       </div>
     </main>
@@ -88,18 +102,31 @@
   <div class="modal" id="report-modal">
     <div class="modal-content" style="max-width: 1200px">
       <div class="modal-header">
-        <h2 id="report-modal-title"><i class="fas fa-file-alt"></i> Nouveau rapport</h2>
-        <button class="modal-close" onclick="closeReportModal()">&times;</button>
+        <h2 id="report-modal-title"><i class="fas fa-file-alt"></i> Rapport</h2>
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-secondary btn-sm" id="header-pdf-btn" style="display:none;" title="Voir le PDF"><i class="fas fa-file-pdf"></i> Voir PDF</button>
+            <button class="modal-close" onclick="closeReportModal()">&times;</button>
+        </div>
       </div>
+      
+      <div id="rejection-msg-box" class="rejection-alert">
+          <strong><i class="fas fa-exclamation-circle"></i> Rapport refusé :</strong> <span id="rejection-reason-text"></span>
+      </div>
+
       <div class="modal-body">
         <form id="report-form">
           <input type="hidden" id="report-id" />
+          
+          <div class="form-section" style="background:#f8fafc; padding:10px; border:1px solid #e2e8f0; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+             <div><strong>Statut :</strong> <span id="current-status-badge" class="status-badge status-draft">Brouillon</span></div>
+             <div id="validator-info" style="font-size:0.9em; color:#64748b;"></div>
+          </div>
 
           <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-clipboard-list"></i> Type de rapport</h3>
+            <h3 class="form-section-title">Général</h3>
             <div class="form-row">
               <div class="form-group" style="flex: 2;">
-                <label for="report-type">Type de travaux *</label>
+                <label>Type de travaux *</label>
                 <select id="report-type" required>
                   <option value="">-- Sélectionner --</option>
                   <option value="Mise en marche">Mise en marche</option>
@@ -113,141 +140,96 @@
                   <option value="Re-validation">Re-validation</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label for="report-status">Statut</label>
-                <select id="report-status">
-                  <option value="draft">Brouillon</option>
-                  <option value="completed">Terminé</option>
-                  <option value="sent">Envoyé</option>
-                </select>
-              </div>
             </div>
           </div>
 
           <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-building"></i> Client</h3>
-            <div class="form-group">
-               <label for="client-select">Client *</label>
-               <select id="client-select" required><option value="">-- Sélectionner --</option></select>
+            <h3 class="form-section-title">Client</h3>
+            <div class="form-group"><label>Client *</label><select id="client-select" required><option value="">-- Sélectionner --</option></select></div>
+            <div class="form-row">
+                <div class="form-group"><input type="text" id="cabinet-name" placeholder="Cabinet" required /></div>
+                <div class="form-group"><input type="text" id="interlocutor" placeholder="Interlocuteur" /></div>
             </div>
-            <div class="form-group"><input type="text" id="cabinet-name" placeholder="Nom du cabinet" required /></div>
             <div class="form-group"><input type="text" id="address" placeholder="Adresse" required /></div>
             <div class="form-row">
               <div class="form-group"><input type="text" id="postal-code" placeholder="NPA" /></div>
               <div class="form-group"><input type="text" id="city" placeholder="Ville" required /></div>
             </div>
-            <div class="form-group"><input type="text" id="interlocutor" placeholder="Interlocuteur" /></div>
           </div>
 
           <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-tools"></i> Installation(s)</h3>
-            <div class="form-group">
-              <label>Cocher pour ajouter au champ texte :</label>
-              <div id="client-equipment-list" style="max-height: 150px; overflow-y: auto; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
-                <p style="color: #999;">Sélectionnez un client...</p>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="installation-text">Texte affiché sur le rapport :</label>
-              <textarea id="installation-text" rows="2" style="width:100%; font-weight:bold;"></textarea>
-            </div>
+            <h3 class="form-section-title">Installation</h3>
+            <div class="form-group"><div id="client-equipment-list" style="max-height: 150px; overflow-y: auto; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;"></div></div>
+            <div class="form-group"><label>Texte affiché :</label><textarea id="installation-text" rows="2" style="width:100%; font-weight:bold;"></textarea></div>
           </div>
 
           <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-users"></i> Intervenants</h3>
-            <button type="button" class="btn btn-sm btn-primary" id="add-technician-btn" style="margin-bottom: 10px"><i class="fas fa-plus"></i> Ajouter</button>
+            <h3 class="form-section-title">Détails Intervention</h3>
+            <label>Intervenants</label>
             <div id="technicians-list"></div>
-          </div>
-
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-tasks"></i> Travaux accomplis</h3>
-            <button type="button" class="btn btn-sm btn-primary" id="add-work-btn" style="margin-bottom: 10px"><i class="fas fa-plus"></i> Ajouter une ligne</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="add-technician-btn" style="margin-top:5px;"><i class="fas fa-plus"></i></button>
+            
+            <label style="margin-top:15px; display:block;">Travaux accomplis</label>
             <div id="work-list"></div>
+            <button type="button" class="btn btn-sm btn-secondary" id="add-work-btn" style="margin-top:5px;"><i class="fas fa-plus"></i></button>
           </div>
 
           <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-check-circle"></i> Tests STK</h3>
-            <button type="button" class="btn btn-sm btn-primary" id="add-stk-test-btn" style="margin-bottom: 10px"><i class="fas fa-plus"></i> Ajouter un test</button>
+            <h3 class="form-section-title">Matériel & Tests</h3>
+            <label>Tests STK</label>
             <div id="stk-tests-list"></div>
-          </div>
+            <button type="button" class="btn btn-sm btn-secondary" id="add-stk-test-btn" style="margin-top:5px;"><i class="fas fa-plus"></i></button>
 
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-toolbox"></i> Matériel utilisé</h3>
-            <button type="button" class="btn btn-sm btn-primary" id="add-material-btn" style="margin-bottom: 10px"><i class="fas fa-plus"></i> Ajouter matériel</button>
+            <label style="margin-top:15px; display:block;">Matériel utilisé</label>
             <div id="materials-list"></div>
-            <div style="text-align: right; margin-top: 10px; font-weight: bold;">
-              Total Matériel: <span id="materials-total">0.00</span> CHF
+            <button type="button" class="btn btn-sm btn-secondary" id="add-material-btn" style="margin-top:5px;"><i class="fas fa-plus"></i></button>
+            <div style="text-align: right; margin-top: 5px; font-weight: bold;">Total Matériel: <span id="materials-total">0.00</span> CHF</div>
+          </div>
+
+          <div class="form-section">
+            <h3 class="form-section-title">Déplacement</h3>
+            <div class="form-row">
+              <div class="form-group" style="flex:2;"><label>Ville Départ</label><input type="text" id="travel-city" /></div>
+              <div class="form-group"><label>Canton</label><select id="travel-canton"><option value="">--</option><option value="AG">AG</option><option value="BE">BE</option><option value="BL">BL</option><option value="BS">BS</option><option value="FR">FR</option><option value="GE">GE</option><option value="JU">JU</option><option value="LU">LU</option><option value="NE">NE</option><option value="SG">SG</option><option value="SO">SO</option><option value="SZ">SZ</option><option value="TG">TG</option><option value="TI">TI</option><option value="VD">VD</option><option value="VS">VS</option><option value="ZG">ZG</option><option value="ZH">ZH</option></select></div>
+              <div class="form-group"><label>Prix</label><input type="number" id="travel-costs" step="0.01" /></div>
+              <div class="form-group" style="padding-top:25px;"><label><input type="checkbox" id="travel-incl" /> Inclus</label></div>
             </div>
           </div>
 
           <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-car"></i> Frais de déplacement</h3>
+            <h3 class="form-section-title">Clôture</h3>
+            <div class="form-group"><label>Commentaires</label><textarea id="remarks" rows="2"></textarea></div>
             <div class="form-row">
-              <div class="form-group" style="flex: 2;">
-                <label>Ville de départ</label>
-                <input type="text" id="travel-city" placeholder="ex: Wil" />
-              </div>
-              <div class="form-group" style="width: 100px;">
-                <label>Canton</label>
-                <select id="travel-canton">
-                  <option value="">--</option>
-                  <option value="AG">AG</option><option value="AI">AI</option><option value="AR">AR</option>
-                  <option value="BE">BE</option><option value="BL">BL</option><option value="BS">BS</option>
-                  <option value="FR">FR</option><option value="GE">GE</option><option value="GL">GL</option>
-                  <option value="GR">GR</option><option value="JU">JU</option><option value="LU">LU</option>
-                  <option value="NE">NE</option><option value="NW">NW</option><option value="OW">OW</option>
-                  <option value="SG">SG</option><option value="SH">SH</option><option value="SO">SO</option>
-                  <option value="SZ">SZ</option><option value="TG">TG</option><option value="TI">TI</option>
-                  <option value="UR">UR</option><option value="VD">VD</option><option value="VS">VS</option>
-                  <option value="ZG">ZG</option><option value="ZH">ZH</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Prix (CHF)</label>
-                <input type="number" id="travel-costs" step="0.01" min="0" />
-              </div>
-              <div class="form-group" style="padding-top: 25px;">
-                <label><input type="checkbox" id="travel-incl" /> Inclus</label>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-comment"></i> Commentaires</h3>
-            <textarea id="remarks" rows="3"></textarea>
-          </div>
-
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-signature"></i> Signature Technicien</h3>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Date</label>
-                <input type="date" id="tech-signature-date" />
-              </div>
-              <div class="form-group">
-                <label>Initiales</label>
-                <input type="text" id="tech-signature" maxlength="10" />
-              </div>
+              <div class="form-group"><label>Date Signature</label><input type="date" id="tech-signature-date" /></div>
             </div>
           </div>
         </form>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeReportModal()">Annuler</button>
-        <button class="btn btn-success" id="save-report-btn">Enregistrer</button>
+
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button class="btn btn-secondary" onclick="closeReportModal()">Fermer</button>
+        
+        <button id="save-report-btn" style="display:none;">Save</button>
+        
+        <div id="workflow-buttons" style="display:flex; gap:10px;"></div>
       </div>
     </div>
   </div>
 
+  <div class="modal" id="reject-modal">
+      <div class="modal-content" style="max-width:500px">
+          <div class="modal-header"><h3>Motif du refus</h3><button class="modal-close" onclick="document.getElementById('reject-modal').classList.remove('active')">&times;</button></div>
+          <div class="modal-body">
+              <textarea id="reject-reason" rows="4" style="width:100%; padding:10px;" placeholder="Raison..."></textarea>
+          </div>
+          <div class="modal-footer"><button class="btn btn-danger" id="confirm-reject-btn">Confirmer</button></div>
+      </div>
+  </div>
+  
   <div class="modal" id="delete-modal">
-    <div class="modal-content" style="max-width: 400px">
-      <div class="modal-header">
-        <h2>Confirmer suppression</h2>
-        <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p>Supprimer le rapport <strong id="delete-report-number"></strong> ?</p>
-      </div>
+    <div class="modal-content">
+      <div class="modal-header"><h2>Supprimer</h2><button class="modal-close" onclick="closeDeleteModal()">&times;</button></div>
+      <div class="modal-body"><p>Voulez-vous vraiment supprimer ce rapport ?</p></div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="cancel-delete-btn">Annuler</button>
         <button class="btn btn-danger" id="confirm-delete-btn">Supprimer</button>

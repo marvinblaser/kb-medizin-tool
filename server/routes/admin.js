@@ -7,7 +7,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { db } = require('../config/database');
-const { requireAdmin } = require('../middleware/auth');
+// IMPORT IMPORTANT : On ajoute requireAuth ici
+const { requireAdmin, requireAuth } = require('../middleware/auth');
 
 // --- UPLOAD CONFIG ---
 const storage = multer.diskStorage({
@@ -31,7 +32,9 @@ const upload = multer({
 });
 
 // ========== USERS ==========
-router.get('/users', requireAdmin, (req, res) => {
+
+// MODIFICATION ICI : requireAuth au lieu de requireAdmin (Tout le monde peut voir la liste pour les menus déroulants)
+router.get('/users', requireAuth, (req, res) => {
   db.all("SELECT id, email, role, name, phone, photo_url, is_active, last_login_at FROM users ORDER BY name", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
@@ -44,10 +47,15 @@ router.post('/users', requireAdmin, upload.single('photo'), async (req, res) => 
 
   try {
     const hash = await bcrypt.hash(password, 10);
+    // UTILISATION DE LA VERSION SÉCURISÉE (Avec Logs)
     db.run("INSERT INTO users (email, password_hash, role, name, phone, photo_url, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [email, hash, role, name, phone, photo_url, is_active],
       function(err) {
-        if (err) return res.status(400).json({ error: "Email déjà utilisé" });
+        if (err) {
+            console.error("❌ Erreur Création User:", err.message);
+            const msg = err.message.includes('UNIQUE') ? "Email déjà utilisé" : "Erreur base de données";
+            return res.status(400).json({ error: msg });
+        }
         db.run("INSERT INTO activity_logs (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)", [req.session.userId, 'CREATE_USER', 'User', this.lastID]);
         res.json({ id: this.lastID });
       }
@@ -91,7 +99,7 @@ router.delete('/users/:id', requireAdmin, (req, res) => {
   });
 });
 
-// ========== ROLES (CONTROLE TOTAL) ==========
+// ========== ROLES ==========
 
 router.get('/roles', requireAdmin, (req, res) => {
   db.all("SELECT * FROM roles ORDER BY name", [], (err, rows) => {
@@ -114,34 +122,27 @@ router.post('/roles', requireAdmin, (req, res) => {
   );
 });
 
-// NOUVEAU : UPDATE ROLE (Permissions & Nom)
 router.put('/roles/:slug', requireAdmin, (req, res) => {
   const { name, permissions } = req.body;
   const { slug } = req.params;
-
-  db.run("UPDATE roles SET name = ?, permissions = ? WHERE slug = ?", 
-    [name, permissions, slug],
-    function(err) {
+  db.run("UPDATE roles SET name = ?, permissions = ? WHERE slug = ?", [name, permissions, slug], function(err) {
       if (err) return res.status(500).json({ error: err.message });
       db.run("INSERT INTO activity_logs (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)", [req.session.userId, 'UPDATE_ROLE', 'Role', 0]);
       res.json({ success: true });
-    }
-  );
+  });
 });
 
 router.delete('/roles/:slug', requireAdmin, (req, res) => {
   const { slug } = req.params;
-  // Pas de vérification "is_removable", contrôle total pour l'admin.
   db.run("DELETE FROM roles WHERE slug = ?", [slug], function(err) {
-    if(err) return res.status(500).json({error: "Erreur (Rôle peut-être utilisé par un user?)"});
+    if(err) return res.status(500).json({error: "Erreur"});
     db.run("INSERT INTO activity_logs (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)", [req.session.userId, 'DELETE_ROLE', 'Role', 0]);
     res.json({success: true});
   });
 });
 
 
-// ========== SECTORS, DEVICES, EQUIPMENT, MATERIALS ==========
-// (Code standard CRUD sans changement majeur, mais inclus pour que tu puisses copier-coller tout le fichier)
+// ========== SECTORS, DEVICES, EQUIPMENT ==========
 
 router.get('/sectors', requireAdmin, (req, res) => db.all("SELECT * FROM sectors ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
 router.post('/sectors', requireAdmin, (req, res) => {
@@ -156,7 +157,9 @@ router.get('/device-types', requireAdmin, (req, res) => db.all("SELECT * FROM de
 router.post('/device-types', requireAdmin, (req, res) => db.run("INSERT INTO device_types (name) VALUES (?)", [req.body.name], function(err) { err ? res.status(400).json({error:"Erreur"}) : res.json({id:this.lastID}); }));
 router.delete('/device-types/:id', requireAdmin, (req, res) => db.run("DELETE FROM device_types WHERE id=?", [req.params.id], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})));
 
-router.get('/equipment', requireAdmin, (req, res) => db.all("SELECT * FROM equipment_catalog ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
+// MODIFICATION ICI : requireAuth (Pour que les techniciens voient le catalogue équipements)
+router.get('/equipment', requireAuth, (req, res) => db.all("SELECT * FROM equipment_catalog ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
+
 router.post('/equipment', requireAdmin, (req, res) => {
   const { name, brand, model, type, device_type } = req.body;
   db.run("INSERT INTO equipment_catalog (name, brand, model, type, device_type) VALUES (?, ?, ?, ?, ?)", [name, brand, model, type, device_type], function(err){ err?res.status(500).json({error:err.message}):res.json({id:this.lastID}); });
@@ -168,7 +171,9 @@ router.put('/equipment/:id', requireAdmin, (req, res) => {
 router.delete('/equipment/:id', requireAdmin, (req, res) => db.run("DELETE FROM equipment_catalog WHERE id=?", [req.params.id], (err)=>err?res.status(500).json({error:err.message}):res.json({success:true})));
 
 // ========== MATERIALS ==========
-router.get('/materials', requireAdmin, (req, res) => {
+
+// MODIFICATION ICI : requireAuth (Pour que les techniciens voient le matériel dans les rapports)
+router.get('/materials', requireAuth, (req, res) => {
   db.all("SELECT * FROM materials ORDER BY name", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
@@ -177,7 +182,6 @@ router.get('/materials', requireAdmin, (req, res) => {
 
 router.post('/materials', requireAdmin, (req, res) => {
   const { name, product_code, unit_price } = req.body;
-  // Utilisation de function() ici pour avoir accès à this.lastID
   db.run(
     "INSERT INTO materials (name, product_code, unit_price) VALUES (?, ?, ?)",
     [name, product_code, unit_price],
@@ -207,30 +211,20 @@ router.delete('/materials/:id', requireAdmin, (req, res) => {
   });
 });
 
-// ========== LOGS (AVEC FILTRES) ==========
+// ========== LOGS ==========
 router.get('/logs', requireAdmin, (req, res) => {
   const limit = req.query.limit || 100;
-  const category = req.query.category; // 'auth', 'users', 'reports', 'stock', etc.
-
+  const category = req.query.category;
   let query = `SELECT l.*, u.name as user_name FROM activity_logs l LEFT JOIN users u ON l.user_id = u.id`;
   let params = [];
-
-  // Logique simple de filtre par mot clé dans l'action ou l'entité
   if (category) {
-    if (category === 'auth') {
-      query += ` WHERE l.action IN ('LOGIN', 'LOGOUT', 'LOGIN_FAIL')`;
-    } else if (category === 'users') {
-      query += ` WHERE l.entity = 'User' OR l.entity = 'Role'`;
-    } else if (category === 'reports') {
-      query += ` WHERE l.entity = 'Report' OR l.entity = 'Client'`;
-    } else if (category === 'stock') {
-      query += ` WHERE l.entity IN ('Material', 'Equipment')`;
-    }
+    if (category === 'auth') query += ` WHERE l.action IN ('LOGIN', 'LOGOUT', 'LOGIN_FAIL')`;
+    else if (category === 'users') query += ` WHERE l.entity = 'User' OR l.entity = 'Role'`;
+    else if (category === 'reports') query += ` WHERE l.entity = 'Report' OR l.entity = 'Client'`;
+    else if (category === 'stock') query += ` WHERE l.entity IN ('Material', 'Equipment')`;
   }
-
   query += ` ORDER BY l.created_at DESC LIMIT ?`;
   params.push(limit);
-
   db.all(query, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
