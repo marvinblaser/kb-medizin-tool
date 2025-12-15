@@ -25,7 +25,6 @@
 |            DASHBOARD              |
 -------------------------------------
 
-- Trajets sur la carte
 - Changer le style de la carte
 - Ajouter Widget "Rapports à valider" 
 
@@ -79,15 +78,13 @@ Ajouter un client :
 Tableau rapports :
 - Remplacer le nombre d'intervenants par les noms
 - Indiquer l'installation du rapport dans le tableau
-- Mettre des rabais en % sur le matériel
+- Mettre des rabais en % sur le matériel V
 - Tâches prédéfinies
-- Frais de déplacements prédéfinis
+- Frais de déplacements prédéfinis V
 
-- Une fois le rapport terminé : "En attente de validation"
+- Une fois le rapport terminé : "En attente de validation" V
 - Ajouter les rapports en Allemand
 - Dossiers + Filtres
-
-- Ajouter une signature par utilisateur (Techniciens)
 
 
 
@@ -98,9 +95,8 @@ Tableau rapports :
 |            PANEL ADMIN            |
 -------------------------------------
 
-- Créer un rôle secrétaire, Technico-commercial et Directeur des ventes
+- Créer un rôle secrétaire, Technico-commercial et Directeur des ventes V
 - Ajouter tous les utilisateurs (Plus tard, lors du déploiement)
-- Logs plus détaillés avec des sections + Backups (plus tard pour les backups, lors du déploiement)
-- Ajouter rôles "Verif" (Pour vérifier et valider les rapports)
-- Gérer les permissions
-- Photo de profil pour les utilisateurs
+- Ajouter rôles "Verif" (Pour vérifier et valider les rapports) V
+- Gérer les permissions V
+- Photo de profil pour les utilisateurs V

@@ -5,12 +5,27 @@ const TRAVEL_ZONES = { 50: ['BS', 'BL'], 75: ['AG', 'SO', 'JU'], 125: ['SH', 'ZH
 let currentPage = 1;
 let currentStatusFilter = 'draft';
 let currentUser = null;
-let reportToDelete = null; // Variable globale pour la suppression
+let reportToDelete = null;
 let clients=[], technicians=[], materials=[];
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Gestion paramètre URL (si on vient du dashboard)
+    const urlParams = new URLSearchParams(window.location.search);
+    const statusParam = urlParams.get('status');
+    if (statusParam) {
+        currentStatusFilter = statusParam;
+        window.history.replaceState({}, document.title, "/reports.html");
+    }
+
     await checkAuth();
+    await updateBadges(); // <--- Chargement initial des badges (Sidebar + Onglets)
     await loadClients(); await loadTechnicians(); await loadMaterials();
+    
+    // Initialisation onglets visuels
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${currentStatusFilter}`).classList.add('active');
+    document.getElementById('add-report-btn').style.display = (currentStatusFilter === 'draft') ? 'block' : 'none';
+
     await loadReports();
 
     document.getElementById('logout-btn').addEventListener('click', logout);
@@ -53,6 +68,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Refus
     document.getElementById('confirm-reject-btn').addEventListener('click', confirmReject);
 });
+
+// --- GESTION BADGES ET STATS ---
+async function updateBadges() {
+    try {
+        const res = await fetch('/api/reports/stats');
+        const stats = await res.json();
+        
+        // 1. Sidebar Badge
+        const sidebarLink = document.querySelector('a[href="/reports.html"]');
+        if (sidebarLink) {
+            const oldBadge = sidebarLink.querySelector('.sidebar-badge');
+            if (oldBadge) oldBadge.remove();
+            if (stats.pending > 0) {
+                const badge = document.createElement('span');
+                badge.className = 'sidebar-badge';
+                badge.style.cssText = 'background:#ef4444; color:white; font-size:0.75rem; padding:2px 6px; border-radius:10px; margin-left:auto; font-weight:bold;';
+                badge.textContent = stats.pending;
+                sidebarLink.appendChild(badge);
+                sidebarLink.style.display = 'flex'; sidebarLink.style.alignItems = 'center';
+            }
+        }
+
+        // 2. Onglets Badges
+        const updateTab = (id, count, isDanger) => {
+            const btn = document.getElementById(id);
+            if(btn) {
+                // On garde le texte de base (ex: "En attente") et on ajoute le nombre
+                const baseText = btn.innerText.split('(')[0].trim(); 
+                const style = isDanger && count > 0 ? 'color:#ef4444; font-weight:bold;' : '';
+                btn.innerHTML = `<i class="${btn.querySelector('i').className}"></i> <span style="${style}">${baseText} (${count})</span>`;
+            }
+        };
+
+        updateTab('tab-draft', stats.draft);
+        updateTab('tab-pending', stats.pending, true); // Rouge si > 0
+        updateTab('tab-validated', stats.validated);
+        updateTab('tab-archived', stats.archived);
+
+    } catch(e) { console.error("Err Badges:", e); }
+}
 
 // --- ONGLETS ---
 function switchTab(status) {
@@ -173,32 +228,25 @@ async function changeStatus(id, newStatus) {
     if(!confirm("Confirmer le changement de statut ?")) return;
     try {
         const res = await fetch(`/api/reports/${id}/status`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ status: newStatus }) });
-        if(res.ok) { closeReportModal(); loadReports(); }
+        if(res.ok) { 
+            closeReportModal(); 
+            loadReports(); 
+            updateBadges(); // Mise à jour immédiate des compteurs
+        }
     } catch(e) { console.error(e); }
 }
 
-function openDeleteModal(id) {
-    console.log("Demande suppression ID:", id); // LOG
-    reportToDelete = id; 
-    document.getElementById('delete-modal').classList.add('active');
-}
-function closeDeleteModal() {
-    document.getElementById('delete-modal').classList.remove('active');
-    reportToDelete = null;
-}
+function openDeleteModal(id) { reportToDelete = id; document.getElementById('delete-modal').classList.add('active'); }
+function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); reportToDelete = null; }
 async function confirmDelete() {
-    console.log("Confirmation suppression ID:", reportToDelete); // LOG
     if(!reportToDelete) return;
     try {
         const res = await fetch(`/api/reports/${reportToDelete}`, { method: 'DELETE' });
-        if(res.ok) {
-            console.log("Suppression réussie");
-            closeDeleteModal();
-            loadReports();
-        } else {
-            console.error("Erreur serveur suppression");
-            alert("Erreur suppression.");
-        }
+        if(res.ok) { 
+            closeDeleteModal(); 
+            loadReports(); 
+            updateBadges(); // Mise à jour compteurs
+        } else { alert("Erreur suppression."); }
     } catch(e) { console.error(e); }
 }
 
@@ -210,7 +258,12 @@ async function confirmReject() {
     if(!reason) { alert("Motif requis."); return; }
     try {
         const res = await fetch(`/api/reports/${reportToReject}/status`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ status: 'draft', reason }) });
-        if(res.ok) { document.getElementById('reject-modal').classList.remove('active'); closeReportModal(); loadReports(); }
+        if(res.ok) { 
+            document.getElementById('reject-modal').classList.remove('active'); 
+            closeReportModal(); 
+            loadReports(); 
+            updateBadges(); // Mise à jour compteurs
+        }
     } catch(e) { console.error(e); }
 }
 
@@ -221,12 +274,17 @@ async function saveReport() {
     const url = reportId ? `/api/reports/${reportId}` : '/api/reports';
     try {
         const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)});
-        if(res.ok) { const json = await res.json(); alert("Sauvegardé !"); if(!reportId && json.id) openReportModal(json.id); else loadReports(); } 
+        if(res.ok) { 
+            const json = await res.json(); 
+            alert("Sauvegardé !"); 
+            updateBadges(); // Mise à jour compteurs
+            if(!reportId && json.id) openReportModal(json.id); else loadReports(); 
+        } 
         else { const err = await res.json(); alert('Erreur: ' + err.error); }
     } catch(e) { console.error(e); }
 }
 
-// --- UTILS (Reste identique à avant, juste copié pour être complet) ---
+// --- UTILS ---
 function getFormData() {
     const tCity = document.getElementById('travel-city').value.trim();
     const tCanton = document.getElementById('travel-canton').value;

@@ -4,14 +4,28 @@ const router = express.Router();
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
 
-// Helper pour récupérer le rôle rapidement
+// Helper pour récupérer le rôle
 const getUserRole = (userId) => {
     return new Promise((resolve) => {
-        db.get("SELECT role FROM users WHERE id = ?", [userId], (err, row) => {
-            resolve(row ? row.role : null);
-        });
+        db.get("SELECT role FROM users WHERE id = ?", [userId], (err, row) => resolve(row ? row.role : null));
     });
 };
+
+// === GET STATS (NOUVEAU - DOIT ÊTRE AVANT /:id) ===
+router.get('/stats', requireAuth, (req, res) => {
+    // Compte les rapports par statut
+    const sql = `SELECT status, COUNT(*) as count FROM reports GROUP BY status`;
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        // On formate pour avoir 0 partout par défaut
+        const stats = { draft: 0, pending: 0, validated: 0, archived: 0 };
+        rows.forEach(r => {
+            if (stats[r.status] !== undefined) stats[r.status] = r.count;
+        });
+        res.json(stats);
+    });
+});
 
 // === GET ALL ===
 router.get('/', requireAuth, (req, res) => {
@@ -20,9 +34,6 @@ router.get('/', requireAuth, (req, res) => {
     const offset = (page - 1) * limitVal;
     let where = ["1=1"];
     let params = [];
-
-    // Sécurité : Un technicien ne devrait voir que SES brouillons ? 
-    // Pour l'instant on laisse ouvert à tous, mais on pourrait restreindre ici.
 
     if (search) {
         where.push(`(r.cabinet_name LIKE ? OR r.city LIKE ? OR r.report_number LIKE ?)`);
@@ -76,36 +87,15 @@ router.get('/:id', requireAuth, (req, res) => {
     });
 });
 
-// === CHANGE STATUS (SECURISÉ) ===
+// === CHANGE STATUS ===
 router.patch('/:id/status', requireAuth, async (req, res) => {
     const { status, reason } = req.body;
     const userId = req.session.userId;
-    const role = await getUserRole(userId); // On vérifie le rôle en base
+    const role = await getUserRole(userId);
     
-    // --- RÈGLES DE SÉCURITÉ ---
-    // 1. Valider : Seul Admin, Validateur ou Directeur
-    if (status === 'validated') {
-        if (!['admin', 'validator', 'sales_director'].includes(role)) {
-            return res.status(403).json({ error: "Permission refusée : Seul un validateur peut valider." });
-        }
-    }
-    
-    // 2. Refuser (retour draft) : Seul Admin ou Validateur (quand c'est pending)
-    // Note : Un technicien peut se remettre en draft s'il annule sa soumission ? 
-    // Pour simplifier : Refus avec "Raison" = Validateur uniquement.
-    if (status === 'draft' && reason) {
-        if (!['admin', 'validator', 'sales_director'].includes(role)) {
-            return res.status(403).json({ error: "Permission refusée : Seul un validateur peut rejeter." });
-        }
-    }
-
-    // 3. Archiver : Seul Admin ou Secrétaire
-    if (status === 'archived') {
-        if (!['admin', 'secretary'].includes(role)) {
-            return res.status(403).json({ error: "Permission refusée : Réservé au secrétariat." });
-        }
-    }
-    // ---------------------------
+    if (status === 'validated' && !['admin', 'validator', 'sales_director'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
+    if (status === 'draft' && reason && !['admin', 'validator', 'sales_director'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
+    if (status === 'archived' && !['admin', 'secretary'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
 
     let sql = "UPDATE reports SET status = ?";
     let params = [status];
@@ -127,48 +117,21 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
     });
 });
 
-// === SAVE (CREATE / UPDATE) (SECURISÉ) ===
+// === SAVE ===
 router.post('/', requireAuth, (req, res) => saveReportData(req, res));
 router.put('/:id', requireAuth, async (req, res) => {
-    // Vérification avant modification
     const role = await getUserRole(req.session.userId);
-    
-    // On récupère le statut actuel du rapport en base
     db.get("SELECT status FROM reports WHERE id = ?", [req.params.id], (err, row) => {
         if(err || !row) return res.status(404).json({error: "Rapport introuvable"});
-        
-        // INTERDICTION D'ÉDITER SI :
-        // 1. Le rapport est archivé (Personne ne touche, sauf Admin à la rigueur)
-        if (row.status === 'archived' && role !== 'admin') {
-            return res.status(403).json({ error: "Impossible de modifier un rapport archivé." });
-        }
-        
-        // 2. Le rapport est validé (Seul le secrétariat peut toucher pour facturer, ou admin)
-        if (row.status === 'validated' && !['admin', 'secretary'].includes(role)) {
-             return res.status(403).json({ error: "Rapport validé : modification interdite." });
-        }
-
-        // 3. Le rapport est en attente (Technicien ne touche plus, seul validateur peut corriger)
-        if (row.status === 'pending' && !['admin', 'validator', 'sales_director'].includes(role)) {
-            return res.status(403).json({ error: "Rapport en attente de validation : modification bloquée." });
-        }
-
-        // Si tout est OK, on sauvegarde
+        if (row.status === 'archived' && role !== 'admin') return res.status(403).json({ error: "Archivé : modification interdite." });
+        if (row.status === 'validated' && !['admin', 'secretary'].includes(role)) return res.status(403).json({ error: "Validé : modification interdite." });
+        if (row.status === 'pending' && !['admin', 'validator', 'sales_director'].includes(role)) return res.status(403).json({ error: "En attente : modification bloquée." });
         saveReportData(req, res, req.params.id);
     });
 });
 
 const saveReportData = (req, res, reportId = null) => {
-    const { 
-        client_id, work_type, status, cabinet_name, address, postal_code, city, interlocutor, 
-        installation, remarks, travel_costs, travel_included, travel_location, 
-        technician_signature_date, work_accomplished,
-        technicians, stk_tests, materials, equipment_ids 
-    } = req.body;
-    
-    // On force 'draft' à la création, sinon on garde l'existant (géré par le front)
-    // Mais attention : on ne laisse pas le front dicter le status arbitrairement ici pour bypasser le workflow
-    // Le status est principalement changé via la route PATCH, sauf pour creation (draft)
+    const { client_id, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, technicians, stk_tests, materials, equipment_ids } = req.body;
     const currentStatus = reportId ? (status || 'draft') : 'draft';
 
     const reportData = [client_id, work_type, currentStatus, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included?1:0, travel_location, technician_signature_date, work_accomplished];
@@ -183,53 +146,23 @@ const saveReportData = (req, res, reportId = null) => {
         const finalId = reportId || this.lastID;
 
         db.serialize(() => {
-            const tables = ['report_technicians', 'report_stk_tests', 'report_materials', 'report_equipment'];
-            tables.forEach(t => db.run(`DELETE FROM ${t} WHERE report_id=?`, [finalId]));
-
-            if (technicians && technicians.length) {
-                const stmt = db.prepare("INSERT INTO report_technicians (report_id, technician_id, technician_name, work_date, hours_normal, hours_extra) VALUES (?,?,?,?,?,?)");
-                technicians.forEach(t => stmt.run(finalId, t.technician_id, t.technician_name, t.work_date, t.hours_normal, t.hours_extra));
-                stmt.finalize();
-            }
-            if (stk_tests && stk_tests.length) {
-                const stmt = db.prepare("INSERT INTO report_stk_tests (report_id, test_name, price, included) VALUES (?,?,?,?)");
-                stk_tests.forEach(t => stmt.run(finalId, t.test_name, t.price, t.included?1:0));
-                stmt.finalize();
-            }
-            if (materials && materials.length) {
-                const stmt = db.prepare("INSERT INTO report_materials (report_id, material_id, material_name, product_code, quantity, unit_price, discount, total_price) VALUES (?,?,?,?,?,?,?,?)");
-                materials.forEach(m => stmt.run(finalId, m.material_id, m.material_name, m.product_code, m.quantity, m.unit_price, m.discount||0, m.total_price));
-                stmt.finalize();
-            }
-            if (equipment_ids && equipment_ids.length) {
-                const stmt = db.prepare("INSERT INTO report_equipment (report_id, equipment_id) VALUES (?,?)");
-                equipment_ids.forEach(eid => stmt.run(finalId, eid));
-                stmt.finalize();
-            }
-            if (!reportId) {
-                const reportNumber = `${new Date().getFullYear()}-${String(finalId).padStart(4, '0')}`;
-                db.run("UPDATE reports SET report_number = ? WHERE id = ?", [reportNumber, finalId]);
-            }
+            ['report_technicians', 'report_stk_tests', 'report_materials', 'report_equipment'].forEach(t => db.run(`DELETE FROM ${t} WHERE report_id=?`, [finalId]));
+            if (technicians && technicians.length) { const stmt = db.prepare("INSERT INTO report_technicians (report_id, technician_id, technician_name, work_date, hours_normal, hours_extra) VALUES (?,?,?,?,?,?)"); technicians.forEach(t => stmt.run(finalId, t.technician_id, t.technician_name, t.work_date, t.hours_normal, t.hours_extra)); stmt.finalize(); }
+            if (stk_tests && stk_tests.length) { const stmt = db.prepare("INSERT INTO report_stk_tests (report_id, test_name, price, included) VALUES (?,?,?,?)"); stk_tests.forEach(t => stmt.run(finalId, t.test_name, t.price, t.included?1:0)); stmt.finalize(); }
+            if (materials && materials.length) { const stmt = db.prepare("INSERT INTO report_materials (report_id, material_id, material_name, product_code, quantity, unit_price, discount, total_price) VALUES (?,?,?,?,?,?,?,?)"); materials.forEach(m => stmt.run(finalId, m.material_id, m.material_name, m.product_code, m.quantity, m.unit_price, m.discount||0, m.total_price)); stmt.finalize(); }
+            if (equipment_ids && equipment_ids.length) { const stmt = db.prepare("INSERT INTO report_equipment (report_id, equipment_id) VALUES (?,?)"); equipment_ids.forEach(eid => stmt.run(finalId, eid)); stmt.finalize(); }
+            if (!reportId) { const reportNumber = `${new Date().getFullYear()}-${String(finalId).padStart(4, '0')}`; db.run("UPDATE reports SET report_number = ? WHERE id = ?", [reportNumber, finalId]); }
         });
         res.json({ success: true, id: finalId });
     });
 };
 
-// === DELETE (SECURISÉ) ===
 router.delete('/:id', requireAuth, async (req, res) => {
     const id = req.params.id;
     const role = await getUserRole(req.session.userId);
-
-    // On vérifie le statut avant de supprimer
     db.get("SELECT status FROM reports WHERE id = ?", [id], (err, row) => {
         if(err || !row) return res.status(404).json({error: "Rapport introuvable"});
-
-        // RÈGLE : On ne supprime QUE les brouillons.
-        // Exception : L'admin peut tout supprimer s'il veut vraiment nettoyer.
-        if (row.status !== 'draft' && role !== 'admin') {
-            return res.status(403).json({ error: "Sécurité : Seuls les brouillons peuvent être supprimés." });
-        }
-
+        if (row.status !== 'draft' && role !== 'admin') return res.status(403).json({ error: "Sécurité : Seuls les brouillons peuvent être supprimés." });
         db.run("DELETE FROM reports WHERE id = ?", [id], function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ success: true });
