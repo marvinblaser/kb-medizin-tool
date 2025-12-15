@@ -84,7 +84,7 @@ Tableau rapports :
 
 - Une fois le rapport terminé : "En attente de validation" V
 - Ajouter les rapports en Allemand
-- Dossiers + Filtres
+- Dossiers + Filtres V
 
 
 

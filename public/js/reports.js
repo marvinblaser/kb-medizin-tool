@@ -402,14 +402,32 @@ async function saveReport() {
     const data = getFormData();
     const method = reportId ? 'PUT' : 'POST';
     const url = reportId ? `/api/reports/${reportId}` : '/api/reports';
+
     try {
-        const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)});
+        const res = await fetch(url, { 
+            method, 
+            headers: {'Content-Type':'application/json'}, 
+            body: JSON.stringify(data)
+        });
+
         if(res.ok) { 
             const json = await res.json(); 
             alert("Sauvegardé !"); 
             updateBadges(); 
-            if(!reportId && json.id) openReportModal(json.id); else loadReports(); 
-        } else { const err = await res.json(); alert('Erreur: ' + err.error); }
+            
+            // --- CORRECTION ICI ---
+            // 1. On recharge TOUJOURS la liste derrière, qu'il soit nouveau ou ancien
+            await loadReports(); 
+
+            // 2. Si c'est un nouveau rapport, on met à jour la modale avec le nouvel ID
+            if(!reportId && json.id) {
+                openReportModal(json.id); 
+            }
+            // ----------------------
+        } else { 
+            const err = await res.json(); 
+            alert('Erreur: ' + err.error); 
+        }
     } catch(e) { console.error(e); }
 }
 
@@ -479,7 +497,11 @@ function updateMaterialsTotal() { let total=0; document.querySelectorAll('.mater
 async function loadClientEquipmentForReport(clientId) { try { const res=await fetch(`/api/clients/${clientId}/equipment`); const eqs=await res.json(); const container=document.getElementById('client-equipment-list'); if(eqs.length===0){container.innerHTML='<p style="color:#666;">Aucun équipement.</p>';return;} container.innerHTML=eqs.map(e=>{ let display=e.final_name||e.name; if(!display||display==='undefined') display=(e.final_brand||e.brand||'')+' '+(e.final_device_type||e.device_type||e.type||''); const serial=e.serial_number?`S/N:${escapeHtml(e.serial_number)}`:''; return `<div style="margin-bottom:8px; display:flex; align-items:center;"><input type="checkbox" class="eq-cb" id="rep-eq-${e.id}" value="${e.id}" data-txt="${escapeHtml(display+' '+serial).trim()}" style="width:18px; height:18px; margin-right:10px;"><label for="rep-eq-${e.id}" style="cursor:pointer; font-size:0.9rem;"><strong>${escapeHtml(display)}</strong> <span style="color:#666; font-size:0.8rem;">${serial}</span></label></div>`; }).join(''); container.querySelectorAll('.eq-cb').forEach(cb => { cb.addEventListener('change', () => { const selected=Array.from(container.querySelectorAll('.eq-cb:checked')).map(c => c.dataset.txt); document.getElementById('installation-text').value=selected.join(', '); }); }); } catch(e){console.error(e);} }
 function updateTravelCost(){ const sel=document.getElementById('travel-canton').value; const inp=document.getElementById('travel-costs'); let p=null; for(const[pr,cs] of Object.entries(TRAVEL_ZONES)){if(cs.includes(sel)){p=parseInt(pr);break;}} if(p){inp.value=p.toFixed(2);inp.readOnly=true;inp.style.backgroundColor="#e9ecef";}else{inp.readOnly=false;inp.style.backgroundColor="";} }
 function resetDynamicLists() { document.getElementById('technicians-list').innerHTML=''; document.getElementById('work-list').innerHTML=''; document.getElementById('stk-tests-list').innerHTML=''; document.getElementById('materials-list').innerHTML=''; document.getElementById('client-equipment-list').innerHTML=''; }
-function closeReportModal() { document.getElementById('report-modal').classList.remove('active'); }
+function closeReportModal() { 
+    document.getElementById('report-modal').classList.remove('active');
+    // On recharge la liste à la fermeture pour être sûr que tout est à jour
+    loadReports(); 
+}
 function logout() { fetch('/api/logout',{method:'POST'}).then(()=>window.location='/login.html'); }
 function debounce(f,w){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>f.apply(this,a),w);};}
 function escapeHtml(t){if(!t)return '';return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
