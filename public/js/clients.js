@@ -1,391 +1,565 @@
 // public/js/clients.js
 
-/**
- * KB Medizin Technik - Clients Logic
- * Version: Integrated History (Manual + Reports)
- */
-
+// --- VARIABLES GLOBALES ---
 let currentPage = 1;
-let currentSort = { column: 'cabinet_name', order: 'ASC' };
-let currentFilters = {
-  search: '', brand: '', model: '', serialNumber: '', category: '', device: '', columnSearch: {}
-};
-let totalPages = 1;
-let clientToDelete = null;
 let currentLimit = 25;
-let currentClientForEquipment = null;
-let equipmentCatalog = [];
-let technicians = [];
+let currentSort = { col: 'cabinet_name', order: 'ASC' }; // Tri Annuaire
+let currentPlanningSort = { col: 'next_maintenance_date', order: 'ASC' }; // Tri Planning
+let currentUser = null;
+let currentClientId = null; // ID du client actuellement ouvert dans la fiche
+let clientIdToDelete = null;
+let catalog = [];
 
+// --- INITIALISATION ---
 document.addEventListener('DOMContentLoaded', async () => {
-  await checkAuth();
-  await loadTechnicians();
-  await loadEquipmentCatalog();
-  await loadClients();
+    await checkAuth();
+    await loadEquipmentCatalog();
+    
+    // Chargement initial (Annuaire)
+    loadClients(); 
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const openId = urlParams.get('open');
-  if (openId) {
-    window.history.replaceState({}, document.title, "/clients.html");
-    setTimeout(() => { openClientDetails(parseInt(openId)); }, 500);
-  }
-
-  safeAdd('logout-btn', 'click', logout);
-  safeAdd('add-client-btn', 'click', () => openClientModal());
-  safeAdd('cancel-modal-btn', 'click', closeClientModal);
-  safeAdd('save-client-btn', 'click', saveClient);
-  safeAdd('export-csv-btn', 'click', exportCSV);
-  safeAdd('open-geo-tool-btn', 'click', openGeoTool);
-  
-  const toggleBtn = document.getElementById('toggle-filters-btn');
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', () => {
-      document.getElementById('advanced-filters').classList.toggle('hidden');
-      toggleBtn.classList.toggle('active');
+    // --- LISTENERS ANNUAIRE ---
+    const searchInput = document.getElementById('global-search');
+    if(searchInput) searchInput.addEventListener('input', debounce(() => { currentPage=1; loadClients(); }, 400));
+    
+    const toggleBtn = document.getElementById('toggle-filters-btn');
+    if(toggleBtn) toggleBtn.addEventListener('click', () => { 
+        document.getElementById('advanced-filters').classList.toggle('hidden'); 
     });
-  }
-
-  const globalSearch = document.getElementById('global-search');
-  if (globalSearch) globalSearch.addEventListener('input', debounce(handleGlobalSearch, 300));
-
-  ['brand', 'model', 'serial', 'category', 'device'].forEach(f => {
-    const el = document.getElementById(`filter-${f}`);
-    if (el) el.addEventListener('input', debounce(handleEquipmentFilters, 300));
-  });
-
-  safeAdd('clear-filters-btn', 'click', clearFilters);
-  document.getElementById('limit-select').addEventListener('change', function() {
-    currentLimit = parseInt(this.value); currentPage = 1; loadClients();
-  });
-  safeAdd('prev-page', 'click', () => { if (currentPage > 1) { currentPage--; loadClients(); } });
-  safeAdd('next-page', 'click', () => { if (currentPage < totalPages) { currentPage++; loadClients(); } });
-
-  document.querySelectorAll('th.sortable').forEach(th => {
-    th.addEventListener('click', (e) => {
-      if (!e.target.matches('input') && !e.target.matches('select')) {
-        handleSort(th.dataset.column);
-      }
+    
+    const clearBtn = document.getElementById('clear-filters-btn');
+    if(clearBtn) clearBtn.addEventListener('click', () => { 
+        document.querySelectorAll('#advanced-filters input, #advanced-filters select').forEach(i=>i.value=''); 
+        if(searchInput) searchInput.value=''; 
+        loadClients(); 
     });
-  });
+    
+    ['filter-brand', 'filter-model', 'filter-serial', 'filter-category'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.addEventListener('input', debounce(() => { currentPage=1; loadClients(); }, 500));
+    });
 
-  document.querySelectorAll('.column-search input, .column-search select').forEach(input => {
-    input.addEventListener('click', e => e.stopPropagation());
-    const evtType = input.tagName === 'SELECT' ? 'change' : 'input';
-    input.addEventListener(evtType, debounce((e) => {
-      let col = e.target.dataset.column || e.target.closest('th').dataset.column;
-      currentFilters.columnSearch[col] = e.target.value; currentPage = 1; loadClients();
-    }, 300));
-  });
+    // --- LISTENERS PLANNING ---
+    const togglePlanBtn = document.getElementById('toggle-planning-filters-btn');
+    if(togglePlanBtn) togglePlanBtn.addEventListener('click', () => {
+        document.getElementById('planning-advanced-filters').classList.toggle('hidden');
+    });
 
-  safeAdd('cancel-delete-btn', 'click', closeDeleteModal);
-  safeAdd('confirm-delete-btn', 'click', confirmDelete);
-  safeAdd('add-equipment-item-btn', 'click', showEquipmentForm);
-  safeAdd('cancel-equipment-item-btn', 'click', hideEquipmentForm);
-  safeAdd('save-equipment-item-btn', 'click', saveEquipmentItem);
-  safeAdd('add-history-btn', 'click', openHistoryModal);
-  safeAdd('cancel-history-btn', 'click', closeHistoryModal);
-  safeAdd('save-history-btn', 'click', saveHistoryEntry);
+    const reloadPlan = () => loadPlanning();
+    const planningInputs = ['planning-search', 'plan-filter-status', 'plan-filter-canton', 'plan-filter-category', 'plan-filter-brand', 'plan-filter-model', 'plan-filter-serial', 'plan-filter-year'];
+    
+    planningInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) {
+            if(el.tagName === 'SELECT') el.addEventListener('change', reloadPlan);
+            else el.addEventListener('input', debounce(reloadPlan, 500));
+        }
+    });
 
-  const lm = document.getElementById('last-maintenance');
-  const mi = document.getElementById('maintenance-interval');
-  if(lm && mi) {
-    const upd = () => {
-      const n = calculateNextMaintenance(lm.value, mi.value);
-      const d = document.getElementById('next-maintenance-display');
-      if(d) d.textContent = n ? formatDate(n) : 'Saisir date';
-    };
-    lm.addEventListener('change', upd); mi.addEventListener('change', upd);
-  }
+    const resetPlanBtn = document.getElementById('plan-reset-btn');
+    if(resetPlanBtn) resetPlanBtn.addEventListener('click', () => {
+        planningInputs.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.value = '';
+        });
+        loadPlanning();
+    });
 
-  document.querySelectorAll('.modal').forEach(m => {
-    m.addEventListener('click', e => { if(e.target === m) m.classList.remove('active'); });
-  });
+    // --- LISTENERS MODALES & ACTIONS ---
+    const logoutBtn = document.getElementById('logout-btn');
+    if(logoutBtn) logoutBtn.addEventListener('click', logout);
+    
+    // Fiche Client
+    const editSheetBtn = document.getElementById('sheet-edit-btn');
+    if(editSheetBtn) editSheetBtn.addEventListener('click', () => { 
+        closeClientDetailsModal(); 
+        openClientModal(currentClientId); 
+    });
+    
+    const addEquipBtn = document.getElementById('sheet-add-equip-btn');
+    if(addEquipBtn) addEquipBtn.addEventListener('click', () => openEquipFormModal());
+    
+    // Formulaire Équipement
+    const saveEquipBtn = document.getElementById('save-equipment-item-btn');
+    if(saveEquipBtn) saveEquipBtn.addEventListener('click', saveEquipmentItem);
+    
+    // Suppression
+    const cancelDel = document.getElementById('cancel-delete-btn');
+    if(cancelDel) cancelDel.addEventListener('click', closeDeleteModal);
+    
+    const confirmDel = document.getElementById('confirm-delete-btn');
+    if(confirmDel) confirmDel.addEventListener('click', confirmDeleteClient);
+
+    // Pagination
+    const prevPage = document.getElementById('prev-page');
+    if(prevPage) prevPage.addEventListener('click', () => { if(currentPage>1) { currentPage--; loadClients(); }});
+    
+    const nextPage = document.getElementById('next-page');
+    if(nextPage) nextPage.addEventListener('click', () => { currentPage++; loadClients(); });
 });
 
-// ========== AUTH & LOAD ==========
-async function checkAuth() { try { const response = await fetch('/api/me'); if (!response.ok) throw new Error(); const data = await response.json(); const userInfoEl = document.getElementById('user-info'); if (userInfoEl) userInfoEl.innerHTML = `<div class="user-avatar">${data.user.name.charAt(0).toUpperCase()}</div><div class="user-details"><strong>${escapeHtml(data.user.name)}</strong><span>${data.user.role === 'admin' ? 'Administrateur' : 'Technicien'}</span></div>`; if (data.user.role === 'admin') document.getElementById('admin-link')?.classList.remove('hidden'); } catch (error) { window.location.href = '/login.html'; } }
-async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login.html'; }
-
-async function loadClients() {
-  const cleanCols = {}; for(const [k,v] of Object.entries(currentFilters.columnSearch)) if(v) cleanCols[k]=v;
-  const params = new URLSearchParams({
-    page: currentPage, limit: currentLimit, search: currentFilters.search, sortBy: currentSort.column, sortOrder: currentSort.order,
-    brand: currentFilters.brand, model: currentFilters.model, serialNumber: currentFilters.serialNumber, category: currentFilters.category, device: currentFilters.device, columnSearch: JSON.stringify(cleanCols)
-  });
-  try {
-    const res = await fetch(`/api/clients?${params}`); const data = await res.json();
-    const clientsWithEq = await Promise.all(data.clients.map(async c => {
-      try { const r = await fetch(`/api/clients/${c.id}/equipment`); return { ...c, equipment: await r.json() }; } catch { return { ...c, equipment: [] }; }
-    }));
-    renderClients(clientsWithEq); updatePagination(data.pagination);
-  } catch(e) { console.error(e); }
-}
-
-function renderClients(clients) {
-  const tbody = document.getElementById('clients-tbody');
-  if(clients.length === 0) { tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Aucun client trouvé</td></tr>`; return; }
-  tbody.innerHTML = clients.map(c => `
-    <tr>
-      <td data-label="Cabinet"><div class="client-info-cell"><strong class="client-name">${escapeHtml(c.cabinet_name)}</strong><div class="client-meta"><span><i class="fas fa-user"></i> ${escapeHtml(c.contact_name)}</span>${c.phone ? `<span><i class="fas fa-phone"></i> <a href="tel:${c.phone}">${escapeHtml(c.phone)}</a></span>` : ''}</div></div></td>
-      <td data-label="Activité"><span class="badge badge-info">${escapeHtml(c.activity)}</span></td>
-      <td data-label="Localisation"><div class="client-info-cell"><div style="font-weight:600;">${escapeHtml(c.address)}</div><div style="color:var(--neutral-500);font-size:0.85rem;">${escapeHtml(c.postal_code||'')} ${escapeHtml(c.city)} ${c.canton ? `(${c.canton})` : ''}</div></div></td>
-      <td data-label="Équipements">${renderEquipmentColumn(c)}</td>
-      <td data-label="Rendez-vous">${formatDate(c.appointment_at)}</td>
-      <td data-label="Actions"><div class="action-menu"><button class="action-menu-trigger" onclick="toggleActionMenu(event, ${c.id})"><i class="fas fa-ellipsis-v"></i></button><div class="action-menu-dropdown" id="action-menu-${c.id}"><button class="action-menu-item" onclick="openClientDetails(${c.id})"><i class="fas fa-folder-open"></i> Voir fiche</button><button class="action-menu-item" onclick="openEquipmentModal(${c.id}, '${escapeHtml(c.cabinet_name).replace(/'/g,"\\'")}')"><i class="fas fa-tools"></i> Équipements</button><button class="action-menu-item" onclick="openClientModal(${c.id})"><i class="fas fa-edit"></i> Modifier</button><button class="action-menu-item danger" onclick="openDeleteModal(${c.id}, '${escapeHtml(c.cabinet_name).replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i> Supprimer</button></div></div></td>
-    </tr>
-  `).join('');
-}
-
-function renderEquipmentColumn(client) {
-  const filteredEq = client.equipment.filter(eq => {
-    const f = currentFilters;
-    if (!f.brand && !f.model && !f.serialNumber && !f.category && !f.device) return true;
-    if (f.brand && !((eq.final_brand || eq.brand || '').toLowerCase().includes(f.brand.toLowerCase()))) return false;
-    if (f.model && !((eq.final_name || eq.name || '').toLowerCase().includes(f.model.toLowerCase()))) return false;
-    if (f.serialNumber && !((eq.serial_number || '').toLowerCase().includes(f.serialNumber.toLowerCase()))) return false;
-    if (f.category && !((eq.final_type || eq.type || '').toLowerCase().includes(f.category.toLowerCase()))) return false;
-    if (f.device && !((eq.final_device_type || eq.device_type || '').toLowerCase().includes(f.device.toLowerCase()))) return false;
-    return true;
-  });
-  if (!filteredEq || filteredEq.length === 0) { if (client.equipment.length > 0) return '<div class="equipment-empty" style="color:#aaa;">Filtré</div>'; return '<div class="equipment-empty"><i class="fas fa-box-open"></i> Vide</div>'; }
-  return `<div class="equipment-badges">${filteredEq.map(eq => {
-      const { badgeText, badgeClass, daysLeftText, statusClass } = getMaintenanceBadge(eq.next_maintenance_date);
-      let display = eq.final_name || eq.name;
-      if (!display || display === 'undefined') display = (eq.final_brand || eq.brand || '') + ' ' + (eq.final_device_type || eq.device_type || eq.final_type || eq.type || 'Équipement');
-      let borderClass = 'status-ok'; if(statusClass.includes('danger')) borderClass = 'status-expired'; else if(statusClass.includes('warning')) borderClass = 'status-warning';
-      return `<div class="equipment-card ${borderClass}"><div class="equipment-info"><span class="equipment-name" title="${escapeHtml(display)}">${escapeHtml(display)}</span><div class="equipment-meta"><span class="equipment-brand">${escapeHtml(eq.final_brand || eq.brand || '')}</span>${eq.serial_number ? `<span class="equipment-serial">${escapeHtml(eq.serial_number)}</span>` : ''}</div></div><div class="equipment-status"><span class="status-pill ${badgeClass}">${badgeText}</span><span class="equipment-days ${statusClass}">${daysLeftText}</span></div></div>`;
-    }).join('')}</div>`;
-}
-
-function getMaintenanceBadge(dateString) {
-  if (!dateString) return { badgeText: '?', badgeClass: '', daysLeftText: '-', statusClass: '' };
-  const diff = Math.ceil((new Date(dateString) - new Date().setHours(0,0,0,0)) / (86400000));
-  if (diff < 0) return { badgeText: 'EXPIRÉ', badgeClass: 'expired', daysLeftText: `${Math.abs(diff)}j retard`, statusClass: 'text-danger' };
-  if (diff <= 30) return { badgeText: 'BIENTÔT', badgeClass: 'warning', daysLeftText: `${diff}j restants`, statusClass: 'text-warning' };
-  return { badgeText: 'OK', badgeClass: 'ok', daysLeftText: `${diff}j`, statusClass: 'text-success' };
-}
-function updatePagination(pagination) { totalPages = pagination.totalPages; const info = document.getElementById('pagination-info'); const prevBtn = document.getElementById('prev-page'); const nextBtn = document.getElementById('next-page'); if (info) info.textContent = `Page ${pagination.page} / ${totalPages || 1}`; if (prevBtn) prevBtn.disabled = pagination.page <= 1; if (nextBtn) nextBtn.disabled = pagination.page >= totalPages; }
-async function exportCSV() { /* CSV Logic omitted for brevity, same as before */ }
-function handleGlobalSearch(e) { currentFilters.search = e.target.value; currentPage = 1; loadClients(); }
-function handleEquipmentFilters() { currentFilters.brand = document.getElementById('filter-brand').value; currentFilters.model = document.getElementById('filter-model').value; currentFilters.serialNumber = document.getElementById('filter-serial').value; currentFilters.category = document.getElementById('filter-category').value; currentFilters.device = document.getElementById('filter-device').value; currentPage = 1; loadClients(); }
-function clearFilters() { document.querySelectorAll('.table-controls input').forEach(i => i.value = ''); currentFilters = { search:'', brand:'', model:'', serialNumber:'', category:'', device:'', columnSearch:{} }; loadClients(); }
-function handleSort(col) { if (currentSort.column === col) currentSort.order = currentSort.order === 'ASC' ? 'DESC' : 'ASC'; else { currentSort.column = col; currentSort.order = 'ASC'; } loadClients(); }
-
-// ========== ACTIONS ==========
-async function openClientModal(id = null) {
-  const modal = document.getElementById('client-modal');
-  const form = document.getElementById('client-form');
-  const historySec = document.getElementById('history-section');
-  form.reset(); document.getElementById('client-id').value = ''; historySec.style.display = 'none';
-
-  if (id) {
-    document.getElementById('modal-title').innerHTML = '<i class="fas fa-edit"></i> Modifier';
-    historySec.style.display = 'block'; // Mode édition : on affiche l'historique
+// ==========================================
+// 1. AUTH & USER
+// ==========================================
+async function checkAuth() {
     try {
-      const res = await fetch(`/api/clients/${id}`); const c = await res.json();
-      document.getElementById('client-id').value = c.id;
-      ['cabinet-name','contact-name','activity','address','postal-code','city','canton','phone','email','technician','notes'].forEach(k => { const el = document.getElementById(k); if(el) el.value = c[k.replace('-','_')]||''; });
-      document.getElementById('appointment').value = c.appointment_at ? c.appointment_at.split('T')[0] : '';
-      if(c.technician_id) document.getElementById('technician').value = c.technician_id;
-      document.getElementById('client-lat').value = c.latitude||''; document.getElementById('client-lon').value = c.longitude||'';
-      
-      // CHARGEMENT COMBINÉ DE L'HISTORIQUE (Rendez-vous manuels + Rapports)
-      await loadCombinedHistory(id, true); // true = editable (boutons delete dispos)
-      
-    } catch(e) {}
-  } else document.getElementById('modal-title').innerHTML = '<i class="fas fa-plus-circle"></i> Nouveau';
-  modal.classList.add('active');
-}
-function closeClientModal() { document.getElementById('client-modal').classList.remove('active'); }
-async function saveClient() {
-  const id = document.getElementById('client-id').value;
-  const data = {
-    cabinet_name: document.getElementById('cabinet-name').value, contact_name: document.getElementById('contact-name').value, activity: document.getElementById('activity').value,
-    address: document.getElementById('address').value, postal_code: document.getElementById('postal-code').value, city: document.getElementById('city').value, canton: document.getElementById('canton').value,
-    phone: document.getElementById('phone').value, email: document.getElementById('email').value, appointment_at: document.getElementById('appointment').value,
-    technician_id: document.getElementById('technician').value || null, notes: document.getElementById('notes').value, latitude: parseFloat(document.getElementById('client-lat').value)||null, longitude: parseFloat(document.getElementById('client-lon').value)||null
-  };
-  await fetch(id ? `/api/clients/${id}` : '/api/clients', { method: id?'PUT':'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)});
-  closeClientModal(); loadClients(); showNotification('Enregistré', 'success');
-}
+        const res = await fetch('/api/me');
+        if (!res.ok) throw new Error("Non connecté");
+        const data = await res.json();
+        currentUser = data.user;
 
-// ========== EQUIPMENT MODAL ==========
-async function openEquipmentModal(cid, name) { currentClientForEquipment = cid; document.getElementById('equipment-client-name').textContent = ` - ${name}`; document.getElementById('equipment-client-id').value = cid; await loadClientEquipment(cid); const select = document.getElementById('equipment-select'); select.innerHTML = '<option value="">-- Sélectionner --</option>' + equipmentCatalog.map(eq => `<option value="${eq.id}">${eq.name} - ${eq.brand} (${eq.device_type||eq.type})</option>`).join(''); hideEquipmentForm(); document.getElementById('equipment-modal').classList.add('active'); }
-function closeEquipmentModal() { document.getElementById('equipment-modal').classList.remove('active'); loadClients(); }
-async function loadClientEquipment(id) { const res = await fetch(`/api/clients/${id}/equipment`); const eq = await res.json(); const container = document.getElementById('equipment-list-container'); if(eq.length === 0) { container.innerHTML = '<p class="text-center text-muted p-4">Aucun équipement.</p>'; return; } container.innerHTML = eq.map(e => { const { badgeText, badgeClass } = getMaintenanceBadge(e.next_maintenance_date); return `<div style="padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;"><div><strong>${escapeHtml(e.final_name||e.name)}</strong><br><small class="text-muted">${escapeHtml(e.final_brand||e.brand)} - S/N: ${escapeHtml(e.serial_number||'-')}</small></div><div style="text-align:right;"><span class="status-pill ${badgeClass}">${badgeText}</span><div style="margin-top:5px;"><button class="btn-xs btn-secondary" onclick="editEq(${e.id})">Edit</button> <button class="btn-xs btn-danger" onclick="delEq(${e.id})">Del</button></div></div></div>`; }).join(''); }
-function showEquipmentForm() { document.getElementById('equipment-form-container').classList.remove('hidden'); document.getElementById('add-equipment-item-btn').classList.add('hidden'); }
-function hideEquipmentForm() { document.getElementById('equipment-form-container').classList.add('hidden'); document.getElementById('add-equipment-item-btn').classList.remove('hidden'); document.getElementById('equipment-item-form').reset(); document.getElementById('equipment-item-id').value = ''; }
-window.editEq = async (id) => { const r = await fetch(`/api/clients/${currentClientForEquipment}/equipment`); const items = await r.json(); const item = items.find(i => i.id === id); if(item) { document.getElementById('equipment-item-id').value = item.id; document.getElementById('equipment-select').value = item.equipment_id; document.getElementById('equipment-serial').value = item.serial_number||''; document.getElementById('equipment-installed').value = item.installed_at||''; document.getElementById('equipment-warranty').value = item.warranty_until||''; document.getElementById('last-maintenance').value = item.last_maintenance_date||''; document.getElementById('maintenance-interval').value = item.maintenance_interval||1; document.getElementById('last-maintenance').dispatchEvent(new Event('change')); showEquipmentForm(); } };
-window.delEq = async (id) => { if(confirm('Supprimer?')) { await fetch(`/api/clients/${currentClientForEquipment}/equipment/${id}`, {method:'DELETE'}); loadClientEquipment(currentClientForEquipment); } };
-async function saveEquipmentItem() { const data = { equipment_id: document.getElementById('equipment-select').value, serial_number: document.getElementById('equipment-serial').value, installed_at: document.getElementById('equipment-installed').value, warranty_until: document.getElementById('equipment-warranty').value, last_maintenance_date: document.getElementById('last-maintenance').value, maintenance_interval: document.getElementById('maintenance-interval').value, next_maintenance_date: calculateNextMaintenance(document.getElementById('last-maintenance').value, document.getElementById('maintenance-interval').value) }; const id=document.getElementById('equipment-item-id').value; await fetch(`/api/clients/${currentClientForEquipment}/equipment${id?'/'+id:''}`, {method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)}); hideEquipmentForm(); loadClientEquipment(currentClientForEquipment); showNotification('Enregistré', 'success'); }
-
-// ========== FICHE DÉTAILLÉE ==========
-async function openClientDetails(id) {
-    const contentDiv = document.getElementById('client-details-content');
-    const modalEl = document.getElementById('client-details-modal');
-    if (modalEl) modalEl.classList.add('active');
-    if (contentDiv) contentDiv.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Chargement...</div>';
-
-    try {
-        const client = await (await fetch(`/api/clients/${id}`)).json();
-        
-        // Charger l'historique combiné (sans boutons d'édition)
-        const historyHTML = await getCombinedHistoryHTML(id, false);
-
-        const editBtn = document.getElementById('edit-from-details-btn');
-        if (editBtn) {
-            const newBtn = editBtn.cloneNode(true);
-            editBtn.parentNode.replaceChild(newBtn, editBtn);
-            newBtn.addEventListener('click', () => { closeClientDetailsModal(); openClientModal(id); });
+        const ui = document.getElementById('user-info');
+        if (ui) {
+            ui.innerHTML = `
+                <div class="user-avatar">${currentUser.name[0]}</div>
+                <div class="user-details">
+                    <strong>${escapeHtml(currentUser.name)}</strong>
+                    <span>${currentUser.role}</span>
+                </div>`;
         }
-
-        if (contentDiv) {
-            contentDiv.innerHTML = `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                    <div>
-                        <h3 style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; color: var(--color-primary);"><i class="fas fa-building"></i> Informations</h3>
-                        <p><strong>Cabinet :</strong> ${client.cabinet_name || '-'}</p>
-                        <p><strong>Contact :</strong> ${client.contact_name || '-'}</p>
-                        <p><strong>Activité :</strong> ${client.activity || '-'}</p>
-                        <p><strong>Email :</strong> <a href="mailto:${client.email}">${client.email || '-'}</a></p>
-                        <p><strong>Tél :</strong> <a href="tel:${client.phone}">${client.phone || '-'}</a></p>
-                    </div>
-                    <div>
-                        <h3 style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; color: var(--color-primary);"><i class="fas fa-map-marker-alt"></i> Adresse</h3>
-                        <p>${client.address || ''}</p>
-                        <p>${client.postal_code || ''} ${client.city || ''}</p>
-                        <p>${client.canton ? 'Canton : ' + client.canton : ''}</p>
-                        ${client.latitude ? `<p style="margin-top:5px; font-size:0.9em; color:#666;"><i class="fas fa-globe"></i> GPS: ${client.latitude}, ${client.longitude}</p>` : ''}
-                    </div>
-                </div>
-                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                    <h3 style="margin-top:0; font-size: 1.1em;"><i class="fas fa-sticky-note"></i> Notes</h3>
-                    <p style="white-space: pre-wrap; color: #555;">${client.notes || 'Aucune note.'}</p>
-                </div>
-                <div>
-                    <h3 style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; color: var(--color-primary);"><i class="fas fa-history"></i> Historique des interventions</h3>
-                    <div class="history-list">${historyHTML}</div>
-                </div>
-            `;
+        if (currentUser.role === 'admin') {
+            document.getElementById('admin-link')?.classList.remove('hidden');
         }
-    } catch (error) { if (contentDiv) contentDiv.innerHTML = `<div class="alert alert-danger">${error.message}</div>`; }
-}
-function closeClientDetailsModal() { document.getElementById('client-details-modal').classList.remove('active'); }
-
-// ========== HISTORY LOGIC (COMBINÉ) ==========
-async function openHistoryModal() {
-  const cid = document.getElementById('client-id').value;
-  if(!cid) return showNotification('Sauvegardez d\'abord', 'warning');
-  document.getElementById('history-client-id').value = cid; document.getElementById('history-form').reset(); document.getElementById('history-date').value = new Date().toISOString().split('T')[0];
-  const techSel = document.getElementById('history-technician');
-  techSel.innerHTML = '<option value="">--</option>' + technicians.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
-  document.getElementById('history-modal').classList.add('active');
-}
-function closeHistoryModal() { document.getElementById('history-modal').classList.remove('active'); }
-
-async function saveHistoryEntry() {
-  const cid = document.getElementById('history-client-id').value;
-  const data = { 
-    appointment_date: document.getElementById('history-date').value, 
-    task_description: document.getElementById('history-task').value, 
-    technician_id: document.getElementById('history-technician').value,
-  };
-  await fetch(`/api/clients/${cid}/appointments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-  closeHistoryModal(); loadCombinedHistory(cid, true); showNotification('Ajouté','success');
-}
-
-// Fonction qui génère le HTML (utilisée par la modale d'édition et la fiche détaillée)
-async function getCombinedHistoryHTML(cid, isEditable) {
-    try {
-        const [apptsRes, reportsRes] = await Promise.all([
-            fetch(`/api/clients/${cid}/appointments`),
-            fetch(`/api/reports?client_id=${cid}&status=archived`)
-        ]);
-
-        const appts = await apptsRes.json();
-        const reportsData = await reportsRes.json();
-        const reports = reportsData.reports || [];
-
-        // 1. Normaliser les données pour les fusionner
-        const normalizedAppts = appts.map(a => ({
-            type: 'manual',
-            date: a.appointment_date,
-            title: a.task_description || 'Intervention',
-            tech: a.technician_name,
-            id: a.id,
-            original: a
-        }));
-
-        const normalizedReports = reports.map(r => ({
-            type: 'report',
-            date: r.created_at,
-            title: `${r.work_type} (Rapport #${r.report_number})`,
-            tech: r.technician_name || 'Technicien', // Si dispo
-            id: r.id,
-            original: r
-        }));
-
-        // 2. Fusionner et Trier (Plus récent d'abord)
-        const combined = [...normalizedAppts, ...normalizedReports].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        if(combined.length === 0) return '<p class="text-center text-muted">Aucune intervention.</p>';
-
-        return combined.map(item => {
-            const dateStr = formatDate(item.date);
-            
-            if (item.type === 'report') {
-                return `
-                    <div class="history-item" style="border-left: 3px solid #4ade80;">
-                        <div class="history-item-header">
-                            <div class="history-date"><i class="fas fa-file-contract"></i> ${dateStr}</div>
-                            <div class="history-actions">
-                                <a href="/report-view.html?id=${item.id}" target="_blank" class="btn btn-xs btn-primary"><i class="fas fa-file-pdf"></i> PDF</a>
-                            </div>
-                        </div>
-                        <div class="history-content">
-                            <strong>${escapeHtml(item.title)}</strong><br>
-                            <small class="text-muted">Intervenant(s) via rapport</small>
-                        </div>
-                    </div>`;
-            } else {
-                const deleteBtn = isEditable ? `<button class="btn btn-xs btn-danger" onclick="deleteHistoryItem(${cid}, ${item.id})"><i class="fas fa-trash"></i></button>` : '';
-                return `
-                    <div class="history-item" style="border-left: 3px solid #3b82f6;">
-                        <div class="history-item-header">
-                            <div class="history-date"><i class="fas fa-wrench"></i> ${dateStr} - ${escapeHtml(item.tech || 'Tech')}</div>
-                            <div class="history-actions">${deleteBtn}</div>
-                        </div>
-                        <div class="history-content">${escapeHtml(item.title)}</div>
-                    </div>`;
-            }
-        }).join('');
-
-    } catch(e) { console.error(e); return '<p class="text-danger">Erreur chargement historique.</p>'; }
-}
-
-async function loadCombinedHistory(cid, isEditable) {
-    const container = document.getElementById('appointments-history');
-    if(container) {
-        container.innerHTML = '<p class="text-center">Chargement...</p>';
-        container.innerHTML = await getCombinedHistoryHTML(cid, isEditable);
+    } catch (e) {
+        window.location.href = '/login.html';
     }
 }
 
-async function deleteHistoryItem(cid, aid) { if(confirm('Suppr?')) { await fetch(`/api/clients/${cid}/appointments/${aid}`, {method:'DELETE'}); loadCombinedHistory(cid, true); } }
+function logout() {
+    fetch('/api/logout', { method: 'POST' }).then(() => window.location = '/login.html');
+}
 
-// ========== UTILS ==========
-function openDeleteModal(id, n) { clientToDelete=id; document.getElementById('delete-client-name').innerText=n; document.getElementById('delete-modal').classList.add('active'); }
-function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); }
-async function confirmDelete() { await fetch(`/api/clients/${clientToDelete}`,{method:'DELETE'}); closeDeleteModal(); loadClients(); }
-function toggleActionMenu(e, id) { e.stopPropagation(); document.querySelectorAll('.action-menu-dropdown').forEach(m => m.classList.remove('active')); document.getElementById(`action-menu-${id}`).classList.toggle('active'); }
-document.addEventListener('click', () => document.querySelectorAll('.action-menu-dropdown').forEach(m => m.classList.remove('active')));
-function openGeoTool() { window.open('/geo-tool.html', 'Geo', 'width=600,height=700'); }
-window.receiveCoordinates = function(lat, lon) { document.getElementById('client-lat').value=lat; document.getElementById('client-lon').value=lon; };
-function safeAdd(id, ev, fn) { const el = document.getElementById(id); if(el) el.addEventListener(ev, fn); }
-function escapeHtml(t) { return t ? t.toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ''; }
-function formatDate(d) { return d ? new Date(d).toLocaleDateString('fr-CH') : '-'; }
-function calculateNextMaintenance(date, interval) { if(!date) return null; const d=new Date(date); d.setFullYear(d.getFullYear()+parseInt(interval)); return d.toISOString().split('T')[0]; }
-function showNotification(msg, type='info') { const d=document.createElement('div'); d.className=`notification notification-${type} show`; d.innerText=msg; document.getElementById('notification-container').appendChild(d); setTimeout(()=>d.remove(),3000); }
-function debounce(f,w) { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>f.apply(this,a),w); }; }
-async function loadTechnicians() { try{const r=await fetch('/api/admin/users'); technicians=(await r.json()).filter(u=>u.is_active); const s=document.getElementById('technician'); if(s)s.innerHTML='<option value="">--</option>'+technicians.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');}catch{} }
-async function loadEquipmentCatalog() { try{const r=await fetch('/api/admin/equipment'); equipmentCatalog=await r.json();}catch{} }
+async function loadEquipmentCatalog() {
+    try { 
+        const res = await fetch('/api/admin/equipment'); 
+        catalog = await res.json(); 
+    } catch(e) { console.error(e); }
+}
+
+// ==========================================
+// 2. GESTION DU TRI (3 ÉTATS)
+// ==========================================
+function handleSort(columnName) {
+    const headers = document.querySelectorAll('th.sortable[data-col]');
+    if (currentSort.col !== columnName) {
+        currentSort = { col: columnName, order: 'ASC' };
+    } else {
+        if (currentSort.order === 'ASC') currentSort.order = 'DESC';
+        else if (currentSort.order === 'DESC') currentSort = { col: 'cabinet_name', order: 'ASC' }; 
+    }
+    updateSortIcons(headers, currentSort, 'data-col');
+    loadClients();
+}
+
+function handlePlanningSort(columnName) {
+    const headers = document.querySelectorAll('th.sortable[data-plan-col]');
+    if (currentPlanningSort.col !== columnName) {
+        currentPlanningSort = { col: columnName, order: 'ASC' };
+    } else {
+        if (currentPlanningSort.order === 'ASC') currentPlanningSort.order = 'DESC';
+        else if (currentPlanningSort.order === 'DESC') currentPlanningSort = { col: 'next_maintenance_date', order: 'ASC' };
+    }
+    updateSortIcons(headers, currentPlanningSort, 'data-plan-col');
+    loadPlanning();
+}
+
+function updateSortIcons(headers, sortState, attr) {
+    headers.forEach(th => {
+        const icon = th.querySelector('i');
+        if(th) th.classList.remove('active-sort');
+        if(icon) icon.className = 'fas fa-sort';
+        
+        if (th.getAttribute(attr) === sortState.col) {
+            th.classList.add('active-sort');
+            if(icon) icon.className = sortState.order === 'ASC' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+        }
+    });
+}
+
+// ==========================================
+// 3. ANNUAIRE CLIENTS (LOGIQUE)
+// ==========================================
+async function loadClients() {
+    // Helper safe value
+    const getVal = (id) => document.getElementById(id)?.value || '';
+
+    const search = getVal('global-search');
+    const brand = getVal('filter-brand');
+    const model = getVal('filter-model');
+    const serial = getVal('filter-serial');
+    const category = getVal('filter-category');
+
+    let url = `/api/clients?page=${currentPage}&limit=${currentLimit}&search=${encodeURIComponent(search)}`;
+    url += `&sortBy=${currentSort.col}&sortOrder=${currentSort.order}`;
+    if(brand) url += `&brand=${encodeURIComponent(brand)}`;
+    if(model) url += `&model=${encodeURIComponent(model)}`;
+    if(serial) url += `&serialNumber=${encodeURIComponent(serial)}`;
+    if(category) url += `&category=${encodeURIComponent(category)}`;
+
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        renderClientsTable(data.clients);
+        updatePagination(data.pagination);
+    } catch(e) { console.error(e); }
+}
+
+function renderClientsTable(clients) {
+    const tbody = document.getElementById('clients-tbody');
+    if(!clients.length) { tbody.innerHTML = `<tr><td colspan="6" class="text-center">Aucun client trouvé.</td></tr>`; return; }
+    
+    tbody.innerHTML = clients.map(c => {
+        // Génération Badges Équipements
+        let badgesHtml = '<span style="color:#94a3b8; font-style:italic; font-size:0.85em;">-</span>';
+        if (c.equipment_summary) {
+            const items = c.equipment_summary.split(';;');
+            const maxDisplay = 3;
+            const badges = items.slice(0, maxDisplay).map(i => {
+                const parts = i.split(':');
+                const type = parts[0] || 'Autre';
+                
+                let icon = 'fa-cogs';
+                if(type.toLowerCase().includes('orl')) icon = 'fa-chair';
+                else if(type.toLowerCase().includes('gynéco')) icon = 'fa-venus';
+                else if(type.toLowerCase().includes('stéril') || type.toLowerCase().includes('autoclave')) icon = 'fa-pump-soap';
+                
+                return `<span class="eq-badge"><i class="fas ${icon}"></i> ${escapeHtml(type)}</span>`;
+            }).join('');
+            
+            badgesHtml = `<div style="display:flex;flex-wrap:wrap;">${badges}${items.length > maxDisplay ? `<span class="eq-badge eq-badge-more">+${items.length - maxDisplay}</span>` : ''}</div>`;
+        }
+
+        return `
+        <tr onclick="openClientDetails(${c.id})" style="cursor:pointer;">
+            <td>
+                <div class="client-name">${escapeHtml(c.cabinet_name)}</div>
+                <div style="font-size:0.8rem; color:#64748b;">${escapeHtml(c.activity)}</div>
+            </td>
+            <td>
+                <div style="font-weight:500;">${escapeHtml(c.city)} <span style="background:#f1f5f9; padding:1px 4px; border-radius:3px; font-size:0.75rem;">${c.canton||''}</span></div>
+                <div style="font-size:0.8rem; color:#64748b;">${escapeHtml(c.address)}</div>
+            </td>
+            <td>
+                <div style="font-size:0.85rem; font-weight:500;">${escapeHtml(c.contact_name)}</div>
+                <div style="font-size:0.8rem; color:#64748b;">${escapeHtml(c.phone||'-')}</div>
+                <div style="font-size:0.8rem; color:#64748b;">${escapeHtml(c.email||'-')}</div>
+            </td>
+            <td>${badgesHtml}</td>
+            <td>${formatDate(c.appointment_at)}</td>
+            <td onclick="event.stopPropagation()">
+                <button class="btn-icon-sm btn-icon-primary" onclick="openClientModal(${c.id})" title="Modifier"><i class="fas fa-pen"></i></button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+// ==========================================
+// 4. PLANNING GLOBAL (CORRECTION CRASH)
+// ==========================================
+async function loadPlanning() {
+    // Fonction Helper sécurisée : Si l'élément n'existe pas, renvoie chaîne vide ''
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    };
+
+    const params = new URLSearchParams({
+        search: getVal('planning-search'),
+        status: getVal('plan-filter-status'),
+        canton: getVal('plan-filter-canton'),
+        category: getVal('plan-filter-category'),
+        brand: getVal('plan-filter-brand'),
+        model: getVal('plan-filter-model'),
+        serial: getVal('plan-filter-serial'),
+        year: getVal('plan-filter-year'),
+        sortBy: currentPlanningSort.col,
+        sortOrder: currentPlanningSort.order
+    });
+
+    const tbody = document.getElementById('planning-tbody');
+    if (!tbody) return; // Sécurité si on n'est pas sur la bonne page
+    
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>`;
+
+    try {
+        const res = await fetch(`/api/clients/planning?${params.toString()}`);
+        const rows = await res.json();
+
+        if(!rows.length) { tbody.innerHTML = `<tr><td colspan="8" class="text-center">Aucun résultat trouvé.</td></tr>`; return; }
+
+        tbody.innerHTML = rows.map(item => {
+            const days = item.days_remaining;
+            let rowClass = '';
+            let daysText = days !== null ? `${days} j` : '-';
+
+            if (days !== null) {
+                if (days < 0) rowClass = 'planning-row-danger';     
+                else if (days < 30) rowClass = 'planning-row-warning'; 
+                else rowClass = 'planning-row-success';            
+            }
+
+            return `
+            <tr class="${rowClass}">
+                <td style="font-weight:600;">
+                    ${escapeHtml(item.cabinet_name)}
+                    <div style="font-size:0.85em; font-weight:normal; color:#555;">${escapeHtml(item.city)}</div>
+                </td>
+                <td style="text-align:center;">
+                    <span style="background:white; border:1px solid #ccc; padding:1px 5px; border-radius:4px; font-size:0.8em;">${escapeHtml(item.canton || '-')}</span>
+                </td>
+                <td>
+                    <strong>${escapeHtml(item.catalog_name || 'Inconnu')}</strong>
+                    <div style="font-size:0.85em;">${escapeHtml(item.brand || '')} ${escapeHtml(item.model || '')}</div>
+                    <div style="font-size:0.8em; color:#666;">S/N: ${escapeHtml(item.serial_number || '-')}</div>
+                </td>
+                <td>${escapeHtml(item.type || '-')}</td>
+                <td>${formatDate(item.last_maintenance_date)}</td>
+                <td style="font-weight:bold;">${formatDate(item.next_maintenance_date)}</td>
+                <td style="text-align:center; font-weight:bold;">${daysText}</td>
+                <td style="text-align:center;">
+                    <button class="btn-icon-sm btn-icon-success" onclick="window.location.href='/reports.html?action=create&client=${item.client_id}&eq=${item.id}'" title="Créer Rapport"><i class="fas fa-file-signature"></i></button>
+                </td>
+            </tr>`;
+        }).join('');
+
+    } catch(e) { console.error(e); tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Erreur chargement</td></tr>`; }
+}
+
+// ==========================================
+// 5. FICHE CLIENT & ONGLETS
+// ==========================================
+async function openClientDetails(id) {
+    currentClientId = id;
+    const modal = document.getElementById('client-details-modal');
+    
+    try {
+        const res = await fetch(`/api/clients/${id}`);
+        const c = await res.json();
+        
+        // Remplissage Sidebar
+        document.getElementById('sheet-name').innerText = c.cabinet_name;
+        document.getElementById('sheet-activity').innerText = c.activity;
+        document.getElementById('sheet-address').innerText = `${c.address}, ${c.postal_code||''} ${c.city} (${c.canton||''})`;
+        document.getElementById('sheet-phone').innerText = c.phone || '-';
+        document.getElementById('sheet-email').innerText = c.email || '-';
+        document.getElementById('sheet-contact').innerText = c.contact_name;
+        document.getElementById('sheet-notes').innerText = c.notes || 'Aucune note.';
+        
+        // Reset Onglet
+        switchSheetTab('equipment'); // Par défaut
+        loadSheetEquipment(id);
+        loadSheetHistory(id);
+        
+        modal.classList.add('active');
+    } catch(e) { console.error(e); alert("Impossible de charger le client."); }
+}
+
+function closeClientDetailsModal() {
+    document.getElementById('client-details-modal').classList.remove('active');
+}
+
+// Charge l'onglet "Parc Machines" (Design Cards)
+async function loadSheetEquipment(clientId) {
+    const container = document.getElementById('sheet-equipment-list');
+    container.innerHTML = '<p class="text-center">Chargement...</p>';
+    
+    try {
+        const res = await fetch(`/api/clients/${clientId}/equipment`);
+        const list = await res.json();
+        
+        if(!list.length) { container.innerHTML = '<div class="equipment-empty">Aucun équipement installé.</div>'; return; }
+        
+        container.innerHTML = list.map(eq => {
+            const days = eq.days_remaining;
+            let statusClass = 'status-ok';
+            let pillClass = 'ok';
+            let textClass = 'text-success';
+            let textLabel = 'OK';
+            
+            if(days !== null) {
+                if(days < 0) { statusClass = 'status-expired'; pillClass = 'expired'; textClass = 'text-danger'; textLabel = 'RETARD'; }
+                else if(days < 30) { statusClass = 'status-warning'; pillClass = 'warning'; textClass = 'text-warning'; textLabel = 'BIENTÔT'; }
+            }
+
+            return `
+            <div class="equipment-card ${statusClass}">
+                <div class="equipment-info">
+                    <div class="equipment-name">${escapeHtml(eq.final_name)}</div>
+                    <div class="equipment-meta">
+                        <span class="equipment-brand">${escapeHtml(eq.final_brand)}</span>
+                        <span class="equipment-serial">S/N: ${escapeHtml(eq.serial_number||'-')}</span>
+                    </div>
+                </div>
+                <div class="equipment-status">
+                    <span class="status-pill ${pillClass}">${textLabel}</span>
+                    <div class="equipment-days ${textClass}">${formatDate(eq.next_maintenance_date)}</div>
+                </div>
+                <div style="margin-left: 1rem; display:flex; flex-direction:column; gap:5px;">
+                    <button class="btn-icon-sm btn-icon-primary" onclick='openEquipFormModal(${JSON.stringify(eq)})' title="Modifier"><i class="fas fa-edit"></i></button>
+                    <button class="btn-icon-sm btn-icon-success" onclick="window.location.href='/reports.html?action=create&client=${clientId}&eq=${eq.id}'" title="Rapport"><i class="fas fa-file-signature"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) { console.error(e); container.innerHTML = "Erreur."; }
+}
+
+// Charge l'onglet "Historique"
+async function loadSheetHistory(clientId) {
+    const container = document.getElementById('sheet-history-list');
+    container.innerHTML = '<p class="text-center">Chargement...</p>';
+    try {
+        const res = await fetch(`/api/clients/${clientId}/appointments`);
+        const list = await res.json();
+        
+        if(!list.length) { container.innerHTML = '<div class="equipment-empty">Aucun historique.</div>'; return; }
+        
+        container.innerHTML = list.map(h => `
+            <div class="history-item">
+                <div class="history-item-header">
+                    <div class="history-date"><i class="far fa-calendar-alt"></i> ${formatDate(h.appointment_date)}</div>
+                    <div class="history-tech">${escapeHtml(h.technician_name||'Technicien')}</div>
+                </div>
+                <div class="history-content">${escapeHtml(h.task_description)}</div>
+                ${h.report_number ? `<div style="margin-top:5px;"><a href="/report-view.html?id=${h.report_id}" target="_blank" class="text-sm text-primary"><i class="fas fa-file-pdf"></i> Rapport ${h.report_number}</a></div>` : ''}
+            </div>
+        `).join('');
+    } catch(e){ console.error(e); }
+}
+
+// ==========================================
+// 6. GESTION FORMULAIRES (CLIENT / MACHINE)
+// ==========================================
+
+// --- Formulaire Client (Modification/Création) ---
+async function openClientModal(id = null) {
+    const modal = document.getElementById('client-modal');
+    const form = document.getElementById('client-form');
+    form.reset();
+    document.getElementById('client-id').value = '';
+    
+    if (id) {
+        try {
+            const res = await fetch(`/api/clients/${id}`);
+            const data = await res.json();
+            document.getElementById('client-id').value = data.id;
+            document.getElementById('cabinet-name').value = data.cabinet_name;
+            document.getElementById('contact-name').value = data.contact_name;
+            document.getElementById('activity').value = data.activity;
+            document.getElementById('address').value = data.address;
+            document.getElementById('postal-code').value = data.postal_code || '';
+            document.getElementById('city').value = data.city;
+            document.getElementById('canton').value = data.canton;
+            document.getElementById('phone').value = data.phone || '';
+            document.getElementById('email').value = data.email || '';
+            document.getElementById('notes').value = data.notes || '';
+        } catch(e) { console.error(e); }
+    }
+    modal.classList.add('active');
+}
+
+function closeClientModal() { 
+    document.getElementById('client-modal').classList.remove('active'); 
+}
+
+async function saveClient() {
+    const id = document.getElementById('client-id').value;
+    const data = {
+        cabinet_name: document.getElementById('cabinet-name').value,
+        contact_name: document.getElementById('contact-name').value,
+        activity: document.getElementById('activity').value,
+        address: document.getElementById('address').value,
+        postal_code: document.getElementById('postal-code').value,
+        city: document.getElementById('city').value,
+        canton: document.getElementById('canton').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value,
+        notes: document.getElementById('notes').value
+    };
+
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/api/clients/${id}` : '/api/clients';
+
+    try {
+        const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+        if (res.ok) {
+            closeClientModal();
+            loadClients();
+            // Si on éditait depuis la fiche, recharger la fiche
+            if(id && id == currentClientId) openClientDetails(id);
+        } else alert("Erreur sauvegarde");
+    } catch(e) { console.error(e); }
+}
+
+// --- Formulaire Équipement (Ajout/Edit) ---
+function openEquipFormModal(eq = null) {
+    const modal = document.getElementById('equipment-form-modal');
+    const form = document.getElementById('equipment-item-form');
+    form.reset();
+    document.getElementById('equipment-item-id').value = '';
+    
+    // Charger catalogue
+    const sel = document.getElementById('equipment-select');
+    sel.innerHTML = '<option value="">-- Choisir Modèle --</option>' + 
+        catalog.map(c => `<option value="${c.id}">${c.name} (${c.brand})</option>`).join('');
+
+    if(eq) {
+        document.getElementById('equipment-item-id').value = eq.id;
+        sel.value = eq.equipment_id;
+        document.getElementById('equipment-serial').value = eq.serial_number||'';
+        if(eq.installed_at) document.getElementById('equipment-installed').value = eq.installed_at;
+        if(eq.warranty_until) document.getElementById('equipment-warranty').value = eq.warranty_until;
+        if(eq.last_maintenance_date) document.getElementById('last-maintenance').value = eq.last_maintenance_date;
+        if(eq.maintenance_interval) document.getElementById('maintenance-interval').value = eq.maintenance_interval;
+    }
+    
+    modal.classList.add('active');
+}
+
+function closeEquipFormModal() {
+    document.getElementById('equipment-form-modal').classList.remove('active');
+}
+
+async function saveEquipmentItem() {
+    const id = document.getElementById('equipment-item-id').value;
+    const clientId = currentClientId; // On utilise le client de la fiche ouverte
+    if(!clientId) return;
+
+    const data = {
+        equipment_id: document.getElementById('equipment-select').value,
+        serial_number: document.getElementById('equipment-serial').value,
+        installed_at: document.getElementById('equipment-installed').value,
+        warranty_until: document.getElementById('equipment-warranty').value,
+        last_maintenance_date: document.getElementById('last-maintenance').value,
+        maintenance_interval: document.getElementById('maintenance-interval').value
+    };
+
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/api/clients/${clientId}/equipment/${id}` : `/api/clients/${clientId}/equipment`;
+
+    try {
+        const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+        if(res.ok) {
+            closeEquipFormModal();
+            loadSheetEquipment(clientId); // Rafraîchir la fiche
+            // Si le planning est visible, le rafraîchir aussi
+            if(document.getElementById('view-planning').classList.contains('active')) loadPlanning();
+        } else alert("Erreur sauvegarde équipement");
+    } catch(e) { console.error(e); }
+}
+
+// --- Suppression ---
+function openDeleteModal(id) { clientIdToDelete = id; document.getElementById('delete-modal').classList.add('active'); }
+function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); clientIdToDelete = null; }
+async function confirmDeleteClient() {
+    if(!clientIdToDelete) return;
+    await fetch(`/api/clients/${clientIdToDelete}`, { method: 'DELETE' });
+    closeDeleteModal(); loadClients();
+}
+
+// ==========================================
+// 7. UTILITAIRES
+// ==========================================
+function debounce(f,w){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>f.apply(this,a),w);};}
+function escapeHtml(t){if(!t)return '';return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function formatDate(s){return s?new Date(s).toLocaleDateString('fr-CH'):'-';}
+function updatePagination(p){document.getElementById('pagination-info').textContent=`Page ${p.page}/${p.totalPages}`; document.getElementById('prev-page').disabled=p.page===1; document.getElementById('next-page').disabled=p.page===p.totalPages;}

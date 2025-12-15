@@ -12,8 +12,57 @@
     <link rel="stylesheet" href="/css/table.css" />
     <link rel="stylesheet" href="/css/pages.css" />
     <link rel="stylesheet" href="/css/utilities.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link rel="stylesheet" href="/css/transitions.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      .planning-row-danger { background-color: #fef2f2 !important; }
+      .planning-row-warning { background-color: #fffbeb !important; }
+      .planning-row-success { background-color: #ecfdf5 !important; }
+      
+      /* --- VIEW SWITCHER --- */
+      .view-switcher { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
+      .view-btn { 
+        padding: 0.5rem 1rem; background: transparent; border: none; font-weight: 600; cursor: pointer; 
+        color: var(--neutral-500); transition: all 0.2s; border-radius: var(--radius-md); 
+        display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem;
+      }
+      .view-btn.active { color: var(--color-primary); background: var(--color-primary-light); }
+      .view-btn:hover:not(.active) { color: var(--neutral-900); background: var(--neutral-100); }
+      .view-section { display: none; animation: fadeIn 0.3s ease; }
+      .view-section.active { display: block; }
+
+      /* --- FICHE CLIENT --- */
+      .client-sheet { max-width: 1100px; height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+      .client-sheet-body { display: flex; flex: 1; overflow: hidden; padding: 0; }
+      .sheet-sidebar { width: 300px; background: var(--neutral-50); border-right: 1px solid var(--border-color); padding: 1.5rem; overflow-y: auto; }
+      .sheet-avatar { width: 80px; height: 80px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--color-primary); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); margin-bottom: 1rem; }
+      .sheet-title { font-size: 1.25rem; font-weight: 700; color: var(--neutral-900); margin-bottom: 0.25rem; line-height: 1.2; }
+      .sheet-subtitle { font-size: 0.9rem; color: var(--neutral-500); margin-bottom: 1.5rem; }
+      .sheet-contact-item { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 1rem; font-size: 0.9rem; color: var(--neutral-700); }
+      .sheet-contact-item i { color: var(--color-primary); margin-top: 3px; }
+      .sheet-main { flex: 1; padding: 2rem; overflow-y: auto; background: white; }
+      .sheet-tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem; }
+      .sheet-tab { padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 600; color: var(--neutral-500); transition: all 0.2s; }
+      .sheet-tab:hover { color: var(--color-primary); }
+      .sheet-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+      
+      /* --- FILTRES GRID --- */
+      .filters-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 1.5rem; }
+      .filter-box { background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1rem; box-shadow: var(--shadow-sm); }
+      
+      /* Grid pour les selects principaux */
+      .planning-main-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: center; }
+      
+      /* Grid pour les inputs machines (caché par défaut) */
+      .planning-advanced-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); }
+      
+      .eq-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: white; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.75rem; font-weight: 500; color: var(--neutral-700); margin-right: 4px; margin-bottom: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+      .eq-badge i { color: var(--color-primary); font-size: 0.7rem; }
+      .eq-badge-more { background: var(--color-primary-light); color: var(--color-primary); border-color: transparent; cursor: help; }
+      th.sortable { cursor: pointer; user-select: none; transition: background 0.15s; }
+      th.sortable:hover { background-color: var(--neutral-100); color: var(--neutral-900); }
+      th.active-sort { color: var(--color-primary); background-color: var(--color-primary-light) !important; }
+    </style>
   </head>
   <body>
     <div class="app-container">
@@ -34,115 +83,214 @@
 
       <main class="main-content">
         <div class="page-header">
-          <h1><i class="fas fa-users"></i> Gestion des clients</h1>
-          <button class="btn btn-success" id="add-client-btn"><i class="fas fa-plus"></i> Ajouter un client</button>
+          <h1><i class="fas fa-users"></i> Clients & Parc Machine</h1>
+          <button class="btn btn-primary" onclick="openClientModal()"><i class="fas fa-plus"></i> Nouveau Client</button>
         </div>
 
-        <div class="table-controls">
-          <div class="table-controls-row main-filters">
-            <div class="search-box">
-              <input type="text" id="global-search" placeholder="Recherche globale..." />
-            </div>
-            <div class="filter-actions" style="display: flex; gap: 10px; align-items: center">
-              <select id="limit-select">
-                <option value="10">10 / page</option>
-                <option value="25" selected>25 / page</option>
-                <option value="50">50 / page</option>
-              </select>
-              <button class="btn btn-secondary" id="toggle-filters-btn"><i class="fas fa-filter"></i> Filtres Avancés</button>
-              <button class="btn btn-secondary" id="export-csv-btn"><i class="fas fa-download"></i></button>
-            </div>
-          </div>
-
-          <div class="table-controls-row advanced-filters hidden" id="advanced-filters">
-            <p style="width: 100%; margin-bottom: 10px; font-weight: 600; color: var(--color-primary);">Filtres par équipement :</p>
-            <input type="text" id="filter-brand" placeholder="Marque..." />
-            <input type="text" id="filter-model" placeholder="Modèle..." />
-            <input type="text" id="filter-serial" placeholder="N° série..." />
-            <input type="text" id="filter-category" placeholder="Secteur (ex: ORL)..." />
-            <input type="text" id="filter-device" placeholder="Appareil (ex: Unité)..." />
-            <div style="width: 100%; display: flex; justify-content: flex-end; margin-top: 10px;">
-              <button class="btn btn-sm btn-secondary" id="clear-filters-btn"><i class="fas fa-times"></i> Réinitialiser</button>
-            </div>
-          </div>
+        <div class="view-switcher">
+            <button class="view-btn active" id="btn-view-directory" onclick="switchView('directory')"><i class="fas fa-address-book"></i> Annuaire Clients</button>
+            <button class="view-btn" id="btn-view-planning" onclick="switchView('planning')"><i class="fas fa-calendar-alt"></i> Planning Service</button>
         </div>
 
-        <div class="table-container">
-          <div class="table-wrapper">
-            <table id="clients-table" class="table">
-              <thead>
-                <tr>
-                  <th class="sortable" data-column="cabinet_name" style="min-width: 250px"><div class="th-content"><span><i class="fas fa-building"></i> Cabinet</span></div><div class="column-search"><input type="text" data-column="cabinet_name" placeholder="Filtrer..." onclick="event.stopPropagation()" /></div></th>
-                  <th class="sortable" data-column="activity" style="min-width: 100px; width: 120px;"><div class="th-content"><span><i class="fas fa-briefcase"></i> Activité</span></div><div class="column-search"><input type="text" data-column="activity" placeholder="Filtrer..." onclick="event.stopPropagation()" /></div></th>
-                  <th class="sortable" data-column="city" style="min-width: 180px"><div class="th-content"><span><i class="fas fa-map-marker-alt"></i> Localisation</span></div><div class="column-search"><input type="text" data-column="city" placeholder="Ville..." onclick="event.stopPropagation()" style="margin-bottom: 4px" /><select data-column="canton" onclick="event.stopPropagation()" style="width: 100%; padding: 0.3rem; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; height: 32px; background: var(--bg-page); color: var(--text-main);"><option value="">Tous (Canton)</option><option value="AG">AG</option><option value="BE">BE</option><option value="BL">BL</option><option value="BS">BS</option><option value="FR">FR</option><option value="GE">GE</option><option value="JU">JU</option><option value="NE">NE</option><option value="VD">VD</option><option value="VS">VS</option><option value="ZH">ZH</option></select></div></th>
-                  <th style="min-width: 450px"><div class="th-content"><span><i class="fas fa-tools"></i> Équipements</span></div></th>
-                  <th class="sortable" data-column="appointment_at" style="min-width: 140px"><div class="th-content"><span><i class="fas fa-calendar"></i> Rendez-vous</span></div><div class="column-search"><input type="date" data-column="appointment_at" onclick="event.stopPropagation()" /></div></th>
-                  <th style="width: 60px;"></th>
-                </tr>
-              </thead>
-              <tbody id="clients-tbody">
-                <tr><td colspan="6" class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="pagination">
-            <div class="pagination-info" id="pagination-info">-</div>
-            <div class="pagination-buttons"><button class="btn btn-secondary btn-sm" id="prev-page" disabled><i class="fas fa-chevron-left"></i></button><button class="btn btn-secondary btn-sm" id="next-page" disabled><i class="fas fa-chevron-right"></i></button></div>
-          </div>
+        <div id="view-directory" class="view-section active">
+            <div class="table-controls" style="flex-direction: column; align-items: stretch; gap: 1rem;">
+                <div class="table-controls-row">
+                    <div class="search-box" style="flex:1;">
+                        <input type="text" id="global-search" placeholder="🔍 Rechercher (Nom, Ville, Contact)..." />
+                    </div>
+                    <button class="btn btn-secondary" id="toggle-filters-btn"><i class="fas fa-filter"></i> Filtres Avancés</button>
+                </div>
+                
+                <div id="advanced-filters" class="filter-box hidden" style="margin-bottom:0;">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
+                        <div class="form-group" style="margin:0;"><label>Marque</label><input type="text" id="filter-brand" placeholder="Ex: Atmos" /></div>
+                        <div class="form-group" style="margin:0;"><label>Modèle</label><input type="text" id="filter-model" placeholder="Ex: C31" /></div>
+                        <div class="form-group" style="margin:0;"><label>Série</label><input type="text" id="filter-serial" placeholder="N° Série" /></div>
+                        <div class="form-group" style="margin:0;"><label>Secteur</label><select id="filter-category"><option value="">-- Tout --</option><option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option></select></div>
+                    </div>
+                    <div style="margin-top:10px; text-align:right;">
+                        <button class="btn btn-secondary btn-sm" id="clear-filters-btn">Effacer</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+              <div class="table-wrapper">
+                <table id="clients-table" class="table">
+                  <thead>
+                    <tr>
+                      <th class="sortable" onclick="handleSort('cabinet_name')" data-col="cabinet_name" style="min-width: 220px"><i class="fas fa-sort"></i> Cabinet / Client</th>
+                      <th class="sortable" onclick="handleSort('city')" data-col="city" style="min-width: 180px"><i class="fas fa-sort"></i> Localisation</th>
+                      <th style="min-width: 180px">Contact</th>
+                      <th style="min-width: 300px">Parc Machine</th>
+                      <th class="sortable" onclick="handleSort('appointment_at')" data-col="appointment_at" style="width: 130px"><i class="fas fa-sort"></i> RDV</th>
+                      <th style="width: 50px"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="clients-tbody"><tr><td colspan="6" class="text-center">Chargement...</td></tr></tbody>
+                </table>
+              </div>
+              <div class="pagination">
+                <div class="pagination-info" id="pagination-info">-</div>
+                <div class="pagination-buttons"><button class="btn btn-secondary btn-sm" id="prev-page" disabled><i class="fas fa-chevron-left"></i></button><button class="btn btn-secondary btn-sm" id="next-page" disabled><i class="fas fa-chevron-right"></i></button></div>
+              </div>
+            </div>
+        </div>
+
+        <div id="view-planning" class="view-section">
+            <div class="filters-container">
+                <div class="filter-box" style="display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap;">
+                    <div class="search-box" style="flex:1; min-width:250px;">
+                        <input type="text" id="planning-search" placeholder="🔍 Rechercher dans le planning..." />
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <span style="display:flex; align-items:center; gap:5px; font-size:0.8em;"><span style="width:12px; height:12px; background:#fee2e2; border:1px solid #b91c1c; border-radius:3px;"></span> Retard</span>
+                        <span style="display:flex; align-items:center; gap:5px; font-size:0.8em;"><span style="width:12px; height:12px; background:#ffedd5; border:1px solid #c2410c; border-radius:3px;"></span> Bientôt</span>
+                        <span style="display:flex; align-items:center; gap:5px; font-size:0.8em;"><span style="width:12px; height:12px; background:#dcfce7; border:1px solid #15803d; border-radius:3px;"></span> OK</span>
+                    </div>
+                </div>
+
+                <div class="filter-box">
+                    <div class="planning-main-filters">
+                        <select id="plan-filter-status"><option value="">-- Statut --</option><option value="overdue">⚠️ En retard</option><option value="soon">🕒 Bientôt</option><option value="future">📅 Futur</option></select>
+                        <select id="plan-filter-canton"><option value="">-- Canton --</option><option value="VD">VD</option><option value="GE">GE</option><option value="VS">VS</option><option value="NE">NE</option><option value="FR">FR</option><option value="JU">JU</option><option value="BE">BE</option><option value="ZH">ZH</option><option value="AG">AG</option><option value="BS">BS</option><option value="BL">BL</option><option value="SO">SO</option></select>
+                        <select id="plan-filter-category"><option value="">-- Secteur --</option><option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option><option value="Podologie">Podologie</option><option value="Chirurgie">Chirurgie</option></select>
+                        
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn btn-secondary" id="toggle-planning-filters-btn" style="flex:1;"><i class="fas fa-sliders-h"></i> Filtres Machine</button>
+                            <button class="btn btn-secondary" id="plan-reset-btn"><i class="fas fa-undo"></i></button>
+                        </div>
+                    </div>
+
+                    <div id="planning-advanced-filters" class="planning-advanced-filters hidden">
+                        <input type="text" id="plan-filter-brand" placeholder="Marque" />
+                        <input type="text" id="plan-filter-model" placeholder="Modèle" />
+                        <input type="text" id="plan-filter-serial" placeholder="N° Série" />
+                        <input type="number" id="plan-filter-year" placeholder="Année Install." min="2000" max="2100" />
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <div class="table-wrapper">
+                    <table class="table" style="font-size: 0.9rem;">
+                        <thead>
+                            <tr>
+                                <th class="sortable" onclick="handlePlanningSort('cabinet_name')" data-plan-col="cabinet_name"><i class="fas fa-sort"></i> Client</th>
+                                <th class="sortable" onclick="handlePlanningSort('canton')" data-plan-col="canton" style="width:60px;"><i class="fas fa-sort"></i> Qt.</th>
+                                <th class="sortable" onclick="handlePlanningSort('catalog_name')" data-plan-col="catalog_name"><i class="fas fa-sort"></i> Machine</th>
+                                <th class="sortable" onclick="handlePlanningSort('type')" data-plan-col="type"><i class="fas fa-sort"></i> Secteur</th>
+                                <th class="sortable" onclick="handlePlanningSort('last_maintenance_date')" data-plan-col="last_maintenance_date"><i class="fas fa-sort"></i> Dernier</th>
+                                <th class="sortable" onclick="handlePlanningSort('next_maintenance_date')" data-plan-col="next_maintenance_date"><i class="fas fa-sort"></i> Prochain</th>
+                                <th class="sortable" onclick="handlePlanningSort('days_remaining')" data-plan-col="days_remaining" style="text-align:center;"><i class="fas fa-sort"></i> Jours</th>
+                                <th style="width:80px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="planning-tbody"><tr><td colspan="8" class="text-center">Chargement...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
       </main>
     </div>
 
-    <div class="modal" id="client-modal">
-        <div class="modal-content" style="max-width: 900px">
-            <div class="modal-header"><h2 id="modal-title"></h2><button class="modal-close" onclick="closeClientModal()">&times;</button></div>
-            <div class="modal-body">
-              <form id="client-form">
-                <input type="hidden" id="client-id" />
-                <div class="form-section"><h3 class="form-section-title">Général</h3><div class="form-row"><div class="form-group"><label>Cabinet *</label><input type="text" id="cabinet-name" required /></div><div class="form-group"><label>Contact *</label><input type="text" id="contact-name" required /></div></div><div class="form-row"><div class="form-group"><label>Activité *</label><select id="activity" required><option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option><option value="Podologie">Podologie</option><option value="Chirurgie">Chirurgie</option></select></div><div class="form-group"><label>Téléphone</label><input type="tel" id="phone" /></div></div><div class="form-group"><label>Email</label><input type="email" id="email" /></div></div>
-                <div class="form-section"><h3 class="form-section-title">Adresse</h3><div class="form-group"><label>Adresse *</label><input type="text" id="address" required /></div><div class="form-row"><div class="form-group"><label>NPA</label><input type="text" id="postal-code" /></div><div class="form-group"><label>Ville *</label><input type="text" id="city" required /></div><div class="form-group"><label>Canton</label><select id="canton"><option value="">--</option><option value="BL">BL</option><option value="BS">BS</option><option value="ZH">ZH</option><option value="AG">AG</option><option value="SO">SO</option><option value="JU">JU</option><option value="BE">BE</option><option value="GE">GE</option><option value="VD">VD</option></select></div></div><div class="form-row" style="margin-top:10px;"><div class="form-group"><label>Lat</label><input type="number" id="client-lat" step="0.000001" /></div><div class="form-group"><label>Lon</label><input type="number" id="client-lon" step="0.000001" /></div><div class="form-group" style="display:flex;align-items:flex-end;"><button type="button" id="open-geo-tool-btn" class="btn btn-primary btn-sm">Carte</button></div></div></div>
-                <div class="form-section"><h3 class="form-section-title">Rendez-vous</h3><div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="appointment" /></div><div class="form-group"><label>Technicien</label><select id="technician"><option value="">--</option></select></div></div></div>
-                <div class="form-section"><h3 class="form-section-title">Notes</h3><div class="form-group"><textarea id="notes" rows="3"></textarea></div></div>
-                
-                <div class="form-section" id="history-section" style="display: none">
-                  <h3 class="form-section-title"><i class="fas fa-history"></i> Historique Interventions</h3>
-                  <div id="appointments-history"><p class="text-center">Chargement...</p></div>
-                  <button type="button" class="btn btn-secondary" id="add-history-btn" style="margin-top: 1rem"><i class="fas fa-plus"></i> Ajouter note manuelle</button>
-                </div>
-              </form>
+    <div class="modal" id="client-details-modal">
+        <div class="modal-content client-sheet">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-circle"></i> Fiche Client</h2>
+                <button class="modal-close" onclick="closeClientDetailsModal()">&times;</button>
             </div>
-            <div class="modal-footer"><button class="btn btn-secondary" id="cancel-modal-btn">Annuler</button><button class="btn btn-success" id="save-client-btn">Enregistrer</button></div>
+            <div class="client-sheet-body">
+                <div class="sheet-sidebar">
+                    <div class="sheet-avatar"><i class="fas fa-building"></i></div>
+                    <div class="sheet-title" id="sheet-name">Cabinet Nom</div>
+                    <div class="sheet-subtitle" id="sheet-activity">Activité</div>
+                    <div class="sheet-contact-item"><i class="fas fa-map-marker-alt"></i> <span id="sheet-address">Adresse...</span></div>
+                    <div class="sheet-contact-item"><i class="fas fa-phone"></i> <span id="sheet-phone">-</span></div>
+                    <div class="sheet-contact-item"><i class="fas fa-envelope"></i> <span id="sheet-email">-</span></div>
+                    <div class="sheet-contact-item"><i class="fas fa-user"></i> <span id="sheet-contact">-</span></div>
+                    <button class="btn btn-primary btn-sm" id="sheet-edit-btn" style="width:100%; margin-top:1rem;"><i class="fas fa-pen"></i> Modifier Infos</button>
+                    <div style="margin-top:2rem; border-top:1px solid #e2e8f0; padding-top:1rem;">
+                        <label style="font-size:0.8rem; font-weight:600; color:#64748b;">Notes :</label>
+                        <div id="sheet-notes" style="font-size:0.85rem; color:#334155; margin-top:0.5rem; font-style:italic;"></div>
+                    </div>
+                </div>
+                <div class="sheet-main">
+                    <div class="sheet-tabs">
+                        <div class="sheet-tab active" onclick="switchSheetTab('equipment')">Parc Machines</div>
+                        <div class="sheet-tab" onclick="switchSheetTab('history')">Historique</div>
+                    </div>
+                    <div id="sheet-tab-equipment" style="display:block;">
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:1rem;">
+                            <button class="btn btn-success btn-sm" id="sheet-add-equip-btn"><i class="fas fa-plus"></i> Ajouter Machine</button>
+                        </div>
+                        <div id="sheet-equipment-list" class="equipment-badges"></div>
+                    </div>
+                    <div id="sheet-tab-history" style="display:none;">
+                        <div class="history-list" id="sheet-history-list"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="modal" id="history-modal">
-        <div class="modal-content" style="max-width: 600px">
-            <div class="modal-header"><h2>Nouvelle note manuelle</h2><button class="modal-close" onclick="closeHistoryModal()" id="cancel-history-btn">&times;</button></div>
+    <div class="modal" id="client-modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header"><h2>Modifier Client</h2><button class="modal-close" onclick="closeClientModal()">&times;</button></div>
             <div class="modal-body">
-                <form id="history-form">
-                    <input type="hidden" id="history-client-id" />
-                    <div class="form-row"><div class="form-group"><label>Date *</label><input type="date" id="history-date" required /></div><div class="form-group"><label>Technicien *</label><select id="history-technician" required><option value="">--</option></select></div></div>
-                    <div class="form-group"><label>Description *</label><textarea id="history-task" rows="3" placeholder="Ex: Livraison consommables..."></textarea></div>
+                <form id="client-form">
+                    <input type="hidden" id="client-id" />
+                    <div class="form-row"><div class="form-group"><label>Cabinet *</label><input type="text" id="cabinet-name" required /></div><div class="form-group"><label>Contact</label><input type="text" id="contact-name" /></div></div>
+                    <div class="form-row"><div class="form-group"><label>Activité</label><select id="activity"><option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option></select></div><div class="form-group"><label>Téléphone</label><input type="text" id="phone" /></div></div>
+                    <div class="form-group"><label>Email</label><input type="email" id="email" /></div>
+                    <div class="form-group"><label>Adresse</label><input type="text" id="address" /></div>
+                    <div class="form-row"><div class="form-group"><label>NPA</label><input type="text" id="postal-code" /></div><div class="form-group"><label>Ville</label><input type="text" id="city" /></div><div class="form-group"><label>Canton</label><input type="text" id="canton" style="text-transform:uppercase;" maxlength="2" /></div></div>
+                    <div class="form-group"><label>Notes</label><textarea id="notes"></textarea></div>
                 </form>
             </div>
-            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeHistoryModal()">Annuler</button><button class="btn btn-success" id="save-history-btn">Enregistrer</button></div>
+            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeClientModal()">Annuler</button><button class="btn btn-save" onclick="saveClient()">Enregistrer</button></div>
         </div>
     </div>
 
-    <div class="modal" id="equipment-modal">
-        <div class="modal-content" style="max-width: 800px">
-            <div class="modal-header"><h2>Équipements <span id="equipment-client-name"></span></h2><button class="modal-close" onclick="closeEquipmentModal()">&times;</button></div>
-            <div class="modal-body"><button class="btn btn-primary" id="add-equipment-item-btn">Ajouter</button><div id="equipment-list-container" style="margin-top:1rem;"></div><div id="equipment-form-container" class="hidden"><form id="equipment-item-form"><input type="hidden" id="equipment-item-id" /><input type="hidden" id="equipment-client-id" /><div class="form-group"><label>Équipement</label><select id="equipment-select" required><option value="">--</option></select></div><div class="form-group"><label>Série</label><input type="text" id="equipment-serial" /></div><div class="form-row"><div class="form-group"><label>Installé</label><input type="date" id="equipment-installed" /></div><div class="form-group"><label>Garantie</label><input type="date" id="equipment-warranty" /></div></div><div class="form-row"><div class="form-group"><label>Dernière Maint.</label><input type="date" id="last-maintenance" /></div><div class="form-group"><label>Intervalle</label><select id="maintenance-interval"><option value="1">1 an</option><option value="2">2 ans</option></select></div></div><div class="form-group"><label>Prochaine: <strong id="next-maintenance-display"></strong></label></div><div style="display:flex;gap:10px;"><button type="button" class="btn btn-secondary" id="cancel-equipment-item-btn">Annuler</button><button type="button" class="btn btn-success" id="save-equipment-item-btn">Enregistrer</button></div></form></div></div>
-            <div class="modal-footer"><button class="btn btn-primary" onclick="closeEquipmentModal()">Terminé</button></div>
+    <div class="modal" id="equipment-form-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header"><h2>Gérer Machine</h2><button class="modal-close" onclick="closeEquipFormModal()">&times;</button></div>
+            <div class="modal-body">
+                <form id="equipment-item-form">
+                    <input type="hidden" id="equipment-item-id" />
+                    <div class="form-group"><label>Modèle (Catalogue)</label><select id="equipment-select" required><option>Chargement...</option></select></div>
+                    <div class="form-group"><label>N° Série</label><input type="text" id="equipment-serial" /></div>
+                    <div class="form-row"><div class="form-group"><label>Installé le</label><input type="date" id="equipment-installed" /></div><div class="form-group"><label>Garantie fin</label><input type="date" id="equipment-warranty" /></div></div>
+                    <div class="form-row" style="background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+                        <div class="form-group"><label>Dernier Service</label><input type="date" id="last-maintenance" /></div>
+                        <div class="form-group"><label>Intervalle (Ans)</label><select id="maintenance-interval"><option value="1">1 an</option><option value="2">2 ans</option><option value="3">3 ans</option></select></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeEquipFormModal()">Annuler</button><button class="btn btn-save" id="save-equipment-item-btn">Enregistrer</button></div>
         </div>
     </div>
-    
-    <div class="modal" id="client-details-modal"><div class="modal-content" style="max-width:1000px"><div class="modal-header"><h2 id="client-details-title">Fiche Client</h2><button class="modal-close" onclick="closeClientDetailsModal()">&times;</button></div><div class="modal-body"><div id="client-details-content"></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeClientDetailsModal()">Fermer</button><button class="btn btn-primary" id="edit-from-details-btn">Modifier</button></div></div></div>
 
     <div class="modal" id="delete-modal"><div class="modal-content"><div class="modal-header"><h2>Supprimer</h2><button class="modal-close" onclick="closeDeleteModal()">&times;</button></div><div class="modal-body"><p>Supprimer <strong id="delete-client-name"></strong>?</p></div><div class="modal-footer"><button id="cancel-delete-btn">Non</button><button id="confirm-delete-btn" class="btn-danger">Oui</button></div></div></div>
     <div id="notification-container" class="notification-container"></div>
 
     <script src="/js/clients.js"></script>
-    <script src="/js/page-transitions.js"></script>
+    <script>
+        function switchView(view) {
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.getElementById('btn-view-'+view).classList.add('active');
+            document.getElementById('view-'+view).classList.add('active');
+            if(view === 'planning') loadPlanning();
+        }
+        function switchSheetTab(tab) {
+            document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
+            // Selection sécurisée du bouton
+            const btn = document.querySelector(`.sheet-tab[onclick*="'${tab}'"]`);
+            if(btn) btn.classList.add('active');
+            document.getElementById('sheet-tab-equipment').style.display = tab === 'equipment' ? 'block' : 'none';
+            document.getElementById('sheet-tab-history').style.display = tab === 'history' ? 'block' : 'none';
+        }
+    </script>
   </body>
 </html>
