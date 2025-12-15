@@ -83,7 +83,7 @@ Tableau rapports :
 - Frais de déplacements prédéfinis V
 
 - Une fois le rapport terminé : "En attente de validation" V
-- Ajouter les rapports en Allemand
+- Ajouter les rapports en Allemand V
 - Dossiers + Filtres V
 
 
