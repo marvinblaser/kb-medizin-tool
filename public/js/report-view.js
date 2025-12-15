@@ -15,6 +15,31 @@ async function loadReport(id) {
         const res = await fetch(`/api/reports/${id}`);
         const data = await res.json();
 
+        if (data.work_type) {
+            const titleEl = document.getElementById('report-title');
+            if (titleEl) {
+                // Dictionnaire pour gérer les titres spécifiques et la grammaire (de/d')
+                const titles = {
+                    "Mise en marche": "Rapport de<br>Mise en marche",
+                    "Réparation": "Rapport de<br>Réparation",
+                    "Réparation / Garantie": "Rapport de<br>Réparation / Garantie",
+                    "Service d'entretien": "Rapport de<br>Service d'entretien",
+                    "Contrôle": "Rapport de<br>Contrôle",
+                    "Première validation": "Rapport de<br>Première validation",
+                    "Montage": "Rapport de<br>Montage",
+                    "Instruction": "Rapport<br>d'Instruction", // Gestion du d' apostrophe
+                    "Re-validation": "Rapport de<br>Re-validation"
+                };
+
+                // Si le type est connu, on met le titre formaté, sinon on met un titre générique
+                if (titles[data.work_type]) {
+                    titleEl.innerHTML = titles[data.work_type];
+                } else {
+                    titleEl.innerHTML = `Rapport de<br>${data.work_type}`;
+                }
+            }
+        }
+
         setText('cabinet-name', data.cabinet_name);
         setText('client-address', data.address);
         setText('client-city', (data.postal_code||'') + ' ' + data.city);

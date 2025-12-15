@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('add-report-btn').addEventListener('click', () => openReportModal());
     document.getElementById('save-report-btn').addEventListener('click', saveReport);
     document.getElementById('travel-canton').addEventListener('change', updateTravelCost);
+    document.getElementById('report-type').addEventListener('change', updateReportTitleHeader);
     
     // Filtres
     document.getElementById('global-search').addEventListener('input', debounce(() => loadReports(), 300));
@@ -358,6 +359,8 @@ async function fillReportForm(report) {
       if (report.materials) report.materials.forEach(m => addMaterialRow(m));
       if (report.work_accomplished) report.work_accomplished.split('\n').forEach(line => addWorkRow(line)); else addWorkRow();
       updateMaterialsTotal();
+      const typeText = report.work_type ? "Rapport de " + report.work_type : "Rapport";
+      document.getElementById('report-modal-title').innerHTML = `<i class="fas fa-file-alt"></i> ${typeText} <span style="font-size:0.8em; opacity:0.7;">(${report.report_number})</span>`;
 }
 
 async function checkAuth() { try { const res = await fetch('/api/me'); if(!res.ok) throw new Error(); const data = await res.json(); currentUser = data.user; const ui = document.getElementById('user-info'); if(ui) ui.innerHTML=`<div class="user-avatar">${currentUser.name[0]}</div><div class="user-details"><strong>${currentUser.name}</strong><span>${currentUser.role}</span></div>`; if(currentUser.role==='admin') document.getElementById('admin-link')?.classList.remove('hidden'); } catch { window.location.href = '/login.html'; } }
@@ -378,3 +381,32 @@ function debounce(f,w){let t;return function(...a){clearTimeout(t);t=setTimeout(
 function escapeHtml(t){if(!t)return '';return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function formatDate(s){return s?new Date(s).toLocaleDateString('fr-CH'):'-';}
 function updatePagination(p){document.getElementById('pagination-info').textContent=`Page ${p.page}/${p.totalPages}`; document.getElementById('prev-page').disabled=p.page===1; document.getElementById('next-page').disabled=p.page===p.totalPages;}
+function updateReportTitleHeader() {
+    const typeSelect = document.getElementById('report-type');
+    const titleElement = document.getElementById('report-modal-title');
+    const reportId = document.getElementById('report-id').value;
+    
+    // Récupérer le texte de l'option sélectionnée (pas la value)
+    let typeText = "Rapport";
+    if (typeSelect.selectedIndex > 0) { // Si une option est choisie
+        typeText = "Rapport de " + typeSelect.options[typeSelect.selectedIndex].text;
+    }
+
+    // Si on est en édition, on ajoute le numéro du rapport, sinon juste le titre
+    // Note : On récupère le numéro depuis le titre actuel s'il existe déjà ou via une variable globale si tu préfères
+    // Ici, une approche simple :
+    if (reportId) {
+         // On essaie de garder le numéro s'il était déjà affiché
+         // Exemple actuel du titre : "Rapport 2025-0001"
+         const currentTitle = titleElement.innerText;
+         const match = currentTitle.match(/\d{4}-\d{4}/); // Cherche un motif type 2025-0001
+         if (match) {
+             titleElement.innerHTML = `<i class="fas fa-file-alt"></i> ${typeText} <span style="font-size:0.8em; opacity:0.7;">(${match[0]})</span>`;
+         } else {
+             titleElement.innerHTML = `<i class="fas fa-file-alt"></i> ${typeText}`;
+         }
+    } else {
+        // Nouveau rapport
+        titleElement.innerHTML = `<i class="fas fa-plus-circle"></i> ${typeText}`;
+    }
+}

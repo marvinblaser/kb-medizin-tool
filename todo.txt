@@ -76,8 +76,8 @@ Ajouter un client :
 -------------------------------------
 
 Tableau rapports :
-- Remplacer le nombre d'intervenants par les noms
-- Indiquer l'installation du rapport dans le tableau
+- Remplacer le nombre d'intervenants par les noms V
+- Indiquer l'installation du rapport dans le tableau V
 - Mettre des rabais en % sur le matériel V
 - Tâches prédéfinies
 - Frais de déplacements prédéfinis V
