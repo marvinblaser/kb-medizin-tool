@@ -4,30 +4,23 @@ const router = express.Router();
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
 
-// Helper pour récupérer le rôle
 const getUserRole = (userId) => {
     return new Promise((resolve) => {
         db.get("SELECT role FROM users WHERE id = ?", [userId], (err, row) => resolve(row ? row.role : null));
     });
 };
 
-// === GET STATS (NOUVEAU - DOIT ÊTRE AVANT /:id) ===
 router.get('/stats', requireAuth, (req, res) => {
-    // Compte les rapports par statut
     const sql = `SELECT status, COUNT(*) as count FROM reports GROUP BY status`;
     db.all(sql, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        
-        // On formate pour avoir 0 partout par défaut
         const stats = { draft: 0, pending: 0, validated: 0, archived: 0 };
-        rows.forEach(r => {
-            if (stats[r.status] !== undefined) stats[r.status] = r.count;
-        });
+        rows.forEach(r => { if (stats[r.status] !== undefined) stats[r.status] = r.count; });
         res.json(stats);
     });
 });
 
-// === GET ALL ===
+// === GET ALL (Liste allégée) ===
 router.get('/', requireAuth, (req, res) => {
     const { page = 1, limit = 25, search, type, status, client_id } = req.query;
     const limitVal = client_id ? 200 : limit; 
@@ -45,9 +38,9 @@ router.get('/', requireAuth, (req, res) => {
     if (client_id) { where.push("r.client_id = ?"); params.push(client_id); }
 
     try {
+        // On a retiré la sous-requête du technicien car on ne l'affiche plus dans le tableau
         const sql = `
             SELECT r.*, 
-            (SELECT COUNT(*) FROM report_technicians rt WHERE rt.report_id = r.id) as technicians_count,
             u.name as validator_name
             FROM reports r 
             LEFT JOIN users u ON r.validator_id = u.id
@@ -66,10 +59,17 @@ router.get('/', requireAuth, (req, res) => {
     } catch (e) { res.status(500).json({ error: "Crash serveur" }); }
 });
 
-// === GET ONE ===
+// === GET ONE (Avec l'auteur) ===
 router.get('/:id', requireAuth, (req, res) => {
     const id = req.params.id;
-    const sql = `SELECT r.*, u.name as validator_name FROM reports r LEFT JOIN users u ON r.validator_id = u.id WHERE r.id = ?`;
+    // On joint deux fois la table users : une fois pour le validateur (u), une fois pour l'auteur (a)
+    const sql = `
+        SELECT r.*, u.name as validator_name, a.name as author_name 
+        FROM reports r 
+        LEFT JOIN users u ON r.validator_id = u.id 
+        LEFT JOIN users a ON r.author_id = a.id
+        WHERE r.id = ?`;
+        
     db.get(sql, [id], async (err, report) => {
         if (err || !report) return res.status(404).json({ error: "Introuvable" });
 
@@ -87,7 +87,6 @@ router.get('/:id', requireAuth, (req, res) => {
     });
 });
 
-// === CHANGE STATUS ===
 router.patch('/:id/status', requireAuth, async (req, res) => {
     const { status, reason } = req.body;
     const userId = req.session.userId;
@@ -117,7 +116,7 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
     });
 });
 
-// === SAVE ===
+// === SAVE (Avec enregistrement de l'auteur) ===
 router.post('/', requireAuth, (req, res) => saveReportData(req, res));
 router.put('/:id', requireAuth, async (req, res) => {
     const role = await getUserRole(req.session.userId);
@@ -133,13 +132,20 @@ router.put('/:id', requireAuth, async (req, res) => {
 const saveReportData = (req, res, reportId = null) => {
     const { client_id, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, technicians, stk_tests, materials, equipment_ids } = req.body;
     const currentStatus = reportId ? (status || 'draft') : 'draft';
+    const userId = req.session.userId; // L'auteur est celui qui est connecté
 
+    // Si création (reportId est null), on ajoute author_id
     const reportData = [client_id, work_type, currentStatus, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included?1:0, travel_location, technician_signature_date, work_accomplished];
-    const runQuery = reportId 
-        ? `UPDATE reports SET client_id=?, work_type=?, status=?, cabinet_name=?, address=?, postal_code=?, city=?, interlocutor=?, installation=?, remarks=?, travel_costs=?, travel_included=?, travel_location=?, technician_signature_date=?, work_accomplished=? WHERE id=?`
-        : `INSERT INTO reports (client_id, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
-
-    if (reportId) reportData.push(reportId);
+    
+    let runQuery = "";
+    if (reportId) {
+        runQuery = `UPDATE reports SET client_id=?, work_type=?, status=?, cabinet_name=?, address=?, postal_code=?, city=?, interlocutor=?, installation=?, remarks=?, travel_costs=?, travel_included=?, travel_location=?, technician_signature_date=?, work_accomplished=? WHERE id=?`;
+        reportData.push(reportId);
+    } else {
+        // INSERT : on ajoute author_id à la fin
+        runQuery = `INSERT INTO reports (client_id, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, author_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+        reportData.push(userId);
+    }
 
     db.run(runQuery, reportData, function(err) {
         if (err) return res.status(500).json({ error: err.message });

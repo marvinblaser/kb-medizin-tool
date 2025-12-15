@@ -79,7 +79,12 @@
           <table class="table">
             <thead>
               <tr>
-                <th>N° Rapport</th><th>Type</th><th>Client</th><th>Date</th><th>Statut</th><th style="text-align:right;">Actions</th>
+                <th>N° Rapport</th>
+                <th>Type</th>
+                <th>Client</th>
+                <th style="width: 25%;">Installation</th> <th>Date</th>
+                <th>Statut</th>
+                <th style="text-align:right;">Actions</th>
               </tr>
             </thead>
             <tbody id="reports-tbody">
@@ -102,11 +107,12 @@
   <div class="modal" id="report-modal">
     <div class="modal-content" style="max-width: 1200px">
       <div class="modal-header">
-        <h2 id="report-modal-title"><i class="fas fa-file-alt"></i> Rapport</h2>
-        <div style="display:flex; gap:10px;">
-            <button class="btn btn-secondary btn-sm" id="header-pdf-btn" style="display:none;" title="Voir le PDF"><i class="fas fa-file-pdf"></i> Voir PDF</button>
-            <button class="modal-close" onclick="closeReportModal()">&times;</button>
-        </div>
+          <div> <h2 id="report-modal-title"><i class="fas fa-file-alt"></i> Rapport</h2>
+              <div id="report-meta-info" style="font-size: 0.85rem; color: #64748b; margin-top: 4px;"></div> </div>
+          
+          <div style="display:flex; gap:10px; align-items:flex-start;"> <button class="btn btn-secondary btn-sm" id="header-pdf-btn" style="display:none;" title="Voir le PDF"><i class="fas fa-file-pdf"></i> Voir PDF</button>
+              <button class="modal-close" onclick="closeReportModal()">&times;</button>
+          </div>
       </div>
       
       <div id="rejection-msg-box" class="rejection-alert">

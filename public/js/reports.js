@@ -132,26 +132,37 @@ async function loadReports() {
 
 function renderReports(reports) {
     const tbody = document.getElementById('reports-tbody');
-    if (!reports.length) { tbody.innerHTML = `<tr><td colspan="6" class="text-center">Aucun rapport.</td></tr>`; return; }
+    if (!reports.length) { tbody.innerHTML = `<tr><td colspan="7" class="text-center">Aucun rapport.</td></tr>`; return; } // Colspan passe de 8 à 7
 
     const badges = { 'draft': 'status-draft', 'pending': 'status-pending', 'validated': 'status-validated', 'archived': 'status-archived' };
     const names = { 'draft': 'Brouillon', 'pending': 'En attente', 'validated': 'Validé', 'archived': 'Archivé' };
 
-    tbody.innerHTML = reports.map(r => `
-      <tr>
-        <td><strong>${escapeHtml(r.report_number)}</strong></td>
-        <td>${escapeHtml(r.work_type)}</td>
-        <td>${escapeHtml(r.cabinet_name)}</td>
-        <td>${formatDate(r.created_at)}</td>
-        <td><span class="status-badge ${badges[r.status]}">${names[r.status]}</span></td>
-        <td style="text-align:right;">
-          <div class="table-actions">
-            <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${r.id}','_blank')" title="Voir PDF"><i class="fas fa-file-pdf"></i></button>
-            <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${r.id})" title="Ouvrir"><i class="fas fa-edit"></i></button>
-            <button class="btn-icon-sm btn-icon-danger" onclick="openDeleteModal(${r.id})" title="Supprimer"><i class="fas fa-trash"></i></button>
-          </div>
-        </td>
-      </tr>`).join('');
+    tbody.innerHTML = reports.map(r => {
+        const installationText = r.installation || '-';
+        const installationDisplay = installationText.length > 60 ? installationText.substring(0, 60) + '...' : installationText;
+        const canDelete = (r.status === 'draft') || (currentUser && currentUser.role === 'admin');
+
+        return `
+          <tr>
+            <td style="font-weight:600; color:var(--color-primary);">${escapeHtml(r.report_number)}</td>
+            <td>${escapeHtml(r.work_type)}</td>
+            <td><strong>${escapeHtml(r.cabinet_name)}</strong></td>
+            <td title="${escapeHtml(installationText)}">
+                <div style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #555;">
+                    ${escapeHtml(installationDisplay)}
+                </div>
+            </td>
+            <td>${formatDate(r.created_at)}</td>
+            <td><span class="status-badge ${badges[r.status]}">${names[r.status]}</span></td>
+            <td style="text-align:right;">
+              <div class="table-actions">
+                <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${r.id}','_blank')" title="Voir PDF"><i class="fas fa-file-pdf"></i></button>
+                <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${r.id})" title="Ouvrir"><i class="fas fa-edit"></i></button>
+                ${canDelete ? `<button class="btn-icon-sm btn-icon-danger" onclick="openDeleteModal(${r.id})" title="Supprimer"><i class="fas fa-trash"></i></button>` : ''}
+              </div>
+            </td>
+          </tr>`;
+    }).join('');
 }
 
 // --- MODAL & WORKFLOW ---
@@ -159,6 +170,7 @@ async function openReportModal(reportId = null) {
     const modal = document.getElementById('report-modal');
     const form = document.getElementById('report-form');
     const pdfBtn = document.getElementById('header-pdf-btn');
+    const metaInfo = document.getElementById('report-meta-info'); // La nouvelle zone
     
     form.reset(); resetDynamicLists();
     document.getElementById('rejection-msg-box').style.display = 'none';
@@ -169,16 +181,28 @@ async function openReportModal(reportId = null) {
             const r = await res.json();
             fillReportForm(r);
             renderWorkflowButtons(r);
+            
+            // Affichage de l'auteur
+            if (r.author_name) {
+                metaInfo.innerHTML = `<i class="fas fa-pen-nib"></i> Rédigé par <strong>${escapeHtml(r.author_name)}</strong> le ${formatDate(r.created_at)}`;
+            } else {
+                metaInfo.innerHTML = `<i class="fas fa-clock"></i> Créé le ${formatDate(r.created_at)}`;
+            }
+            
             pdfBtn.style.display = 'inline-block';
             pdfBtn.onclick = () => window.open(`/report-view.html?id=${r.id}`, '_blank');
+            document.getElementById('report-modal-title').innerText = `Rapport ${r.report_number}`;
+
         } catch(e) { console.error(e); }
     } else {
         document.getElementById('report-modal-title').innerText = "Nouveau rapport";
+        metaInfo.innerHTML = ""; // Rien si nouveau
         document.getElementById('report-id').value = '';
         document.getElementById('current-status-badge').className = 'status-badge status-draft';
         document.getElementById('current-status-badge').innerText = 'Brouillon';
         document.getElementById('validator-info').innerText = '';
         pdfBtn.style.display = 'none';
+        
         document.getElementById('workflow-buttons').innerHTML = `<button class="btn btn-primary" onclick="saveReport()">Enregistrer (Brouillon)</button>`;
         addTechnicianRow(); addWorkRow();
     }
