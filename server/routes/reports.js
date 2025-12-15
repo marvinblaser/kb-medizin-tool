@@ -130,20 +130,25 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 const saveReportData = (req, res, reportId = null) => {
-    const { client_id, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, technicians, stk_tests, materials, equipment_ids } = req.body;
+    // 1. On récupère 'language' dans le body
+    const { client_id, language, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, technicians, stk_tests, materials, equipment_ids } = req.body;
+    
     const currentStatus = reportId ? (status || 'draft') : 'draft';
-    const userId = req.session.userId; // L'auteur est celui qui est connecté
+    const userId = req.session.userId;
+    // Par défaut, si pas de langue, on met 'fr'
+    const langVal = language || 'fr'; 
 
-    // Si création (reportId est null), on ajoute author_id
-    const reportData = [client_id, work_type, currentStatus, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included?1:0, travel_location, technician_signature_date, work_accomplished];
+    // 2. On ajoute langVal dans le tableau de données
+    const reportData = [client_id, langVal, work_type, currentStatus, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included?1:0, travel_location, technician_signature_date, work_accomplished];
     
     let runQuery = "";
     if (reportId) {
-        runQuery = `UPDATE reports SET client_id=?, work_type=?, status=?, cabinet_name=?, address=?, postal_code=?, city=?, interlocutor=?, installation=?, remarks=?, travel_costs=?, travel_included=?, travel_location=?, technician_signature_date=?, work_accomplished=? WHERE id=?`;
+        // UPDATE : On ajoute language=? dans la requête
+        runQuery = `UPDATE reports SET client_id=?, language=?, work_type=?, status=?, cabinet_name=?, address=?, postal_code=?, city=?, interlocutor=?, installation=?, remarks=?, travel_costs=?, travel_included=?, travel_location=?, technician_signature_date=?, work_accomplished=? WHERE id=?`;
         reportData.push(reportId);
     } else {
-        // INSERT : on ajoute author_id à la fin
-        runQuery = `INSERT INTO reports (client_id, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, author_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+        // INSERT : On ajoute la colonne language et le ?
+        runQuery = `INSERT INTO reports (client_id, language, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, author_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
         reportData.push(userId);
     }
 
@@ -153,11 +158,31 @@ const saveReportData = (req, res, reportId = null) => {
 
         db.serialize(() => {
             ['report_technicians', 'report_stk_tests', 'report_materials', 'report_equipment'].forEach(t => db.run(`DELETE FROM ${t} WHERE report_id=?`, [finalId]));
-            if (technicians && technicians.length) { const stmt = db.prepare("INSERT INTO report_technicians (report_id, technician_id, technician_name, work_date, hours_normal, hours_extra) VALUES (?,?,?,?,?,?)"); technicians.forEach(t => stmt.run(finalId, t.technician_id, t.technician_name, t.work_date, t.hours_normal, t.hours_extra)); stmt.finalize(); }
-            if (stk_tests && stk_tests.length) { const stmt = db.prepare("INSERT INTO report_stk_tests (report_id, test_name, price, included) VALUES (?,?,?,?)"); stk_tests.forEach(t => stmt.run(finalId, t.test_name, t.price, t.included?1:0)); stmt.finalize(); }
-            if (materials && materials.length) { const stmt = db.prepare("INSERT INTO report_materials (report_id, material_id, material_name, product_code, quantity, unit_price, discount, total_price) VALUES (?,?,?,?,?,?,?,?)"); materials.forEach(m => stmt.run(finalId, m.material_id, m.material_name, m.product_code, m.quantity, m.unit_price, m.discount||0, m.total_price)); stmt.finalize(); }
-            if (equipment_ids && equipment_ids.length) { const stmt = db.prepare("INSERT INTO report_equipment (report_id, equipment_id) VALUES (?,?)"); equipment_ids.forEach(eid => stmt.run(finalId, eid)); stmt.finalize(); }
-            if (!reportId) { const reportNumber = `${new Date().getFullYear()}-${String(finalId).padStart(4, '0')}`; db.run("UPDATE reports SET report_number = ? WHERE id = ?", [reportNumber, finalId]); }
+            
+            if (technicians && technicians.length) { 
+                const stmt = db.prepare("INSERT INTO report_technicians (report_id, technician_id, technician_name, work_date, hours_normal, hours_extra) VALUES (?,?,?,?,?,?)"); 
+                technicians.forEach(t => stmt.run(finalId, t.technician_id, t.technician_name, t.work_date, t.hours_normal, t.hours_extra)); 
+                stmt.finalize(); 
+            }
+            if (stk_tests && stk_tests.length) { 
+                const stmt = db.prepare("INSERT INTO report_stk_tests (report_id, test_name, price, included) VALUES (?,?,?,?)"); 
+                stk_tests.forEach(t => stmt.run(finalId, t.test_name, t.price, t.included?1:0)); 
+                stmt.finalize(); 
+            }
+            if (materials && materials.length) { 
+                const stmt = db.prepare("INSERT INTO report_materials (report_id, material_id, material_name, product_code, quantity, unit_price, discount, total_price) VALUES (?,?,?,?,?,?,?,?)"); 
+                materials.forEach(m => stmt.run(finalId, m.material_id, m.material_name, m.product_code, m.quantity, m.unit_price, m.discount||0, m.total_price)); 
+                stmt.finalize(); 
+            }
+            if (equipment_ids && equipment_ids.length) { 
+                const stmt = db.prepare("INSERT INTO report_equipment (report_id, equipment_id) VALUES (?,?)"); 
+                equipment_ids.forEach(eid => stmt.run(finalId, eid)); 
+                stmt.finalize(); 
+            }
+            if (!reportId) { 
+                const reportNumber = `${new Date().getFullYear()}-${String(finalId).padStart(4, '0')}`; 
+                db.run("UPDATE reports SET report_number = ? WHERE id = ?", [reportNumber, finalId]); 
+            }
         });
         res.json({ success: true, id: finalId });
     });

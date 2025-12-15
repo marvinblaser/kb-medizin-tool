@@ -1,44 +1,140 @@
 // public/js/report-view.js
 
+// --- DICTIONNAIRE DE TRADUCTION ---
+const TRANSLATIONS = {
+    fr: {
+        title_main: "Rapport de service<br>d'entretien",
+        label_name: "Nom :",
+        label_address: "Adresse :",
+        label_city: "Lieu :",
+        label_contact: "Interlocuteur :",
+        label_tasks: "Travaux :",
+        label_install: "Installation :",
+        header_intervenants: "Intervenants :",
+        header_du: "Du",
+        header_au: "Au",
+        header_hours_norm: "Heures<br>norm.",
+        header_hours_sup: "Heures<br>sup.",
+        total_upper: "TOTAL",
+        section_work: "Travaux réalisés :",
+        section_material: "Matériel utilisé :",
+        travel_costs: "Frais de déplacement :",
+        travel_included: "Incl.", // ou Inclus
+        total_excl_vat: "Exkl. MWST", // Souvent laissé en DE/EN ou FR/DE mélangé, mais on peut traduire : "Hors TVA"
+        comments: "Commentaires :",
+        sig_tech: "Signature de l'intervenant :",
+        sig_client: "Signature du client :",
+        date: "Date :",
+        
+        // Types de travaux (Titres)
+        "Mise en marche": "Rapport de<br>Mise en marche",
+        "Réparation": "Rapport de<br>Réparation",
+        "Réparation / Garantie": "Rapport de<br>Réparation / Garantie",
+        "Service d'entretien": "Rapport de<br>Service d'entretien",
+        "Contrôle": "Rapport de<br>Contrôle",
+        "Première validation": "Rapport de<br>Première validation",
+        "Montage": "Rapport de<br>Montage",
+        "Instruction": "Rapport<br>d'Instruction",
+        "Re-validation": "Rapport de<br>Re-validation"
+    },
+    de: {
+        title_main: "Servicebericht",
+        label_name: "Name:",
+        label_address: "Adresse:",
+        label_city: "Ort:",
+        label_contact: "Ansprechpartner:",
+        label_tasks: "Arbeiten:",
+        label_install: "Installation:",
+        header_intervenants: "Techniker:",
+        header_du: "Vom",
+        header_au: "Bis",
+        header_hours_norm: "Std.<br>Norm.",
+        header_hours_sup: "Std.<br>Extra",
+        total_upper: "TOTAL",
+        section_work: "Ausgeführte Arbeiten:",
+        section_material: "Verbrauchtes Material:",
+        travel_costs: "Wegpauschale:",
+        travel_included: "Inkl.",
+        total_excl_vat: "Exkl. MWST",
+        comments: "Bemerkungen:",
+        sig_tech: "Unterschrift Techniker:",
+        sig_client: "Unterschrift Kunde:",
+        date: "Datum:",
+
+        // Types de travaux (Mapping FR DB -> DE Titres)
+        "Mise en marche": "Inbetriebnahme-<br>Protokoll",
+        "Réparation": "Reparatur-<br>Bericht",
+        "Réparation / Garantie": "Reparatur / Garantie-<br>Bericht",
+        "Service d'entretien": "Wartungs-<br>Protokoll",
+        "Contrôle": "Kontroll-<br>Bericht",
+        "Première validation": "Erstvalidierungs-<br>Protokoll",
+        "Montage": "Montage-<br>Bericht",
+        "Instruction": "Instruktions-<br>Protokoll",
+        "Re-validation": "Revalidierungs-<br>Protokoll"
+    }
+};
+
+// Mapping des libellés des checkboxes pour l'affichage en Allemand
+const CHECKBOX_LABELS_DE = {
+    "Mise en marche": "Inbetriebnahme",
+    "Réparation": "Reparatur",
+    "Réparation / Garantie": "Reparatur / Garantie",
+    "Service d'entretien": "Wartung",
+    "Contrôle": "Kontrolle",
+    "Première validation": "Erstvalidierung",
+    "Montage": "Montage",
+    "Instruction": "Instruktion",
+    "Re-validation": "Revalidierung"
+};
+
+let currentLanguage = 'fr'; // Par défaut
+let currentWorkType = null;
+
 document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
     if(params.get('id')) await loadReport(params.get('id'));
 });
 
-function toggleCb(element) {
+// --- GESTION CLICK CHECKBOX ---
+function toggleCb(element, workTypeFr) {
     const box = element.querySelector('.cb-box');
+    const isChecking = !box.classList.contains('checked');
     box.classList.toggle('checked');
+
+    if (isChecking && workTypeFr) {
+        currentWorkType = workTypeFr;
+        updateTitle(workTypeFr);
+    }
 }
 
+function updateTitle(workTypeFr) {
+    const titleEl = document.getElementById('report-title');
+    if (!titleEl) return;
+
+    // On récupère la traduction correspondante à la langue actuelle
+    const dict = TRANSLATIONS[currentLanguage];
+    
+    if (dict[workTypeFr]) {
+        titleEl.innerHTML = dict[workTypeFr];
+    } else {
+        // Fallback si pas de traduction exacte
+        titleEl.innerHTML = (currentLanguage === 'de' ? 'Bericht: ' : 'Rapport : ') + workTypeFr;
+    }
+}
+
+// --- FONCTION PRINCIPALE DE CHARGEMENT ---
 async function loadReport(id) {
     try {
         const res = await fetch(`/api/reports/${id}`);
         const data = await res.json();
 
-        if (data.work_type) {
-            const titleEl = document.getElementById('report-title');
-            if (titleEl) {
-                // Dictionnaire pour gérer les titres spécifiques et la grammaire (de/d')
-                const titles = {
-                    "Mise en marche": "Rapport de<br>Mise en marche",
-                    "Réparation": "Rapport de<br>Réparation",
-                    "Réparation / Garantie": "Rapport de<br>Réparation / Garantie",
-                    "Service d'entretien": "Rapport de<br>Service d'entretien",
-                    "Contrôle": "Rapport de<br>Contrôle",
-                    "Première validation": "Rapport de<br>Première validation",
-                    "Montage": "Rapport de<br>Montage",
-                    "Instruction": "Rapport<br>d'Instruction", // Gestion du d' apostrophe
-                    "Re-validation": "Rapport de<br>Re-validation"
-                };
+        // 1. Détection de la langue (si pas définie en base, on reste sur 'fr')
+        currentLanguage = data.language || 'fr';
+        applyLanguage(currentLanguage);
 
-                // Si le type est connu, on met le titre formaté, sinon on met un titre générique
-                if (titles[data.work_type]) {
-                    titleEl.innerHTML = titles[data.work_type];
-                } else {
-                    titleEl.innerHTML = `Rapport de<br>${data.work_type}`;
-                }
-            }
-        }
+        // 2. Initialisation Données
+        currentWorkType = data.work_type;
+        if (data.work_type) updateTitle(data.work_type);
 
         setText('cabinet-name', data.cabinet_name);
         setText('client-address', data.address);
@@ -53,11 +149,22 @@ async function loadReport(id) {
         if(data.technician_signature_date) setText('sig-date-tech', formatDate(data.technician_signature_date));
         if(data.technicians?.[0]) setText('sig-tech', getInitials(data.technicians[0].technician_name));
 
+        // 3. Checkbox active
         if(data.work_type) {
+            // L'ID HTML reste basé sur le nom français (clé DB), ex: id="cb-Mise en marche"
             const el = document.getElementById(`cb-${data.work_type}`);
             if(el) el.classList.add('checked');
         }
 
+        // 4. Traduction des labels des checkboxes (Seulement si DE)
+        if (currentLanguage === 'de') {
+            document.querySelectorAll('.cb-label-text').forEach(el => {
+                const originalFr = el.getAttribute('data-fr');
+                if(CHECKBOX_LABELS_DE[originalFr]) el.textContent = CHECKBOX_LABELS_DE[originalFr];
+            });
+        }
+
+        // --- Tableau Techniciens ---
         const techTbody = document.getElementById('tech-rows');
         let tNorm=0, tSup=0;
         (data.technicians||[]).forEach(t => {
@@ -77,32 +184,31 @@ async function loadReport(id) {
         // --- GRID ---
         const grid = document.getElementById('main-grid-body');
         grid.innerHTML = '';
-
         grid.innerHTML += emptyRowWithLines();
 
-        // 1. Travaux
-        grid.innerHTML += sectionHeaderRow('Travaux réalisés :');
+        // Travaux (Traduction de l'en-tête de section)
+        grid.innerHTML += sectionHeaderRow(TRANSLATIONS[currentLanguage].section_work);
         const lines = (data.work_accomplished||'').split('\n');
         while(lines.length < 3) lines.push(''); 
         lines.forEach(line => grid.innerHTML += textOnlyRow(line));
 
-        // 2. STK
+        // STK
         if(data.stk_tests && data.stk_tests.length > 0) {
             grid.innerHTML += emptyRowWithLines();
             data.stk_tests.forEach(t => {
-                const showTotal = t.included ? 'Incl.' : fmt(t.price);
+                const showTotal = t.included ? TRANSLATIONS[currentLanguage].travel_included : fmt(t.price);
                 grid.innerHTML += mergedDataRow(t.test_name, fmt(t.price), showTotal);
             });
         }
 
-        // 3. Matériel
+        // Matériel (Traduction en-tête)
         grid.innerHTML += emptyRowWithLines();
-        grid.innerHTML += sectionHeaderRow('Matériel utilisé :');
+        grid.innerHTML += sectionHeaderRow(TRANSLATIONS[currentLanguage].section_material);
         
         let totalMat = 0;
         (data.materials||[]).forEach(m => {
              let displayTotal = fmt(m.total_price);
-             if (m.total_price === 0 && m.unit_price > 0) displayTotal = 'Incl.';
+             if (m.total_price === 0 && m.unit_price > 0) displayTotal = TRANSLATIONS[currentLanguage].travel_included;
              else totalMat += m.total_price;
              grid.innerHTML += fullRow(m.quantity, m.product_code, m.material_name, fmt(m.unit_price), displayTotal);
         });
@@ -112,12 +218,13 @@ async function loadReport(id) {
              grid.innerHTML += fullRow('', '', '', '', '');
         }
 
-        // 4. Frais
+        // Frais (Traduction libellés)
         grid.innerHTML += emptyRowWithLines();
         let travelDisplay = fmt(data.travel_costs);
-        if(data.travel_included) travelDisplay = 'Incl.';
+        if(data.travel_included) travelDisplay = TRANSLATIONS[currentLanguage].travel_included;
         
-        const travelText = `<b>Frais de déplacement :</b> <span style="margin-left:10px;">${data.travel_location||''}</span>`;
+        const travelLabel = TRANSLATIONS[currentLanguage].travel_costs;
+        const travelText = `<b>${travelLabel}</b> <span style="margin-left:10px;">${data.travel_location||''}</span>`;
         grid.innerHTML += `
             <tr>
                 <td class="col-desc" colspan="3" style="text-align:left; border-right:1px solid #000; padding:2px 4px;">${travelText}</td>
@@ -135,57 +242,49 @@ async function loadReport(id) {
     } catch(e) { console.error(e); }
 }
 
-// --- HELPERS ---
+// --- FONCTION D'APPLICATION DES TEXTES FIXES ---
+function applyLanguage(lang) {
+    const t = TRANSLATIONS[lang];
+    if(!t) return;
 
-function fullRow(qty, code, desc, price, total) {
-    return `<tr>
-        <td class="txt-center">${qty||''}</td>
-        <td class="txt-center">${code||''}</td>
-        <td>${desc||''}</td>
-        <td class="col-price col-align-right">${price||''}</td>
-        <td class="col-total col-align-right">${total||''}</td>
-    </tr>`;
+    // On cherche tous les éléments avec data-t="cle_de_traduction"
+    document.querySelectorAll('[data-t]').forEach(el => {
+        const key = el.getAttribute('data-t');
+        if(t[key]) el.innerHTML = t[key]; // innerHTML pour gérer les <br>
+    });
 }
 
-function textOnlyRow(text) {
-    return `<tr>
-        <td colspan="3" style="border-right:1px solid #000;">${text||''}</td>
-        <td style="border-right:1px solid #000;"></td>
-        <td></td>
-    </tr>`;
+// --- SAUVEGARDE ---
+async function saveReport() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if(!id) return alert("Erreur ID");
+
+    const updatedData = {
+        work_type: currentWorkType,
+        installation: document.getElementById('installation').innerText,
+        remarks: document.getElementById('remarks').innerText,
+        // On ne change pas la langue ici pour l'instant, elle est fixée à la création
+    };
+
+    try {
+        const res = await fetch(`/api/reports/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedData)
+        });
+        if (res.ok) alert("Sauvegardé !");
+        else alert("Erreur sauvegarde.");
+    } catch (e) { console.error(e); }
 }
 
-function mergedDataRow(text, price, total) {
-    return `<tr>
-        <td colspan="3" style="border-right:1px solid #000;">${text||''}</td>
-        <td class="col-price col-align-right" style="border-right:1px solid #000;">${price||''}</td>
-        <td class="col-total col-align-right">${total||''}</td>
-    </tr>`;
-}
-
-function sectionHeaderRow(title) {
-    return `<tr>
-        <td colspan="3" class="section-header" style="border-right:1px solid #000;">${title}</td>
-        <td style="border-right:1px solid #000;"></td>
-        <td></td>
-    </tr>`;
-}
-
-function emptyRowWithLines() {
-    return `<tr>
-        <td colspan="3" style="height:15px; border-right:1px solid #000;"></td>
-        <td style="border-right:1px solid #000;"></td>
-        <td></td>
-    </tr>`;
-}
-
+// --- HELPERS (inchangés) ---
+function fullRow(qty, code, desc, price, total) { return `<tr><td class="txt-center">${qty||''}</td><td class="txt-center">${code||''}</td><td>${desc||''}</td><td class="col-price col-align-right">${price||''}</td><td class="col-total col-align-right">${total||''}</td></tr>`; }
+function textOnlyRow(text) { return `<tr><td colspan="3" style="border-right:1px solid #000;">${text||''}</td><td style="border-right:1px solid #000;"></td><td></td></tr>`; }
+function mergedDataRow(text, price, total) { return `<tr><td colspan="3" style="border-right:1px solid #000;">${text||''}</td><td class="col-price col-align-right" style="border-right:1px solid #000;">${price||''}</td><td class="col-total col-align-right">${total||''}</td></tr>`; }
+function sectionHeaderRow(title) { return `<tr><td colspan="3" class="section-header" style="border-right:1px solid #000;">${title}</td><td style="border-right:1px solid #000;"></td><td></td></tr>`; }
+function emptyRowWithLines() { return `<tr><td colspan="3" style="height:15px; border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td></td></tr>`; }
 function setText(id, txt) { const e = document.getElementById(id); if(e) e.innerText = txt||''; }
 function fmt(num) { if (num === undefined || num === null || num === '') return ''; return parseFloat(num).toFixed(2); }
 function formatDate(d) { if(!d) return ''; return new Date(d).toLocaleDateString('fr-CH'); }
-
-function getInitials(name) {
-    if(!name) return '';
-    const parts = name.trim().split(/\s+/);
-    if(parts.length === 1 && parts[0].length > 1) return parts[0].substring(0, 2).toUpperCase();
-    return parts.map(p => p[0]).join('.').toUpperCase();
-}
+function getInitials(name) { if(!name) return ''; const p=name.trim().split(/\s+/); if(p.length===1 && p[0].length>1) return p[0].substring(0,2).toUpperCase(); return p.map(x=>x[0]).join('.').toUpperCase(); }

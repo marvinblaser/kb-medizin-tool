@@ -436,6 +436,7 @@ function getFormData() {
     const tCanton = document.getElementById('travel-canton').value;
     const data = {
       client_id: document.getElementById('client-select').value,
+      language: document.getElementById('report-language').value,
       work_type: document.getElementById('report-type').value,
       cabinet_name: document.getElementById('cabinet-name').value,
       address: document.getElementById('address').value,
@@ -460,6 +461,7 @@ function getFormData() {
 
 async function fillReportForm(report) {
       document.getElementById('report-id').value = report.id;
+      document.getElementById('report-language').value = report.language || 'fr';
       document.getElementById('report-type').value = report.work_type;
       document.getElementById('client-select').value = report.client_id || '';
       document.getElementById('cabinet-name').value = report.cabinet_name;
