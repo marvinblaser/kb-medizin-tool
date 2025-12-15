@@ -18,15 +18,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     await checkAuth();
-    await updateBadges(); // <--- Chargement initial des badges (Sidebar + Onglets)
+    await updateBadges(); 
     await loadClients(); await loadTechnicians(); await loadMaterials();
     
-    // Initialisation onglets visuels
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`tab-${currentStatusFilter}`).classList.add('active');
-    document.getElementById('add-report-btn').style.display = (currentStatusFilter === 'draft') ? 'block' : 'none';
-
-    await loadReports();
+    // Initialisation affichage correct (Tableau vs Dossiers)
+    switchTab(currentStatusFilter, false); 
 
     document.getElementById('logout-btn').addEventListener('click', logout);
     document.getElementById('add-report-btn').addEventListener('click', () => openReportModal());
@@ -62,12 +58,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('add-stk-test-btn').addEventListener('click', () => addStkTestRow());
     document.getElementById('add-work-btn').addEventListener('click', () => addWorkRow());
     
-    // Suppression
+    // Suppression et Refus
     document.getElementById('cancel-delete-btn').addEventListener('click', closeDeleteModal);
     document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
-
-    // Refus
     document.getElementById('confirm-reject-btn').addEventListener('click', confirmReject);
+    
+    // Premier chargement
+    await loadReports();
 });
 
 // --- GESTION BADGES ET STATS ---
@@ -76,7 +73,6 @@ async function updateBadges() {
         const res = await fetch('/api/reports/stats');
         const stats = await res.json();
         
-        // 1. Sidebar Badge
         const sidebarLink = document.querySelector('a[href="/reports.html"]');
         if (sidebarLink) {
             const oldBadge = sidebarLink.querySelector('.sidebar-badge');
@@ -91,11 +87,9 @@ async function updateBadges() {
             }
         }
 
-        // 2. Onglets Badges
         const updateTab = (id, count, isDanger) => {
             const btn = document.getElementById(id);
             if(btn) {
-                // On garde le texte de base (ex: "En attente") et on ajoute le nombre
                 const baseText = btn.innerText.split('(')[0].trim(); 
                 const style = isDanger && count > 0 ? 'color:#ef4444; font-weight:bold;' : '';
                 btn.innerHTML = `<i class="${btn.querySelector('i').className}"></i> <span style="${style}">${baseText} (${count})</span>`;
@@ -103,26 +97,65 @@ async function updateBadges() {
         };
 
         updateTab('tab-draft', stats.draft);
-        updateTab('tab-pending', stats.pending, true); // Rouge si > 0
+        updateTab('tab-pending', stats.pending, true);
         updateTab('tab-validated', stats.validated);
         updateTab('tab-archived', stats.archived);
 
     } catch(e) { console.error("Err Badges:", e); }
 }
 
-// --- ONGLETS ---
-function switchTab(status) {
+// --- ONGLETS & AFFICHAGE ---
+function switchTab(status, reload = true) {
     currentStatusFilter = status;
     currentPage = 1;
+    
+    // Gestion classes actives
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(`tab-${status}`).classList.add('active');
+    
+    // Bouton ajouter
     document.getElementById('add-report-btn').style.display = (status === 'draft') ? 'block' : 'none';
-    loadReports();
+
+    // Bascule vue Tableau vs Vue Dossiers
+    const tableContainer = document.querySelector('.table-container');
+    const archivesContainer = document.getElementById('archives-container');
+    const pagination = document.getElementById('pagination-controls');
+
+    if (status === 'archived') {
+        tableContainer.style.display = 'none';
+        archivesContainer.style.display = 'block';
+        pagination.style.display = 'none'; // Pas de pagination en mode dossiers (on charge tout)
+    } else {
+        tableContainer.style.display = 'block';
+        archivesContainer.style.display = 'none';
+        pagination.style.display = 'flex';
+    }
+
+    if(reload) loadReports();
 }
 
 async function loadReports() {
     const search = document.getElementById('global-search').value;
     const type = document.getElementById('filter-type').value;
+
+    // --- SI ARCHIVES : On charge tout (limit=1000) pour grouper par dossiers ---
+    if (currentStatusFilter === 'archived') {
+        const container = document.getElementById('archives-container');
+        container.innerHTML = '<div style="text-align:center; padding:40px; color:#666;"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Chargement des archives...</p></div>';
+        
+        try {
+            // On force une limite haute pour tout récupérer
+            const res = await fetch(`/api/reports?page=1&limit=1000&search=${search}&type=${type}&status=archived`);
+            const data = await res.json();
+            renderArchivedFolders(data.reports);
+        } catch(e) { 
+            console.error(e); 
+            container.innerHTML = '<p class="text-center">Erreur de chargement.</p>';
+        }
+        return; 
+    }
+
+    // --- SINON (Draft, Pending, Validated) : Comportement classique ---
     try {
         const res = await fetch(`/api/reports?page=${currentPage}&limit=25&search=${search}&type=${type}&status=${currentStatusFilter}`);
         const data = await res.json();
@@ -131,47 +164,140 @@ async function loadReports() {
     } catch(e) { console.error(e); }
 }
 
+// --- RENDER TABLEAU STANDARD ---
 function renderReports(reports) {
     const tbody = document.getElementById('reports-tbody');
-    if (!reports.length) { tbody.innerHTML = `<tr><td colspan="7" class="text-center">Aucun rapport.</td></tr>`; return; } // Colspan passe de 8 à 7
+    if (!reports.length) { tbody.innerHTML = `<tr><td colspan="7" class="text-center">Aucun rapport.</td></tr>`; return; }
 
     const badges = { 'draft': 'status-draft', 'pending': 'status-pending', 'validated': 'status-validated', 'archived': 'status-archived' };
     const names = { 'draft': 'Brouillon', 'pending': 'En attente', 'validated': 'Validé', 'archived': 'Archivé' };
 
-    tbody.innerHTML = reports.map(r => {
-        const installationText = r.installation || '-';
-        const installationDisplay = installationText.length > 60 ? installationText.substring(0, 60) + '...' : installationText;
-        const canDelete = (r.status === 'draft') || (currentUser && currentUser.role === 'admin');
-
-        return `
-          <tr>
-            <td style="font-weight:600; color:var(--color-primary);">${escapeHtml(r.report_number)}</td>
-            <td>${escapeHtml(r.work_type)}</td>
-            <td><strong>${escapeHtml(r.cabinet_name)}</strong></td>
-            <td title="${escapeHtml(installationText)}">
-                <div style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #555;">
-                    ${escapeHtml(installationDisplay)}
-                </div>
-            </td>
-            <td>${formatDate(r.created_at)}</td>
-            <td><span class="status-badge ${badges[r.status]}">${names[r.status]}</span></td>
-            <td style="text-align:right;">
-              <div class="table-actions">
-                <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${r.id}','_blank')" title="Voir PDF"><i class="fas fa-file-pdf"></i></button>
-                <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${r.id})" title="Ouvrir"><i class="fas fa-edit"></i></button>
-                ${canDelete ? `<button class="btn-icon-sm btn-icon-danger" onclick="openDeleteModal(${r.id})" title="Supprimer"><i class="fas fa-trash"></i></button>` : ''}
-              </div>
-            </td>
-          </tr>`;
-    }).join('');
+    tbody.innerHTML = reports.map(r => generateReportRow(r, badges, names)).join('');
 }
 
-// --- MODAL & WORKFLOW ---
+function generateReportRow(r, badges, names) {
+    const installationText = r.installation || '-';
+    const installationDisplay = installationText.length > 60 ? installationText.substring(0, 60) + '...' : installationText;
+    const canDelete = (r.status === 'draft') || (currentUser && currentUser.role === 'admin');
+
+    return `
+      <tr>
+        <td style="font-weight:600; color:var(--color-primary);">${escapeHtml(r.report_number)}</td>
+        <td>${escapeHtml(r.work_type)}</td>
+        <td><strong>${escapeHtml(r.cabinet_name)}</strong></td>
+        <td title="${escapeHtml(installationText)}">
+            <div style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #555;">
+                ${escapeHtml(installationDisplay)}
+            </div>
+        </td>
+        <td>${formatDate(r.created_at)}</td>
+        <td><span class="status-badge ${badges[r.status]}">${names[r.status]}</span></td>
+        <td style="text-align:right;">
+          <div class="table-actions">
+            <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${r.id}','_blank')" title="Voir PDF"><i class="fas fa-file-pdf"></i></button>
+            <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${r.id})" title="Ouvrir"><i class="fas fa-edit"></i></button>
+            ${canDelete ? `<button class="btn-icon-sm btn-icon-danger" onclick="openDeleteModal(${r.id})" title="Supprimer"><i class="fas fa-trash"></i></button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+}
+
+// --- RENDER DOSSIERS ARCHIVES (NOUVEAU) ---
+function renderArchivedFolders(reports) {
+    const container = document.getElementById('archives-container');
+    if (!reports.length) {
+        container.innerHTML = '<div class="text-center" style="padding:20px;">Aucune archive trouvée.</div>';
+        return;
+    }
+
+    // 1. Groupement par nom de cabinet
+    const groups = {};
+    reports.forEach(r => {
+        const name = r.cabinet_name || 'Sans Nom';
+        if (!groups[name]) groups[name] = [];
+        groups[name].push(r);
+    });
+
+    // 2. Tri des clés (noms de clients) alphabétique
+    const clientNames = Object.keys(groups).sort();
+
+    // 3. Génération HTML
+    let html = '';
+    clientNames.forEach((clientName, index) => {
+        const clientReports = groups[clientName];
+        // On trie les rapports par date décroissante
+        clientReports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        html += `
+        <div class="folder-item">
+            <div class="folder-header" onclick="toggleFolder(${index})">
+                <div style="display:flex; align-items:center;">
+                    <i class="fas fa-folder"></i>
+                    <span>${escapeHtml(clientName)}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="count-badge">${clientReports.length} rapports</span>
+                    <i class="fas fa-chevron-down" id="arrow-${index}" style="transition: transform 0.2s;"></i>
+                </div>
+            </div>
+            <div class="folder-content" id="folder-${index}">
+                <table class="table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>N° Rapport</th>
+                            <th>Type</th>
+                            <th style="width: 30%;">Installation</th>
+                            <th>Date</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${clientReports.map(r => {
+                            const installationText = r.installation || '-';
+                            const installationDisplay = installationText.length > 50 ? installationText.substring(0, 50) + '...' : installationText;
+                            return `
+                                <tr>
+                                    <td style="font-weight:600; color:#555;">${escapeHtml(r.report_number)}</td>
+                                    <td>${escapeHtml(r.work_type)}</td>
+                                    <td style="font-size:0.9em; color:#666;">${escapeHtml(installationDisplay)}</td>
+                                    <td>${formatDate(r.created_at)}</td>
+                                    <td style="text-align:right;">
+                                        <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${r.id}','_blank')"><i class="fas fa-file-pdf"></i></button>
+                                        <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${r.id})"><i class="fas fa-eye"></i></button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// Fonction globale pour l'ouverture/fermeture des dossiers
+window.toggleFolder = function(index) {
+    const content = document.getElementById(`folder-${index}`);
+    const arrow = document.getElementById(`arrow-${index}`);
+    
+    if (content.style.display === 'block') {
+        content.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
+    } else {
+        content.style.display = 'block';
+        arrow.style.transform = 'rotate(180deg)';
+    }
+};
+
+// --- MODAL & WORKFLOW (Reste inchangé) ---
 async function openReportModal(reportId = null) {
     const modal = document.getElementById('report-modal');
     const form = document.getElementById('report-form');
     const pdfBtn = document.getElementById('header-pdf-btn');
-    const metaInfo = document.getElementById('report-meta-info'); // La nouvelle zone
+    const metaInfo = document.getElementById('report-meta-info');
     
     form.reset(); resetDynamicLists();
     document.getElementById('rejection-msg-box').style.display = 'none';
@@ -183,12 +309,8 @@ async function openReportModal(reportId = null) {
             fillReportForm(r);
             renderWorkflowButtons(r);
             
-            // Affichage de l'auteur
-            if (r.author_name) {
-                metaInfo.innerHTML = `<i class="fas fa-pen-nib"></i> Rédigé par <strong>${escapeHtml(r.author_name)}</strong> le ${formatDate(r.created_at)}`;
-            } else {
-                metaInfo.innerHTML = `<i class="fas fa-clock"></i> Créé le ${formatDate(r.created_at)}`;
-            }
+            if (r.author_name) metaInfo.innerHTML = `<i class="fas fa-pen-nib"></i> Rédigé par <strong>${escapeHtml(r.author_name)}</strong> le ${formatDate(r.created_at)}`;
+            else metaInfo.innerHTML = `<i class="fas fa-clock"></i> Créé le ${formatDate(r.created_at)}`;
             
             pdfBtn.style.display = 'inline-block';
             pdfBtn.onclick = () => window.open(`/report-view.html?id=${r.id}`, '_blank');
@@ -197,13 +319,12 @@ async function openReportModal(reportId = null) {
         } catch(e) { console.error(e); }
     } else {
         document.getElementById('report-modal-title').innerText = "Nouveau rapport";
-        metaInfo.innerHTML = ""; // Rien si nouveau
+        metaInfo.innerHTML = "";
         document.getElementById('report-id').value = '';
         document.getElementById('current-status-badge').className = 'status-badge status-draft';
         document.getElementById('current-status-badge').innerText = 'Brouillon';
         document.getElementById('validator-info').innerText = '';
         pdfBtn.style.display = 'none';
-        
         document.getElementById('workflow-buttons').innerHTML = `<button class="btn btn-primary" onclick="saveReport()">Enregistrer (Brouillon)</button>`;
         addTechnicianRow(); addWorkRow();
     }
@@ -214,12 +335,11 @@ function renderWorkflowButtons(r) {
     const footer = document.getElementById('workflow-buttons');
     const statusLabel = document.getElementById('current-status-badge');
     const validInfo = document.getElementById('validator-info');
-
     const stMap = { 'draft': 'status-draft', 'pending': 'status-pending', 'validated': 'status-validated', 'archived': 'status-archived' };
     const stName = { 'draft': 'Brouillon', 'pending': 'En attente', 'validated': 'Validé', 'archived': 'Archivé' };
+    
     statusLabel.className = `status-badge ${stMap[r.status]}`;
     statusLabel.innerText = stName[r.status];
-
     if(r.validator_name) validInfo.innerText = `Validé par : ${r.validator_name}`; else validInfo.innerText = '';
     
     if(r.status === 'draft' && r.rejection_reason) {
@@ -248,16 +368,11 @@ function renderWorkflowButtons(r) {
     }
 }
 
-// --- ACTIONS & SUPPRESSION ---
 async function changeStatus(id, newStatus) {
     if(!confirm("Confirmer le changement de statut ?")) return;
     try {
         const res = await fetch(`/api/reports/${id}/status`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ status: newStatus }) });
-        if(res.ok) { 
-            closeReportModal(); 
-            loadReports(); 
-            updateBadges(); // Mise à jour immédiate des compteurs
-        }
+        if(res.ok) { closeReportModal(); loadReports(); updateBadges(); }
     } catch(e) { console.error(e); }
 }
 
@@ -267,15 +382,10 @@ async function confirmDelete() {
     if(!reportToDelete) return;
     try {
         const res = await fetch(`/api/reports/${reportToDelete}`, { method: 'DELETE' });
-        if(res.ok) { 
-            closeDeleteModal(); 
-            loadReports(); 
-            updateBadges(); // Mise à jour compteurs
-        } else { alert("Erreur suppression."); }
+        if(res.ok) { closeDeleteModal(); loadReports(); updateBadges(); } else { alert("Erreur suppression."); }
     } catch(e) { console.error(e); }
 }
 
-// Gestion refus
 let reportToReject = null;
 function openRejectModal(id) { reportToReject = id; document.getElementById('reject-reason').value = ''; document.getElementById('reject-modal').classList.add('active'); }
 async function confirmReject() {
@@ -283,12 +393,7 @@ async function confirmReject() {
     if(!reason) { alert("Motif requis."); return; }
     try {
         const res = await fetch(`/api/reports/${reportToReject}/status`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ status: 'draft', reason }) });
-        if(res.ok) { 
-            document.getElementById('reject-modal').classList.remove('active'); 
-            closeReportModal(); 
-            loadReports(); 
-            updateBadges(); // Mise à jour compteurs
-        }
+        if(res.ok) { document.getElementById('reject-modal').classList.remove('active'); closeReportModal(); loadReports(); updateBadges(); }
     } catch(e) { console.error(e); }
 }
 
@@ -302,14 +407,12 @@ async function saveReport() {
         if(res.ok) { 
             const json = await res.json(); 
             alert("Sauvegardé !"); 
-            updateBadges(); // Mise à jour compteurs
+            updateBadges(); 
             if(!reportId && json.id) openReportModal(json.id); else loadReports(); 
-        } 
-        else { const err = await res.json(); alert('Erreur: ' + err.error); }
+        } else { const err = await res.json(); alert('Erreur: ' + err.error); }
     } catch(e) { console.error(e); }
 }
 
-// --- UTILS ---
 function getFormData() {
     const tCity = document.getElementById('travel-city').value.trim();
     const tCanton = document.getElementById('travel-canton').value;
@@ -363,6 +466,7 @@ async function fillReportForm(report) {
       document.getElementById('report-modal-title').innerHTML = `<i class="fas fa-file-alt"></i> ${typeText} <span style="font-size:0.8em; opacity:0.7;">(${report.report_number})</span>`;
 }
 
+// Utilitaires de base
 async function checkAuth() { try { const res = await fetch('/api/me'); if(!res.ok) throw new Error(); const data = await res.json(); currentUser = data.user; const ui = document.getElementById('user-info'); if(ui) ui.innerHTML=`<div class="user-avatar">${currentUser.name[0]}</div><div class="user-details"><strong>${currentUser.name}</strong><span>${currentUser.role}</span></div>`; if(currentUser.role==='admin') document.getElementById('admin-link')?.classList.remove('hidden'); } catch { window.location.href = '/login.html'; } }
 function loadClients() { fetch('/api/clients?limit=1000').then(r=>r.json()).then(d=>{ clients=d.clients; document.getElementById('client-select').innerHTML='<option value="">-- Client --</option>'+clients.map(c=>`<option value="${c.id}">${escapeHtml(c.cabinet_name)}</option>`).join(''); }); }
 function loadTechnicians() { fetch('/api/admin/users').then(r=>r.json()).then(d=>technicians=d); }
@@ -385,28 +489,12 @@ function updateReportTitleHeader() {
     const typeSelect = document.getElementById('report-type');
     const titleElement = document.getElementById('report-modal-title');
     const reportId = document.getElementById('report-id').value;
-    
-    // Récupérer le texte de l'option sélectionnée (pas la value)
     let typeText = "Rapport";
-    if (typeSelect.selectedIndex > 0) { // Si une option est choisie
-        typeText = "Rapport de " + typeSelect.options[typeSelect.selectedIndex].text;
-    }
-
-    // Si on est en édition, on ajoute le numéro du rapport, sinon juste le titre
-    // Note : On récupère le numéro depuis le titre actuel s'il existe déjà ou via une variable globale si tu préfères
-    // Ici, une approche simple :
+    if (typeSelect.selectedIndex > 0) typeText = "Rapport de " + typeSelect.options[typeSelect.selectedIndex].text;
     if (reportId) {
-         // On essaie de garder le numéro s'il était déjà affiché
-         // Exemple actuel du titre : "Rapport 2025-0001"
          const currentTitle = titleElement.innerText;
-         const match = currentTitle.match(/\d{4}-\d{4}/); // Cherche un motif type 2025-0001
-         if (match) {
-             titleElement.innerHTML = `<i class="fas fa-file-alt"></i> ${typeText} <span style="font-size:0.8em; opacity:0.7;">(${match[0]})</span>`;
-         } else {
-             titleElement.innerHTML = `<i class="fas fa-file-alt"></i> ${typeText}`;
-         }
-    } else {
-        // Nouveau rapport
-        titleElement.innerHTML = `<i class="fas fa-plus-circle"></i> ${typeText}`;
-    }
+         const match = currentTitle.match(/\d{4}-\d{4}/);
+         if (match) titleElement.innerHTML = `<i class="fas fa-file-alt"></i> ${typeText} <span style="font-size:0.8em; opacity:0.7;">(${match[0]})</span>`;
+         else titleElement.innerHTML = `<i class="fas fa-file-alt"></i> ${typeText}`;
+    } else titleElement.innerHTML = `<i class="fas fa-plus-circle"></i> ${typeText}`;
 }

@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="/css/transitions.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
-    /* Styles Onglets & Badges */
+    /* Styles Onglets & Badges existants */
     .tabs-container { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid var(--border-color); overflow-x: auto; }
     .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-weight: 600; color: var(--text-light); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
     .tab-btn:hover { color: var(--color-primary); }
@@ -28,6 +28,21 @@
     .status-archived { background: #dbeafe; color: #1e40af; } 
 
     .rejection-alert { background: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: none; }
+
+    /* --- NOUVEAU STYLE POUR LES DOSSIERS D'ARCHIVES --- */
+    .folder-item { border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; background: white; overflow: hidden; }
+    .folder-header { 
+        padding: 15px 20px; background: #f8fafc; cursor: pointer; 
+        display: flex; align-items: center; justify-content: space-between; 
+        font-weight: 600; transition: background 0.2s; 
+    }
+    .folder-header:hover { background: #f1f5f9; }
+    .folder-header i.fa-folder { color: #f59e0b; margin-right: 10px; font-size: 1.2em; }
+    .folder-header .count-badge { background: #cbd5e1; color: #334155; font-size: 0.8em; padding: 2px 8px; border-radius: 10px; }
+    .folder-content { display: none; padding: 0; border-top: 1px solid #e2e8f0; }
+    /* Ajustement table dans dossier */
+    .folder-content .table { margin: 0; box-shadow: none; }
+    .folder-content .table thead th { background: #fff; border-bottom: 2px solid #eee; }
   </style>
 </head>
 <body>
@@ -88,13 +103,16 @@
               </tr>
             </thead>
             <tbody id="reports-tbody">
-              <tr><td colspan="6" style="text-align: center; padding: 40px"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Chargement...</p></td></tr>
+              <tr><td colspan="7" style="text-align: center; padding: 40px"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Chargement...</p></td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <div class="pagination">
+      <div id="archives-container" style="display: none;">
+          </div>
+
+      <div class="pagination" id="pagination-controls">
         <span class="pagination-info" id="pagination-info"></span>
         <div class="pagination-buttons">
           <button class="btn btn-secondary" id="prev-page"><i class="fas fa-chevron-left"></i></button>
@@ -214,9 +232,7 @@
 
       <div class="modal-footer" style="justify-content: space-between;">
         <button class="btn btn-secondary" onclick="closeReportModal()">Fermer</button>
-        
         <button id="save-report-btn" style="display:none;">Save</button>
-        
         <div id="workflow-buttons" style="display:flex; gap:10px;"></div>
       </div>
     </div>
