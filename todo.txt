@@ -38,18 +38,18 @@
 -------------------------------------
 
 Fiche client (Bouton voir) : 
-- Équipements : Afficher toutes les informations
+- Équipements : Afficher toutes les informations V
 - Historique : Afficher l'équipement qui a subi l'intervention
 
 Équipements :
-- Afficher toutes les infos de chaque équipements
+- Afficher toutes les infos de chaque équipements V
 
-Icon pour tri ABC -> CBA sur les en-têtes des colonnes du tableau
+Icon pour tri ABC -> CBA sur les en-têtes des colonnes du tableau V
 
-?? Filtres avancés : enlever "Secteur" ??
+?? Filtres avancés : enlever "Secteur" ?? V
 
 Ajouter un client :
-- Rendre NPA (Code postal) obligatoire
+- Rendre NPA (Code postal) obligatoire V
 - Indiquer à quoi servent "Lat" & "Lon" (Latitude & Longitude) (petit icon info)
 - Changer bouton "Carte"
 

@@ -62,6 +62,158 @@
       th.sortable { cursor: pointer; user-select: none; transition: background 0.15s; }
       th.sortable:hover { background-color: var(--neutral-100); color: var(--neutral-900); }
       th.active-sort { color: var(--color-primary); background-color: var(--color-primary-light) !important; }
+
+    /* --- OPTION 1 : BADGES GROUPÉS & TOOLTIP --- */
+      .eq-group-badge {
+        display: inline-flex;
+        align-items: center;
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 2px 6px;
+        margin-right: 6px;
+        margin-bottom: 4px;
+        font-size: 0.8rem;
+        color: var(--neutral-700);
+        cursor: help; /* Curseur ? pour indiquer l'info */
+        transition: all 0.2s;
+        box-shadow: var(--shadow-sm);
+      }
+      .eq-group-badge:hover {
+        border-color: var(--color-primary);
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+      }
+      .eq-count {
+        font-weight: 700;
+        background: var(--neutral-100);
+        color: var(--neutral-900);
+        padding: 0 5px;
+        border-radius: 4px;
+        margin-right: 6px;
+        font-size: 0.75rem;
+      }
+      .eq-group-badge:hover .eq-count {
+        background: white;
+        color: var(--color-primary);
+      }
+      .eq-icon { margin-right: 4px; opacity: 0.7; }
+
+      /* Le Tooltip Flottant */
+      #custom-tooltip {
+        position: fixed;
+        background: rgba(15, 23, 42, 0.95); /* Noir/Bleu très foncé */
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        z-index: 9999;
+        pointer-events: none; /* La souris passe au travers */
+        white-space: pre-line; /* Gère les retours à la ligne */
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+        opacity: 0;
+        transition: opacity 0.15s;
+        max-width: 300px;
+        line-height: 1.4;
+      }
+      .tooltip-row { margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; }
+      .tooltip-row:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+      .tooltip-model { font-weight: 600; color: #e0e7ff; }
+      .tooltip-serial { color: #94a3b8; font-size: 0.75rem; }
+
+      /* --- TIMELINE HISTORY DESIGN --- */
+      .history-list {
+        position: relative;
+        padding-left: 20px; /* Espace pour la ligne verticale */
+      }
+      /* La ligne verticale */
+      .history-list::before {
+        content: '';
+        position: absolute;
+        left: 6px;
+        top: 5px;
+        bottom: 0;
+        width: 2px;
+        background: var(--neutral-200);
+      }
+
+      .history-item {
+        position: relative;
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        transition: all 0.2s;
+      }
+      .history-item:hover {
+        transform: translateX(2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--color-primary-light);
+      }
+
+      /* Le point sur la ligne */
+      .history-dot {
+        position: absolute;
+        left: -20px; /* Ajusté pour s'aligner sur la ligne */
+        top: 15px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: white;
+        border: 3px solid var(--neutral-300);
+        z-index: 2;
+      }
+      .history-item.type-report .history-dot { border-color: var(--color-primary); }
+      .history-item.type-appointment .history-dot { border-color: var(--color-warning); }
+
+      .history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+      .history-date {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: var(--neutral-800);
+      }
+      .history-badge {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .badge-report { background: #e0e7ff; color: #4338ca; }
+      .badge-manual { background: #fef3c7; color: #b45309; }
+
+      .history-machine {
+        background: var(--neutral-50);
+        border-left: 3px solid var(--neutral-400);
+        padding: 4px 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--neutral-700);
+        margin-bottom: 0.5rem;
+        border-radius: 0 4px 4px 0;
+        display: inline-block;
+      }
+      .history-desc {
+        color: var(--neutral-600);
+        font-size: 0.85rem;
+        line-height: 1.5;
+      }
+      .history-footer {
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--neutral-100);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .history-tech { font-size: 0.75rem; color: var(--neutral-500); font-style: italic; }
     </style>
   </head>
   <body>
@@ -163,6 +315,7 @@
                     </div>
 
                     <div id="planning-advanced-filters" class="planning-advanced-filters hidden">
+                        <input type="text" id="plan-filter-device" placeholder="Appareil (ex: Audiomètre)" />
                         <input type="text" id="plan-filter-brand" placeholder="Marque" />
                         <input type="text" id="plan-filter-model" placeholder="Modèle" />
                         <input type="text" id="plan-filter-serial" placeholder="N° Série" />
@@ -273,6 +426,8 @@
 
     <div class="modal" id="delete-modal"><div class="modal-content"><div class="modal-header"><h2>Supprimer</h2><button class="modal-close" onclick="closeDeleteModal()">&times;</button></div><div class="modal-body"><p>Supprimer <strong id="delete-client-name"></strong>?</p></div><div class="modal-footer"><button id="cancel-delete-btn">Non</button><button id="confirm-delete-btn" class="btn-danger">Oui</button></div></div></div>
     <div id="notification-container" class="notification-container"></div>
+
+    <div id="custom-tooltip"></div>
 
     <script src="/js/clients.js"></script>
     <script>
