@@ -392,7 +392,34 @@ async function deleteEquipment(clientId, eqId) {
 }
 function openDeleteModal(id) { clientIdToDelete = id; document.getElementById('delete-modal').classList.add('active'); }
 function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); clientIdToDelete = null; }
-async function confirmDeleteClient() { if(!clientIdToDelete) return; await fetch(`/api/clients/${clientIdToDelete}`, { method: 'DELETE' }); closeDeleteModal(); loadClients(); }
+async function confirmDeleteClient() {
+    if(!clientIdToDelete) return;
+    
+    try {
+        const res = await fetch(`/api/clients/${clientIdToDelete}`, { method: 'DELETE' });
+        
+        if (res.ok) {
+            // 1. Fermer la petite fenêtre de confirmation
+            closeDeleteModal();
+
+            // 2. FORCER la fermeture de la fiche client si elle est active
+            // (Puisque le seul moyen de supprimer est d'être sur la fiche, on peut la fermer sans risque)
+            const detailsModal = document.getElementById('client-details-modal');
+            if (detailsModal && detailsModal.classList.contains('active')) {
+                closeClientDetailsModal();
+                currentClientId = null;
+            }
+
+            // 3. Rafraîchir la liste
+            loadClients();
+        } else {
+            alert("Erreur lors de la suppression.");
+        }
+    } catch(e) { 
+        console.error(e);
+        alert("Erreur technique.");
+    }
+}
 
 // --- HELPERS ---
 window.showTooltip = function(e, content) {
