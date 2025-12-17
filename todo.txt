@@ -39,7 +39,7 @@
 
 Fiche client (Bouton voir) : 
 - Équipements : Afficher toutes les informations V
-- Historique : Afficher l'équipement qui a subi l'intervention
+- Historique : Afficher l'équipement qui a subi l'intervention V
 
 Équipements :
 - Afficher toutes les infos de chaque équipements V
