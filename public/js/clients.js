@@ -1,184 +1,5 @@
 // public/js/clients.js
 
-// --- INJECTION CSS STYLE ERP COMPLET ---
-const erpStyles = `
-/* Layout Fluide */
-.client-container-fluid { width: 100%; height: calc(100vh - 80px); display: flex; flex-direction: column; padding: 1.5rem 2rem !important; background: #f8fafc; overflow: hidden; }
-
-/* --- TOOLBAR STYLE CHECKLIST (UNIFIÉE) --- */
-.toolbar-clean-bar {
-    background: white; border: 1px solid #e2e8f0; border-radius: 8px;
-    padding: 0 1.5rem; display: flex; align-items: center; height: 64px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.03); margin-bottom: 1.5rem; flex-shrink: 0;
-    gap: 1.5rem;
-}
-
-/* Zone Recherche (Sans bordure, fondue) */
-.toolbar-search-section {
-    display: flex; align-items: center; gap: 0.8rem; color: #94a3b8; flex: 0 0 320px;
-}
-.toolbar-search-section input {
-    border: none; background: transparent; width: 100%; font-size: 0.95rem; color: #1e293b; outline: none; padding: 0;
-}
-.toolbar-search-section i { font-size: 1.1rem; }
-
-/* Séparateur Vertical */
-.toolbar-divider { width: 1px; height: 32px; background: #e2e8f0; }
-
-/* Onglets de Vue (Texte + Soulignement) */
-.toolbar-nav-section { display: flex; gap: 1.5rem; height: 100%; }
-.nav-text-btn {
-    background: transparent; border: none; border-bottom: 3px solid transparent;
-    height: 100%; display: flex; align-items: center; font-size: 0.95rem; font-weight: 500;
-    color: #64748b; cursor: pointer; transition: all 0.2s; padding: 0 5px; margin-bottom: -1px;
-}
-.nav-text-btn:hover { color: var(--color-primary); }
-.nav-text-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
-
-/* Filtres (Droite) */
-.toolbar-filters-section { display: flex; align-items: center; gap: 0.8rem; }
-.minimal-select {
-    border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.4rem 2rem 0.4rem 0.8rem;
-    font-size: 0.85rem; background-color: white; cursor: pointer; height: 36px; color: #334155; font-weight: 500;
-    outline: none; max-width: 160px;
-}
-.minimal-select:hover { border-color: #cbd5e1; }
-
-.btn-icon-simple {
-    background: white; border: 1px solid #e2e8f0; color: #64748b; cursor: pointer; border-radius: 6px; 
-    height: 36px; width: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-}
-.btn-icon-simple:hover { background: #f1f5f9; color: var(--color-primary); }
-
-/* PANNEAU FILTRES AVANCÉS */
-.filters-panel { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; margin-top: -1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-.filters-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
-.filters-footer { margin-top: 1rem; text-align: right; border-top: 1px solid #f1f5f9; padding-top: 0.5rem; }
-.btn-link-reset { background: none; border: none; color: #ef4444; font-size: 0.85rem; cursor: pointer; text-decoration: underline; }
-
-/* TABLEAUX DATAGRID */
-.view-content { flex: 1; overflow: hidden; display: none; flex-direction: column; }
-.view-content.active { display: flex; }
-.erp-table-wrapper { flex: 1; overflow: auto; border: 1px solid #e2e8f0; border-radius: 12px; background: white; }
-.erp-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.85rem; }
-.erp-table thead { position: sticky; top: 0; z-index: 10; background: #f8fafc; }
-.erp-table th {
-    color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em;
-    padding: 1rem 1.2rem; border-bottom: 1px solid #e2e8f0; text-align: left; white-space: nowrap; cursor: pointer;
-}
-.erp-table tbody tr { transition: background 0.1s; cursor: pointer; }
-.erp-table tbody tr:hover { background: #f8fafc !important; }
-.erp-table td { padding: 0.8rem 1.2rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: #1e293b; }
-
-/* CODE COULEUR PLANNING */
-.row-ok { background: linear-gradient(90deg, #f0fdf4 0%, #ffffff 100%) !important; }
-.row-ok td:first-child { border-left: 5px solid #22c55e; }
-.row-warning { background: linear-gradient(90deg, #fff7ed 0%, #ffffff 100%) !important; }
-.row-warning td:first-child { border-left: 5px solid #f97316; }
-.row-expired { background: linear-gradient(90deg, #fef2f2 0%, #ffffff 100%) !important; }
-.row-expired td:first-child { border-left: 5px solid #ef4444; }
-
-.status-pill { padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
-.pill-ok { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-.pill-warn { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
-.pill-err { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-
-/* Boutons Actions Tableau */
-.btn-icon-table {
-    background: transparent; border: none; cursor: pointer; color: #94a3b8; 
-    width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-}
-.btn-icon-table:hover { background: #f1f5f9; color: var(--color-primary); }
-
-/* --- MODALE FICHE CLIENT --- */
-.client-sheet-modal {
-    width: 95vw !important; max-width: 1200px !important; height: 90vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px;
-}
-.sheet-header {
-    padding: 1.5rem 2rem; background: white; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;
-}
-.sheet-title-box { display: flex; align-items: center; gap: 1.5rem; }
-.sheet-icon-box {
-    width: 60px; height: 60px; border-radius: 50%; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center;
-    font-size: 1.6rem; color: var(--color-primary); background: #f0f9ff;
-}
-.sheet-meta-tags { display: flex; gap: 0.5rem; margin-top: 0.4rem; color: #64748b; font-size: 0.9rem; align-items: center; }
-.meta-badge { background: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: #475569; }
-
-.sheet-actions-row { display: flex; align-items: center; gap: 0.8rem; }
-.btn-sheet-action {
-    background: white; border: 1px solid #e2e8f0; color: #64748b; padding: 0.5rem 1rem; border-radius: 6px; 
-    font-size: 0.9rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;
-}
-.btn-sheet-action:hover { background: #f8fafc; color: #1e293b; border-color: #cbd5e1; }
-.btn-sheet-danger { border-color: #fecaca; color: #ef4444; }
-.btn-sheet-danger:hover { background: #fef2f2; border-color: #ef4444; color: #b91c1c; }
-.v-sep { width: 1px; height: 24px; background: #e2e8f0; }
-.btn-sheet-close { 
-    background: transparent; border: none; font-size: 1.2rem; color: #94a3b8; cursor: pointer; 
-    width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-}
-.btn-sheet-close:hover { background: #f1f5f9; color: #1e293b; }
-
-.sheet-layout { display: flex; flex: 1; overflow: hidden; }
-.sheet-sidebar { width: 340px; background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 2.5rem 2rem; overflow-y: auto; flex-shrink: 0; }
-.sheet-content { flex: 1; background: white; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
-.sheet-main-padding { padding: 2rem; overflow-y: auto; flex: 1; }
-
-.info-group { margin-bottom: 2.5rem; }
-.info-group label { display: block; font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 1rem; letter-spacing: 0.05em; }
-.info-line { display: flex; align-items: flex-start; gap: 1rem; font-size: 0.95rem; color: #334155; margin-bottom: 0.8rem; line-height: 1.4; }
-.info-line i { color: var(--color-primary); width: 18px; text-align: center; margin-top: 3px; }
-
-.geo-box { background: #ecfdf5; color: #15803d; border: 1px solid #bbf7d0; padding: 8px 12px; border-radius: 6px; font-family: monospace; display: inline-block; font-size: 0.85rem; }
-.notes-box { background: white; border: 1px solid #e2e8f0; padding: 1.2rem; border-radius: 8px; font-style: italic; color: #64748b; font-size: 0.9rem; line-height: 1.5; }
-
-/* TABS SHEET */
-.sheet-tabs { display: flex; border-bottom: 1px solid #e2e8f0; margin-bottom: 1.5rem; padding: 0 2rem; }
-.sheet-tab {
-    background: transparent; border: none; padding: 1.2rem 0; margin-right: 2.5rem; font-weight: 600; color: #64748b; cursor: pointer;
-    border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.95rem;
-}
-.sheet-tab:hover { color: var(--color-primary); }
-.sheet-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-.badge-count { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px; }
-
-.tab-pane { flex: 1; padding: 0 2rem 2rem; overflow-y: auto; display: none; }
-.tab-pane.active { display: block; }
-.pane-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-
-/* CARDS & HISTORY */
-.cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
-.eq-card-pro {
-    background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.2rem;
-    display: flex; justify-content: space-between; align-items: start; box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-    border-left: 4px solid var(--color-primary); transition: transform 0.2s;
-}
-.eq-card-pro:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-.eq-title { margin: 0 0 4px 0; font-size: 1rem; font-weight: 600; color: #1e293b; }
-.eq-sub { margin: 0; font-size: 0.85rem; color: #64748b; }
-.eq-date { font-size: 0.8rem; font-weight: 600; margin-top: 8px; display: block; }
-
-.history-feed { display: flex; flex-direction: column; gap: 1rem; padding-left: 10px; }
-.timeline-item { position: relative; padding-left: 2rem; border-left: 2px solid #e2e8f0; padding-bottom: 1.5rem; }
-.timeline-item:last-child { border-left: 2px solid transparent; }
-.timeline-marker { position: absolute; left: -9px; top: 0; width: 16px; height: 16px; border-radius: 50%; background: white; border: 4px solid var(--color-primary); }
-.timeline-date { font-weight: 700; color: #1e293b; font-size: 0.85rem; margin-bottom: 4px; }
-.timeline-card { background: white; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); display: flex; justify-content: space-between; align-items: center; }
-
-/* PAGINATION */
-.erp-pagination { display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; margin-top: 0.5rem; border-top: 1px solid #e2e8f0; }
-.pg-btn { width: 36px; height: 36px; border: 1px solid #e2e8f0; background: white; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-.pg-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
-.pg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* GPS Form */
-.gps-container { background:#f0fdf4; padding:12px; border-radius:8px; margin-bottom:1.5rem; border:1px solid #bbf7d0; }
-.btn-xs-geo { background: #166534; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
-.btn-xs-geo:hover { background: #14532d; }
-`;
-
 // --- VARIABLES GLOBALES ---
 let currentView = 'directory';
 let clients = [];
@@ -192,10 +13,7 @@ let itemsPerPage = 25;
 let currentUser = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Inject Styles
-    const styleEl = document.createElement('style');
-    styleEl.innerHTML = erpStyles;
-    document.head.appendChild(styleEl);
+    // Note: Le style est maintenant dans le <head> de clients.html
 
     await checkAuth();
     await loadCatalog();
@@ -218,7 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function checkAuth() {
-    try { const res = await fetch('/api/me'); if(!res.ok) window.location.href='/login.html'; const d=await res.json(); currentUser=d.user; document.getElementById('user-info').innerHTML=`<div class="user-avatar">${d.user.name[0]}</div><div class="user-details"><strong>${d.user.name}</strong><span>${d.user.role}</span></div>`; if(d.user.role === 'admin') document.getElementById('admin-link').classList.remove('hidden'); } catch { window.location.href='/login.html'; }
+    try { const res = await fetch('/api/me'); if(!res.ok) window.location.href='/login.html'; const d=await res.json(); currentUser=d.user; document.getElementById('user-info').innerHTML=`<div class="user-avatar">${d.user.name[0]}</div><div class="user-details"><strong>${escapeHtml(d.user.name)}</strong><span>${d.user.role}</span></div>`; if(d.user.role === 'admin') document.getElementById('admin-link').classList.remove('hidden'); } catch { window.location.href='/login.html'; }
 }
 async function logout() { await fetch('/api/logout', {method:'POST'}); window.location.href = '/login.html'; }
 async function loadCatalog() { try { const r = await fetch('/api/admin/equipment'); catalog = await r.json(); } catch {} }
@@ -257,16 +75,16 @@ async function loadData() {
 
 function renderDirectory(list) {
     const tbody = document.getElementById('clients-tbody');
-    if(!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:3rem; color:#94a3b8;">Aucun résultat trouvé.</td></tr>'; return; }
+    if(!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:3rem; color:var(--neutral-400);">Aucun résultat trouvé.</td></tr>'; return; }
     tbody.innerHTML = list.map(c => `
         <tr onclick="openClientDetails(${c.id})">
-            <td><strong>${escapeHtml(c.cabinet_name)}</strong><br><span style="font-size:0.8rem; color:#64748b;">${escapeHtml(c.activity)}</span></td>
-            <td>${escapeHtml(c.city)} <span style="font-size:0.75rem; color:#94a3b8;">(${c.canton||''})</span></td>
-            <td>${escapeHtml(c.contact_name)}<br><span style="font-size:0.75rem; color:#64748b;">${escapeHtml(c.phone||'-')}</span></td>
-            <td><small style="color:#64748b;">${c.equipment_summary ? c.equipment_summary.split(';;').length + ' machines installées' : 'Aucune machine'}</small></td>
+            <td><strong style="color:var(--color-primary); font-size:0.95rem;">${escapeHtml(c.cabinet_name)}</strong><br><span style="font-size:0.8rem; color:var(--neutral-500);">${escapeHtml(c.activity)}</span></td>
+            <td>${escapeHtml(c.city)} <span style="font-size:0.75rem; color:var(--neutral-400);">(${c.canton||''})</span></td>
+            <td>${escapeHtml(c.contact_name)}<br><span style="font-size:0.75rem; color:var(--neutral-500);">${escapeHtml(c.phone||'-')}</span></td>
+            <td><small style="color:var(--neutral-500);">${c.equipment_summary ? c.equipment_summary.split(';;').length + ' machines installées' : 'Aucune machine'}</small></td>
             <td>${c.appointment_at ? formatDate(c.appointment_at) : '-'}</td>
             <td style="text-align:right;">
-                <button class="btn-icon-table" onclick="event.stopPropagation(); openClientModal(${c.id})" title="Éditer"><i class="fas fa-pen"></i></button>
+                <button class="btn-icon-sm btn-icon-primary" onclick="event.stopPropagation(); openClientModal(${c.id})" title="Éditer"><i class="fas fa-pen"></i></button>
             </td>
         </tr>`).join('');
 }
@@ -274,21 +92,21 @@ function renderDirectory(list) {
 function renderPlanning(list) {
     const tbody = document.getElementById('planning-tbody');
     const items = Array.isArray(list) ? list : (list.data || []);
-    if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:3rem; color:#94a3b8;">Aucune maintenance prévue.</td></tr>'; return; }
+    if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:3rem; color:var(--neutral-400);">Aucune maintenance prévue.</td></tr>'; return; }
     tbody.innerHTML = items.map(r => {
-        let rowClass = 'row-ok', badgeHtml = '<span class="status-pill pill-ok">OK</span>';
-        if(r.days_remaining < 0) { rowClass = 'row-expired'; badgeHtml = '<span class="status-pill pill-err">Expiré</span>'; }
-        else if(r.days_remaining < 30) { rowClass = 'row-warning'; badgeHtml = '<span class="status-pill pill-warn">Bientôt</span>'; }
+        let rowClass = 'row-ok', badgeHtml = '<span class="badge badge-success">OK</span>';
+        if(r.days_remaining < 0) { rowClass = 'row-expired'; badgeHtml = '<span class="badge badge-danger">Expiré</span>'; }
+        else if(r.days_remaining < 30) { rowClass = 'row-warning'; badgeHtml = '<span class="badge badge-warning">Bientôt</span>'; }
         return `<tr onclick="openClientDetails(${r.client_id})" class="${rowClass}">
             <td>${badgeHtml}</td>
             <td><strong>${escapeHtml(r.cabinet_name)}</strong></td>
             <td>${escapeHtml(r.city)}</td>
-            <td><strong>${escapeHtml(r.catalog_name)}</strong><div style="font-size:0.8rem; color:#64748b;">${r.brand}</div></td>
+            <td><strong>${escapeHtml(r.catalog_name)}</strong><div style="font-size:0.8rem; color:var(--neutral-500);">${r.brand}</div></td>
             <td>${escapeHtml(r.type)}</td>
-            <td>${formatDate(r.last_maintenance_date)}</td>
-            <td style="font-weight:700;">${formatDate(r.next_maintenance_date)}</td>
+            <td style="color:var(--neutral-500);">${formatDate(r.last_maintenance_date)}</td>
+            <td style="font-weight:700; color:var(--neutral-800);">${formatDate(r.next_maintenance_date)}</td>
             <td style="text-align:right;">
-                <button class="btn-icon-table" onclick="event.stopPropagation(); window.location.href='/reports.html?action=create&client=${r.client_id}&eq=${r.id}'" title="Créer rapport"><i class="fas fa-file-signature"></i></button>
+                <button class="btn-icon-sm btn-icon-secondary" onclick="event.stopPropagation(); window.location.href='/reports.html?action=create&client=${r.client_id}&eq=${r.id}'" title="Créer rapport"><i class="fas fa-file-signature"></i></button>
             </td>
         </tr>`;
     }).join('');
@@ -319,30 +137,34 @@ function closeClientDetailsModal() { document.getElementById('client-details-mod
 function switchSheetTab(tab) {
     document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-pane').forEach(c => c.classList.remove('active'));
-    const btn = document.querySelector(`button[onclick*="'${tab}'"]`);
+    
+    // Sélection par ID pour être plus robuste
+    const btn = document.getElementById(`btn-tab-${tab}`);
     if(btn) btn.classList.add('active');
+    
     document.getElementById(`tab-${tab}`).classList.add('active');
 }
 
 async function loadClientEquipment(id) {
     const div = document.getElementById('sheet-equipment-list');
-    div.innerHTML = '<p>Chargement...</p>';
+    div.innerHTML = '<p style="color:var(--neutral-500);">Chargement...</p>';
     const res = await fetch(`/api/clients/${id}/equipment`);
     const list = await res.json();
     document.getElementById('count-eq').textContent = list.length;
     div.innerHTML = list.map(eq => {
-        let color = '#22c55e', text = 'OK';
-        if(eq.days_remaining < 0) { color = '#ef4444'; text = 'Expiré'; }
-        else if(eq.days_remaining < 30) { color = '#f97316'; text = 'Bientôt'; }
+        let color = 'var(--color-success)', text = 'OK';
+        if(eq.days_remaining < 0) { color = 'var(--color-danger)'; text = 'Expiré'; }
+        else if(eq.days_remaining < 30) { color = 'var(--color-warning)'; text = 'Bientôt'; }
+        
         return `<div class="eq-card-pro" style="border-left-color:${color}">
             <div class="eq-info">
                 <h4 class="eq-title">${escapeHtml(eq.final_name)}</h4>
-                <p class="eq-sub">${escapeHtml(eq.final_brand)} • S/N: ${escapeHtml(eq.serial_number||'-')}</p>
+                <p class="eq-sub">${escapeHtml(eq.final_brand)} • S/N: <code style="background:var(--neutral-100); padding:1px 4px; border-radius:4px;">${escapeHtml(eq.serial_number||'-')}</code></p>
                 <span class="eq-date" style="color:${color}">${text} : ${formatDate(eq.next_maintenance_date)}</span>
             </div>
             <div style="display:flex; flex-direction:column; gap:4px;">
-                <button class="btn-icon-table" onclick="openEquipFormModal(${JSON.stringify(eq).replace(/"/g, '&quot;')})"><i class="fas fa-pen"></i></button>
-                <button class="btn-icon-table" style="color:#ef4444;" onclick="deleteEquipment(${id}, ${eq.id})"><i class="fas fa-trash"></i></button>
+                <button class="btn-icon-sm btn-icon-secondary" onclick="openEquipFormModal(${JSON.stringify(eq).replace(/"/g, '&quot;')})" title="Modifier"><i class="fas fa-pen"></i></button>
+                <button class="btn-icon-sm btn-icon-danger" onclick="deleteEquipment(${id}, ${eq.id})" title="Supprimer"><i class="fas fa-trash"></i></button>
             </div>
         </div>`;
     }).join('');
@@ -350,25 +172,68 @@ async function loadClientEquipment(id) {
 
 async function loadClientHistory(id) {
     const div = document.getElementById('sheet-history-list');
+    div.innerHTML = '<p style="color:var(--neutral-500); padding-left:20px;">Chargement de l\'historique...</p>';
+    
     try {
         const res = await fetch(`/api/clients/${id}/appointments`);
         const list = await res.json();
         document.getElementById('count-hist').textContent = list.length;
-        if(list.length === 0) { div.innerHTML = '<p style="color:#94a3b8; font-style:italic;">Aucun historique.</p>'; return; }
         
-        div.innerHTML = list.map(h => `
-        <div class="timeline-item">
-            <div class="timeline-marker"></div>
-            <div class="timeline-date">${formatDate(h.appointment_date)}</div>
-            <div class="timeline-card">
-                <div>
-                    <h4 style="margin:0; font-size:0.9rem;">${h.source_type === 'report' ? 'Rapport Intervention' : 'Rendez-vous'}</h4>
-                    <p style="margin:4px 0 0; color:#64748b; font-size:0.85rem;">${escapeHtml(h.task_description)}</p>
+        if(list.length === 0) { 
+            div.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--neutral-400); font-style:italic;"><i class="fas fa-history fa-2x" style="opacity:0.3; margin-bottom:10px;"></i><br>Aucun historique récent.</div>'; 
+            return; 
+        }
+        
+        div.innerHTML = list.map(h => {
+            const isReport = h.source_type === 'report';
+            const typeClass = isReport ? 'type-report' : 'type-rdv';
+            const icon = isReport ? 'fa-file-alt' : 'fa-calendar-check';
+            const title = isReport ? 'Rapport d\'Intervention' : 'Rendez-vous';
+            const tagClass = isReport ? 'tag-report' : 'tag-rdv';
+            const tagName = isReport ? (h.report_number || 'Rapport') : 'RDV';
+            
+            // CORRECTION: L'API renvoie le champ 'machines' (voir server/routes/clients.js)
+            const machineName = h.machines || h.installation || h.equipment_name || null;
+            
+            // On affiche le badge seulement si une machine est trouvée
+            const machineHtml = machineName ? 
+                `<div class="timeline-machine"><i class="fas fa-server"></i> ${escapeHtml(machineName)}</div>` : '';
+
+            // Formatage date
+            const dateObj = new Date(h.appointment_date);
+            const dateStr = dateObj.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            
+            return `
+            <div class="timeline-item ${typeClass}">
+                <div class="timeline-marker"><i class="fas ${icon}"></i></div>
+                <span class="timeline-date">${dateStr}</span>
+                
+                <div class="timeline-card">
+                    <div class="timeline-header">
+                        <h4 class="timeline-title">${title}</h4>
+                        <span class="timeline-tag ${tagClass}">${tagName}</span>
+                    </div>
+                    
+                    ${machineHtml}
+                    
+                    <div class="timeline-desc">
+                        ${escapeHtml(h.task_description || 'Aucune description.')}
+                    </div>
+
+                    ${h.report_id ? `
+                    <div class="timeline-action">
+                        <button class="btn-doc-action" onclick="window.open('/report-view.html?id=${h.report_id}', '_blank')">
+                            <i class="fas fa-file-pdf"></i> Ouvrir le document
+                        </button>
+                    </div>` : ''}
                 </div>
-                ${h.report_id ? `<button class="btn-icon-table" onclick="window.open('/report-view.html?id=${h.report_id}')"><i class="fas fa-file-pdf"></i></button>` : ''}
-            </div>
-        </div>`).join('');
-    } catch {}
+            </div>`;
+        }).join('');
+        
+    } catch(e) {
+        console.error(e);
+        div.innerHTML = '<p style="color:var(--color-danger);">Erreur de chargement.</p>';
+    }
 }
 
 function parseDateCH(dateStr) { if(!dateStr) return 0; const [d,m,y] = dateStr.split('.'); return new Date(`${y}-${m}-${d}`).getTime(); }
@@ -478,7 +343,7 @@ async function confirmDeleteClient() {
     try { const res = await fetch(`/api/clients/${clientIdToDelete}`, { method: 'DELETE' }); if(res.ok) { closeDeleteModal(); if(document.getElementById('client-details-modal').classList.contains('active')) closeClientDetailsModal(); loadData(); } } catch {}
 }
 
-// --- UTILS ---a
+// --- UTILS ---
 function debounce(f,w){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>f.apply(this,a),w);};}
 function escapeHtml(t){if(!t)return '';return t.toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function formatDate(s){return s?new Date(s).toLocaleDateString('fr-CH'):'-';}
