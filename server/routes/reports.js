@@ -4,23 +4,47 @@ const router = express.Router();
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
 
+// --- HELPER : Gestion des Logs ---
+const logActivity = (userId, action, entity, entityId, meta = {}) => {
+  db.run(
+    "INSERT INTO activity_logs (user_id, action, entity, entity_id, meta_json) VALUES (?, ?, ?, ?, ?)",
+    [userId, action, entity, entityId, JSON.stringify(meta)],
+    (err) => { if (err) console.error("Erreur Log:", err.message); }
+  );
+};
+
 const getUserRole = (userId) => {
     return new Promise((resolve) => {
         db.get("SELECT role FROM users WHERE id = ?", [userId], (err, row) => resolve(row ? row.role : null));
     });
 };
 
+// --- STATISTIQUES ---
 router.get('/stats', requireAuth, (req, res) => {
     const sql = `SELECT status, COUNT(*) as count FROM reports GROUP BY status`;
+    
     db.all(sql, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (err) {
+            console.error("Erreur Stats Reports:", err);
+            return res.status(500).json({ error: err.message });
+        }
+
         const stats = { draft: 0, pending: 0, validated: 0, archived: 0 };
-        rows.forEach(r => { if (stats[r.status] !== undefined) stats[r.status] = r.count; });
+
+        // Sécurité : On vérifie que rows existe et est un tableau
+        if (rows && Array.isArray(rows)) {
+            rows.forEach(r => { 
+                if (stats[r.status] !== undefined) {
+                    stats[r.status] = r.count; 
+                }
+            });
+        }
+        
         res.json(stats);
     });
 });
 
-// === GET ALL (Liste allégée) ===
+// --- LISTE DES RAPPORTS ---
 router.get('/', requireAuth, (req, res) => {
     const { page = 1, limit = 25, search, type, status, client_id } = req.query;
     const limitVal = client_id ? 200 : limit; 
@@ -37,32 +61,28 @@ router.get('/', requireAuth, (req, res) => {
     if (status) { where.push("r.status = ?"); params.push(status); }
     if (client_id) { where.push("r.client_id = ?"); params.push(client_id); }
 
-    try {
-        // On a retiré la sous-requête du technicien car on ne l'affiche plus dans le tableau
-        const sql = `
-            SELECT r.*, 
-            u.name as validator_name
-            FROM reports r 
-            LEFT JOIN users u ON r.validator_id = u.id
-            WHERE ${where.join(' AND ')} 
-            ORDER BY r.created_at DESC LIMIT ? OFFSET ?`;
+    const sql = `
+        SELECT r.*, 
+        u.name as validator_name
+        FROM reports r 
+        LEFT JOIN users u ON r.validator_id = u.id
+        WHERE ${where.join(' AND ')} 
+        ORDER BY r.created_at DESC LIMIT ? OFFSET ?`;
 
-        const countSql = `SELECT count(*) as count FROM reports r WHERE ${where.join(' AND ')}`;
+    const countSql = `SELECT count(*) as count FROM reports r WHERE ${where.join(' AND ')}`;
 
-        db.get(countSql, params, (err, countRow) => {
-            if (err) return res.status(500).json({ error: "Erreur DB" });
-            db.all(sql, [...params, limitVal, offset], (err, rows) => {
-                if (err) return res.status(500).json({ error: err.message });
-                res.json({ reports: rows, pagination: { page: parseInt(page), totalPages: Math.ceil(countRow.count / limitVal), totalItems: countRow.count } });
-            });
+    db.get(countSql, params, (err, countRow) => {
+        if (err) return res.status(500).json({ error: "Erreur DB" });
+        db.all(sql, [...params, limitVal, offset], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ reports: rows, pagination: { page: parseInt(page), totalPages: Math.ceil(countRow.count / limitVal), totalItems: countRow.count } });
         });
-    } catch (e) { res.status(500).json({ error: "Crash serveur" }); }
+    });
 });
 
-// === GET ONE (Avec l'auteur) ===
+// --- DÉTAIL D'UN RAPPORT ---
 router.get('/:id', requireAuth, (req, res) => {
     const id = req.params.id;
-    // On joint deux fois la table users : une fois pour le validateur (u), une fois pour l'auteur (a)
     const sql = `
         SELECT r.*, u.name as validator_name, a.name as author_name 
         FROM reports r 
@@ -87,11 +107,13 @@ router.get('/:id', requireAuth, (req, res) => {
     });
 });
 
+// --- CHANGEMENT DE STATUT ---
 router.patch('/:id/status', requireAuth, async (req, res) => {
     const { status, reason } = req.body;
     const userId = req.session.userId;
     const role = await getUserRole(userId);
     
+    // Vérifications Permissions
     if (status === 'validated' && !['admin', 'validator', 'sales_director'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
     if (status === 'draft' && reason && !['admin', 'validator', 'sales_director'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
     if (status === 'archived' && !['admin', 'secretary'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
@@ -112,42 +134,42 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
 
     db.run(sql, params, function(err) {
         if (err) return res.status(500).json({ error: err.message });
+        
+        // LOG CORRIGÉ ICI (utilise meta_json)
+        logActivity(userId, 'update_status', 'report', req.params.id, { status, reason });
+        
         res.json({ success: true, status });
     });
 });
 
-// === SAVE (Avec enregistrement de l'auteur) ===
+// --- CRÉATION / MODIFICATION ---
 router.post('/', requireAuth, (req, res) => saveReportData(req, res));
+
 router.put('/:id', requireAuth, async (req, res) => {
     const role = await getUserRole(req.session.userId);
     db.get("SELECT status FROM reports WHERE id = ?", [req.params.id], (err, row) => {
         if(err || !row) return res.status(404).json({error: "Rapport introuvable"});
         if (row.status === 'archived' && role !== 'admin') return res.status(403).json({ error: "Archivé : modification interdite." });
         if (row.status === 'validated' && !['admin', 'secretary'].includes(role)) return res.status(403).json({ error: "Validé : modification interdite." });
-        if (row.status === 'pending' && !['admin', 'validator', 'sales_director'].includes(role)) return res.status(403).json({ error: "En attente : modification bloquée." });
+        
         saveReportData(req, res, req.params.id);
     });
 });
 
 const saveReportData = (req, res, reportId = null) => {
-    // 1. On récupère 'language' dans le body
     const { client_id, language, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, technicians, stk_tests, materials, equipment_ids } = req.body;
     
     const currentStatus = reportId ? (status || 'draft') : 'draft';
     const userId = req.session.userId;
-    // Par défaut, si pas de langue, on met 'fr'
     const langVal = language || 'fr'; 
 
-    // 2. On ajoute langVal dans le tableau de données
     const reportData = [client_id, langVal, work_type, currentStatus, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included?1:0, travel_location, technician_signature_date, work_accomplished];
     
     let runQuery = "";
     if (reportId) {
-        // UPDATE : On ajoute language=? dans la requête
         runQuery = `UPDATE reports SET client_id=?, language=?, work_type=?, status=?, cabinet_name=?, address=?, postal_code=?, city=?, interlocutor=?, installation=?, remarks=?, travel_costs=?, travel_included=?, travel_location=?, technician_signature_date=?, work_accomplished=? WHERE id=?`;
         reportData.push(reportId);
     } else {
-        // INSERT : On ajoute la colonne language et le ?
         runQuery = `INSERT INTO reports (client_id, language, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, author_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
         reportData.push(userId);
     }
@@ -155,6 +177,9 @@ const saveReportData = (req, res, reportId = null) => {
     db.run(runQuery, reportData, function(err) {
         if (err) return res.status(500).json({ error: err.message });
         const finalId = reportId || this.lastID;
+
+        // LOG CORRIGÉ ICI (utilise meta_json)
+        logActivity(userId, reportId ? 'update' : 'create', 'report', finalId, { cabinet_name, work_type });
 
         db.serialize(() => {
             ['report_technicians', 'report_stk_tests', 'report_materials', 'report_equipment'].forEach(t => db.run(`DELETE FROM ${t} WHERE report_id=?`, [finalId]));
@@ -188,14 +213,20 @@ const saveReportData = (req, res, reportId = null) => {
     });
 };
 
+// --- SUPPRESSION ---
 router.delete('/:id', requireAuth, async (req, res) => {
     const id = req.params.id;
     const role = await getUserRole(req.session.userId);
     db.get("SELECT status FROM reports WHERE id = ?", [id], (err, row) => {
         if(err || !row) return res.status(404).json({error: "Rapport introuvable"});
         if (row.status !== 'draft' && role !== 'admin') return res.status(403).json({ error: "Sécurité : Seuls les brouillons peuvent être supprimés." });
+        
         db.run("DELETE FROM reports WHERE id = ?", [id], function(err) {
             if (err) return res.status(500).json({ error: err.message });
+            
+            // LOG CORRIGÉ ICI (utilise meta_json)
+            logActivity(req.session.userId, 'delete', 'report', id);
+            
             res.json({ success: true });
         });
     });

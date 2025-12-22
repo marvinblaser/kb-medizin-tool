@@ -1,388 +1,189 @@
-// server/seed.js
-
-const bcrypt = require('bcrypt');
-const fs = require('fs');
-const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
+const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'database.db');
+// Connexion DB
+const dbPath = path.resolve(__dirname, 'database.db');
+const db = new sqlite3.Database(dbPath);
+
+const SALT_ROUNDS = 10;
+
+// --- CONFIGURATION ---
+// J'ai ajouté la propriété is_removable: 0 (Non supprimable)
+const ROLES = [
+    { name: 'Administrateur', slug: 'admin', permissions: 'all', is_removable: 0 },
+    { name: 'Technicien', slug: 'tech', permissions: 'view_dashboard,view_clients,create_reports', is_removable: 0 },
+    { name: 'Secrétaire', slug: 'secretary', permissions: 'view_dashboard,view_clients,manage_appointments,validate_reports', is_removable: 0 }
+];
+
+const SECTORS = ['ORL', 'Gynécologie', 'Stérilisation', 'Dermatologie', 'Médecine Générale', 'Ophtalmologie', 'Chirurgie Esthétique'];
+const DEVICE_TYPES = ['Fauteuil d\'examen', 'Microscope', 'Autoclave', 'Laveur-Désinfecteur', 'Unité de consultation', 'Aspirateur chirurgical', 'Lampe scialytique', 'Colposcope'];
 
 async function seed() {
-  console.log('🌱 Initialisation de la base de données...');
+    console.log("🏗️  Création de la structure de la base de données...");
 
-  // ========== SUPPRIMER L'ANCIENNE BASE ==========
-  if (fs.existsSync(DB_PATH)) {
-    console.log('🗑️  Suppression de l\'ancienne base de données...');
-    try {
-      fs.unlinkSync(DB_PATH);
-      console.log('✅ Ancienne base supprimée');
-    } catch (error) {
-      console.error('❌ Erreur: La base est verrouillée (serveur en cours ?)');
-      console.error('   Arrêtez le serveur (Ctrl+C) puis relancez npm run init\n');
-      process.exit(1);
-    }
-  }
+    db.serialize(async () => {
+        
+        // --- 1. CRÉATION DES TABLES ---
 
-  // ========== CRÉER UNE NOUVELLE BASE ==========
-  console.log('🔨 Création de la nouvelle base...');
-  const db = new sqlite3.Database(DB_PATH);
-  
-  // Activer les foreign keys
-  db.run('PRAGMA foreign_keys = ON');
+        db.run(`CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT DEFAULT 'tech',
+            name TEXT NOT NULL,
+            phone TEXT,
+            photo_url TEXT,
+            is_active BOOLEAN DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_login_at DATETIME
+        )`);
 
-  // ========== CRÉER LES TABLES ==========
-  console.log('📋 Création des tables...');
-  
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('admin', 'tech')),
-      name TEXT NOT NULL,
-      phone TEXT,
-      is_active INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      last_login_at TEXT
-    )
-  `);
+        // CORRECTION ICI : Ajout de is_removable
+        db.run(`CREATE TABLE IF NOT EXISTS roles (
+            slug TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            permissions TEXT,
+            is_removable BOOLEAN DEFAULT 1
+        )`);
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS sectors (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT UNIQUE NOT NULL,
-      slug TEXT UNIQUE NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+        db.run(`CREATE TABLE IF NOT EXISTS activity_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            action TEXT,
+            entity TEXT,
+            entity_id INTEGER,
+            meta_json TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS equipment_catalog (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      brand TEXT NOT NULL,
-      model TEXT,
-      type TEXT NOT NULL DEFAULT 'Autre',
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+        db.run(`CREATE TABLE IF NOT EXISTS clients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cabinet_name TEXT NOT NULL,
+            contact_name TEXT,
+            activity TEXT,
+            address TEXT,
+            postal_code TEXT,
+            city TEXT,
+            canton TEXT,
+            phone TEXT,
+            email TEXT,
+            appointment_at DATETIME,
+            technician_id INTEGER,
+            notes TEXT,
+            latitude REAL,
+            longitude REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS clients (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      cabinet_name TEXT NOT NULL,
-      contact_name TEXT NOT NULL,
-      activity TEXT NOT NULL,
-      address TEXT NOT NULL,
-      postal_code TEXT,
-      canton TEXT NOT NULL,
-      city TEXT NOT NULL,
-      phone TEXT,
-      email TEXT,
-      maintenance_due_date TEXT,
-      appointment_at TEXT,
-      technician_id INTEGER REFERENCES users(id),
-      notes TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+        db.run(`CREATE TABLE IF NOT EXISTS sectors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            slug TEXT UNIQUE
+        )`);
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS client_equipment (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client_id INTEGER NOT NULL,
-      equipment_id INTEGER NOT NULL,
-      serial_number TEXT,
-      installed_at TEXT,
-      warranty_until TEXT,
-      last_maintenance_date TEXT,
-      maintenance_interval INTEGER DEFAULT 1,
-      next_maintenance_date TEXT,
-      FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
-      FOREIGN KEY (equipment_id) REFERENCES equipment_catalog(id)
-    )
-  `);
+        db.run(`CREATE TABLE IF NOT EXISTS device_types (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        )`);
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS activity_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      action TEXT NOT NULL,
-      entity TEXT NOT NULL,
-      entity_id INTEGER,
-      meta_json TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-  `);
+        db.run(`CREATE TABLE IF NOT EXISTS equipment_catalog (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            brand TEXT,
+            model TEXT,
+            type TEXT,
+            device_type TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS appointments_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client_id INTEGER NOT NULL,
-      appointment_date TEXT NOT NULL,
-      task_description TEXT,
-      technician_id INTEGER,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
-      FOREIGN KEY (technician_id) REFERENCES users(id)
-    )
-  `);
+        db.run(`CREATE TABLE IF NOT EXISTS materials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            product_code TEXT,
+            unit_price REAL
+        )`);
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS appointment_equipment (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      appointment_id INTEGER NOT NULL,
-      equipment_id INTEGER NOT NULL,
-      FOREIGN KEY (appointment_id) REFERENCES appointments_history(id) ON DELETE CASCADE,
-      FOREIGN KEY (equipment_id) REFERENCES client_equipment(id) ON DELETE CASCADE
-    )
-  `);
+        db.run(`CREATE TABLE IF NOT EXISTS client_equipment (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER NOT NULL,
+            equipment_id INTEGER NOT NULL,
+            serial_number TEXT,
+            installed_at DATE,
+            warranty_until DATE,
+            last_maintenance_date DATE,
+            maintenance_interval INTEGER DEFAULT 12,
+            next_maintenance_date DATE,
+            FOREIGN KEY(client_id) REFERENCES clients(id) ON DELETE CASCADE,
+            FOREIGN KEY(equipment_id) REFERENCES equipment_catalog(id)
+        )`);
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS checklists (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      updated_by_user_id INTEGER,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (updated_by_user_id) REFERENCES users(id)
-    )
-  `);
+        db.run(`CREATE TABLE IF NOT EXISTS reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            author_id INTEGER,
+            report_number TEXT UNIQUE,
+            work_type TEXT,
+            technician_signature_date DATETIME,
+            customer_signature_date DATETIME,
+            content_json TEXT,
+            installation TEXT,
+            pdf_path TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS checklist_equipment (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      checklist_id INTEGER NOT NULL,
-      equipment_name TEXT NOT NULL,
-      quantity INTEGER DEFAULT 1,
-      equipment_order INTEGER DEFAULT 0,
-      FOREIGN KEY (checklist_id) REFERENCES checklists(id) ON DELETE CASCADE
-    )
-  `);
+        db.run(`CREATE TABLE IF NOT EXISTS appointments_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER NOT NULL,
+            appointment_date DATETIME NOT NULL,
+            task_description TEXT,
+            technician_id INTEGER,
+            report_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS checklist_tasks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      checklist_id INTEGER NOT NULL,
-      task_name TEXT NOT NULL,
-      task_order INTEGER DEFAULT 0,
-      FOREIGN KEY (checklist_id) REFERENCES checklists(id) ON DELETE CASCADE
-    )
-  `);
+        db.run(`CREATE TABLE IF NOT EXISTS appointment_equipment (
+            appointment_id INTEGER NOT NULL,
+            equipment_id INTEGER NOT NULL,
+            PRIMARY KEY (appointment_id, equipment_id)
+        )`);
 
-  // ✅ AJOUT DE LA TABLE MATERIALS (Manquait dans ton ancien seed)
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS materials (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      product_code TEXT NOT NULL,
-      unit_price REAL NOT NULL DEFAULT 0,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+        console.log("✅ Tables créées.");
 
-  // ✅ CORRECTION DE LA TABLE REPORTS (Mise à jour pour correspondre à database.js)
-  // Suppression de report_type, ajout de travel_location et travel_included
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS reports (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      report_number TEXT UNIQUE,
-      client_id INTEGER NOT NULL,
-      cabinet_name TEXT NOT NULL,
-      address TEXT NOT NULL,
-      postal_code TEXT,
-      city TEXT NOT NULL,
-      interlocutor TEXT,
-      work_type TEXT NOT NULL,
-      installation TEXT,
-      work_accomplished TEXT,
-      travel_location TEXT,
-      travel_costs REAL DEFAULT 0,
-      travel_included INTEGER DEFAULT 0,
-      remarks TEXT,
-      status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'completed', 'sent')),
-      technician_signature_date TEXT,
-      client_signature_date TEXT,
-      created_by INTEGER,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
-      FOREIGN KEY (created_by) REFERENCES users(id)
-    )
-  `);
+        // --- 2. INSERTION DONNÉES ---
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS report_technicians (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      report_id INTEGER NOT NULL,
-      technician_id INTEGER,
-      technician_name TEXT NOT NULL,
-      work_date TEXT NOT NULL,
-      hours_normal REAL DEFAULT 0,
-      hours_extra REAL DEFAULT 0,
-      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
-      FOREIGN KEY (technician_id) REFERENCES users(id)
-    )
-  `);
+        // Rôles (Avec is_removable)
+        const roleStmt = db.prepare("INSERT OR IGNORE INTO roles (name, slug, permissions, is_removable) VALUES (?, ?, ?, ?)");
+        ROLES.forEach(r => roleStmt.run(r.name, r.slug, r.permissions, r.is_removable));
+        roleStmt.finalize();
 
-  // ✅ CORRECTION DE LA TABLE REPORT_MATERIALS (Ajout material_id et product_code)
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS report_materials (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      report_id INTEGER NOT NULL,
-      material_id INTEGER,
-      material_name TEXT NOT NULL,
-      product_code TEXT,
-      quantity INTEGER DEFAULT 1,
-      unit_price REAL DEFAULT 0,
-      total_price REAL DEFAULT 0,
-      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
-      FOREIGN KEY (material_id) REFERENCES materials(id)
-    )
-  `);
+        // Secteurs
+        const sectStmt = db.prepare("INSERT OR IGNORE INTO sectors (name, slug) VALUES (?, ?)");
+        SECTORS.forEach(s => sectStmt.run(s, s.toLowerCase().replace(/[^a-z0-9]/g, '')));
+        sectStmt.finalize();
 
-  // ✅ AJOUT DE LA TABLE REPORT_STK_TESTS (Manquait aussi)
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS report_stk_tests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      report_id INTEGER NOT NULL,
-      test_name TEXT NOT NULL,
-      price REAL DEFAULT 0,
-      included INTEGER DEFAULT 0,
-      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
-    )
-  `);
+        // Types
+        const typeStmt = db.prepare("INSERT OR IGNORE INTO device_types (name) VALUES (?)");
+        DEVICE_TYPES.forEach(t => typeStmt.run(t));
+        typeStmt.finalize();
 
-  await runAsync(db, `
-    CREATE TABLE IF NOT EXISTS report_equipment (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      report_id INTEGER NOT NULL,
-      equipment_info TEXT NOT NULL,
-      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
-    )
-  `);
+        // Admin User
+        const adminEmail = 'admin@kbmed.ch';
+        const adminPass = 'admin123';
+        const hashedPassword = await bcrypt.hash(adminPass, SALT_ROUNDS);
+        
+        db.get("SELECT id FROM users WHERE email = ?", [adminEmail], (err, row) => {
+            if (!row) {
+                db.run(`INSERT INTO users (name, email, password_hash, role, is_active, created_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`, 
+                        ['Super Admin', adminEmail, hashedPassword, 'admin'], 
+                        (err) => {
+                            if(!err) console.log(`👤 Admin créé : ${adminEmail} / ${adminPass}`);
+                        });
+            }
+        });
 
-  // ========== INSÉRER LES DONNÉES ==========
-  const passwordHash = await bcrypt.hash('admin123', 10);
-
-  // Utilisateurs
-  console.log('👤 Création des utilisateurs...');
-  await runAsync(db, 
-    `INSERT INTO users (email, password_hash, role, name, phone) VALUES (?, ?, ?, ?, ?)`,
-    ['admin@kbmedizin.ch', passwordHash, 'admin', 'Administrateur', '+41 61 123 45 67']
-  );
-  await runAsync(db, 
-    `INSERT INTO users (email, password_hash, role, name, phone) VALUES (?, ?, ?, ?, ?)`,
-    ['tech1@kbmedizin.ch', passwordHash, 'tech', 'Marc Dubois', '+41 79 234 56 78']
-  );
-  await runAsync(db, 
-    `INSERT INTO users (email, password_hash, role, name, phone) VALUES (?, ?, ?, ?, ?)`,
-    ['tech2@kbmedizin.ch', passwordHash, 'tech', 'Sophie Laurent', '+41 79 345 67 89']
-  );
-
-  // Secteurs
-  console.log('🏥 Création des secteurs...');
-  await runAsync(db, `INSERT INTO sectors (name, slug) VALUES ('ORL', 'orl')`);
-  await runAsync(db, `INSERT INTO sectors (name, slug) VALUES ('Gynécologie', 'gynecologie')`);
-  await runAsync(db, `INSERT INTO sectors (name, slug) VALUES ('Stérilisation', 'sterilisation')`);
-  await runAsync(db, `INSERT INTO sectors (name, slug) VALUES ('Podologie', 'podologie')`);
-  await runAsync(db, `INSERT INTO sectors (name, slug) VALUES ('Chirurgie', 'chirurgie')`);
-
-  // Équipements
-  console.log('🔧 Création du catalogue...');
-  const equipment = [
-    ['Unité ORL complète', 'Atmos', 'C31', 'ORL'],
-    ['Fauteuil d\'examen', 'Promotal', 'Clavia', 'ORL'],
-    ['Colposcope', 'Zeiss', 'OPMI pico', 'Gynécologie'],
-    ['Table gynécologique', 'Schmitz', 'Medi-Matic', 'Gynécologie'],
-    ['Autoclave', 'Melag', 'Vacuklav 31B+', 'Stérilisation'],
-    ['Thermodésinfecteur', 'Miele', 'PG 8528', 'Stérilisation'],
-    ['Microscope ORL', 'Leica', 'M320', 'ORL'],
-    ['Unité de podologie', 'Podiatech', 'PT-500', 'Podologie']
-  ];
-
-  for (const eq of equipment) {
-    await runAsync(db, 
-      `INSERT INTO equipment_catalog (name, brand, model, type) VALUES (?, ?, ?, ?)`,
-      eq
-    );
-  }
-
-  // Matériaux (Nouveau)
-  console.log('🔩 Création des matériaux...');
-  const materials = [
-    ['Joint torique', 'J-123', 5.50],
-    ['Filtre HEPA', 'F-HEPA-01', 45.00],
-    ['Ampoule halogène', 'L-HAL-12', 12.90],
-    ['Câble alimentation', 'C-PWR-CH', 15.00],
-    ['Fusible 10A', 'FUS-10', 2.00]
-  ];
-
-  for (const mat of materials) {
-    await runAsync(db, 
-      `INSERT INTO materials (name, product_code, unit_price) VALUES (?, ?, ?)`,
-      mat
-    );
-  }
-
-  // Clients
-  console.log('👥 Création des clients...');
-  const clients = [
-    ['Cabinet Dr. Müller', 'Dr. Hans Müller', 'ORL', 'Bahnhofstrasse 15', null, 'BE', 'Bern', '+41 31 300 11 22', 'info@dr-mueller.ch', '2024-11-15', '2025-11-20'],
-    ['Praxis Zürich Mitte', 'Dr. Anna Schmidt', 'Gynécologie', 'Rämistrasse 42', null, 'ZH', 'Zürich', '+41 44 200 33 44', 'kontakt@praxis-zh.ch', '2025-03-10', null],
-    ['Clinique Lémanique', 'Dr. Pierre Dubois', 'ORL', 'Rue du Lac 8', null, 'GE', 'Genève', '+41 22 700 55 66', 'info@clinique-lemanique.ch', '2025-01-20', '2025-01-25']
-  ];
-
-  for (const client of clients) {
-    await runAsync(db,
-      `INSERT INTO clients (cabinet_name, contact_name, activity, address, postal_code, canton, city, phone, email, maintenance_due_date, appointment_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      client
-    );
-  }
-
-  // Équipements clients
-  console.log('🛠️  Installation des équipements...');
-  await runAsync(db, 
-    `INSERT INTO client_equipment (client_id, equipment_id, serial_number, installed_at, warranty_until) VALUES (?, ?, ?, ?, ?)`,
-    [1, 1, 'ATM-2023-001', '2023-01-15', '2026-01-15']
-  );
-  await runAsync(db, 
-    `INSERT INTO client_equipment (client_id, equipment_id, serial_number, installed_at, warranty_until) VALUES (?, ?, ?, ?, ?)`,
-    [2, 3, 'ZEI-2022-078', '2022-06-10', '2025-06-10']
-  );
-
-  // Logs
-  console.log('📋 Création des logs...');
-  await runAsync(db,
-    `INSERT INTO activity_logs (user_id, action, entity, entity_id, meta_json) VALUES (?, ?, ?, ?, ?)`,
-    [1, 'login', 'user', 1, '{"ip":"127.0.0.1"}']
-  );
-
-  // Fermer la connexion
-  db.close((err) => {
-    if (err) {
-      console.error('❌ Erreur fermeture:', err.message);
-    }
-  });
-
-  console.log('\n✅ Base de données initialisée avec succès!');
-  console.log('\n📋 Compte admin créé:');
-  console.log('   Email: admin@kbmedizin.ch');
-  console.log('   Mot de passe: admin123');
-  console.log('\n🚀 Lancez le serveur avec: npm start\n');
-}
-
-// Helper pour utiliser db.run avec async/await
-function runAsync(db, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
-      if (err) reject(err);
-      else resolve(this);
+        console.log("🚀 Base de données réparée et prête !");
     });
-  });
 }
 
-seed().catch(console.error);
+seed();

@@ -94,7 +94,14 @@ function initDatabase() {
       // 8. Table activity_logs
       db.run(`
         CREATE TABLE IF NOT EXISTS activity_logs (
-          id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, action TEXT NOT NULL, entity TEXT NOT NULL, entity_id INTEGER, meta_json TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          action TEXT NOT NULL,
+          entity TEXT NOT NULL,
+          entity_id INTEGER,
+          details TEXT,  
+          meta_json TEXT,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users(id)
         )
       `);
@@ -173,6 +180,25 @@ function initDatabase() {
           const names = columns.map((c) => c.name);
           if (!names.includes("device_type"))
             db.run("ALTER TABLE equipment_catalog ADD COLUMN device_type TEXT");
+        }
+      });
+      db.all("PRAGMA table_info(activity_logs)", (err, columns) => {
+        if (!err) {
+          const names = columns.map((c) => c.name);
+          if (!names.includes("details")) {
+            console.log("Migration: Ajout de la colonne 'details' à activity_logs");
+            db.run("ALTER TABLE activity_logs ADD COLUMN details TEXT");
+          }
+        }
+      });
+      db.all("PRAGMA table_info(reports)", (err, columns) => {
+        if (!err) {
+          const names = columns.map((c) => c.name);
+          if (!names.includes("status")) {
+            console.log("Migration: Ajout de la colonne 'status' manquant dans reports");
+            // On ajoute la colonne avec une valeur par défaut
+            db.run("ALTER TABLE reports ADD COLUMN status TEXT DEFAULT 'draft'");
+          }
         }
       });
 
