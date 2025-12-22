@@ -232,11 +232,12 @@ function generateReportRow(r, badges, names) {
       </tr>`;
 }
 
-// --- RENDER DOSSIERS ARCHIVES (NOUVEAU STYLE) ---
+// Remplacez renderArchivedFolders et toggleFolder par ceci :
+
 function renderArchivedFolders(reports) {
     const container = document.getElementById('archives-container');
     if (!reports.length) {
-        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:2rem; color:var(--neutral-500);">Aucune archive trouvée.</div>';
+        container.innerHTML = '<div class="text-center" style="padding:40px; color:var(--neutral-500);">Aucune archive trouvée.</div>';
         return;
     }
 
@@ -253,32 +254,58 @@ function renderArchivedFolders(reports) {
     clientNames.forEach((clientName, index) => {
         const clientReports = groups[clientName];
         clientReports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const lastDate = clientReports[0] ? formatDate(clientReports[0].created_at) : '';
 
         html += `
-        <div class="folder-card" id="folder-card-${index}">
-            <div class="folder-header" onclick="toggleFolder(${index})">
-                <div class="folder-title">
-                    <i class="fas fa-folder folder-icon"></i>
+        <div class="folder-item" id="folder-item-${index}">
+            <div class="folder-header" id="header-${index}" onclick="toggleFolder(${index})">
+                <div style="display:flex; align-items:center;">
+                    <i class="fas fa-folder"></i>
                     <span>${escapeHtml(clientName)}</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span class="badge badge-secondary" style="font-size:0.75rem;">${clientReports.length}</span>
-                    <i class="fas fa-chevron-down" id="arrow-${index}" style="color:var(--neutral-400); transition: transform 0.2s;"></i>
+                <div class="folder-meta">
+                    <span class="date">${lastDate}</span>
+                    <span style="color:#cbd5e1; margin:0 10px;">|</span>
+                    <span class="count">${clientReports.length} élément(s)</span>
+                    <i class="fas fa-chevron-right" id="arrow-${index}" style="margin-left:10px; transition: transform 0.2s;"></i>
                 </div>
             </div>
+            
             <div class="folder-content" id="folder-${index}">
-                ${clientReports.map(r => `
-                    <div class="folder-row">
-                        <div style="display:flex; flex-direction:column; gap:2px;">
-                            <strong style="color:var(--color-primary); font-size:0.9rem;">${escapeHtml(r.report_number)}</strong>
-                            <span style="font-size:0.8rem; color:var(--neutral-500);">${formatDate(r.created_at)} • ${escapeHtml(r.work_type)}</span>
+                ${clientReports.map(r => {
+                    const machineName = r.installation || '';
+                    
+                    return `
+                    <div class="archive-row">
+                        <div class="archive-main">
+                            <div class="archive-icon"><i class="far fa-file-alt"></i></div>
+                            <div class="archive-details">
+                                <div class="archive-title">
+                                    <span style="color:var(--color-primary);">${escapeHtml(r.report_number)}</span>
+                                    <span style="font-weight:400; color:#94a3b8; margin:0 5px;">•</span>
+                                    <span>${escapeHtml(r.work_type)}</span>
+                                </div>
+                                <div class="archive-subtitle">
+                                    ${formatDate(r.created_at)}
+                                    ${machineName ? `
+                                        <div class="archive-machine-badge">
+                                            <i class="fas fa-server"></i> ${escapeHtml(machineName)}
+                                        </div>` : ''}
+                                </div>
+                            </div>
                         </div>
-                        <div style="display:flex; gap:5px;">
-                            <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${r.id}','_blank')"><i class="fas fa-file-pdf"></i></button>
-                            <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${r.id})"><i class="fas fa-eye"></i></button>
+                        
+                        <div class="archive-actions">
+                            <button class="btn-action-soft" onclick="window.open('/report-view.html?id=${r.id}','_blank')" title="Télécharger PDF">
+                                <i class="fas fa-file-pdf"></i>
+                            </button>
+                            <button class="btn-action-soft" onclick="openReportModal(${r.id})" title="Voir détails">
+                                <i class="fas fa-eye"></i>
+                            </button>
                         </div>
                     </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>
         </div>
         `;
@@ -288,18 +315,22 @@ function renderArchivedFolders(reports) {
 }
 
 window.toggleFolder = function(index) {
-    const content = document.getElementById(`folder-${index}`);
-    const card = document.getElementById(`folder-card-${index}`);
-    const arrow = document.getElementById(`arrow-${index}`);
+    const targetContent = document.getElementById(`folder-${index}`);
+    const targetArrow = document.getElementById(`arrow-${index}`);
+    const targetItem = document.getElementById(`folder-item-${index}`);
     
-    if (content.style.display === 'block') { 
-        content.style.display = 'none'; 
-        card.classList.remove('open');
-        arrow.style.transform = 'rotate(0deg)'; 
-    } else { 
-        content.style.display = 'block'; 
-        card.classList.add('open');
-        arrow.style.transform = 'rotate(180deg)'; 
+    const isCurrentlyOpen = targetContent.style.display === 'block';
+    
+    // 1. Fermer tous les dossiers (Mode Accordéon)
+    document.querySelectorAll('.folder-content').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.folder-header .fa-chevron-right').forEach(el => el.style.transform = 'rotate(0deg)');
+    document.querySelectorAll('.folder-item').forEach(el => el.classList.remove('open'));
+    
+    // 2. Ouvrir le dossier cible
+    if (!isCurrentlyOpen) {
+        targetContent.style.display = 'block';
+        targetArrow.style.transform = 'rotate(90deg)';
+        targetItem.classList.add('open');
     }
 };
 

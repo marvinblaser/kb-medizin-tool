@@ -16,36 +16,17 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   
   <style>
-    /* Styles spécifiques aux Rapports (harmonisés) */
-    .report-container-fluid { width: 100%; padding: 2rem 3rem; display: flex; flex-direction: column; height: calc(100vh - 80px); overflow: hidden; }
+    /* --- CONFIGURATION GLOBALE --- */
+    .report-container-fluid { 
+        width: 100%; 
+        padding: 2rem 3rem; 
+        display: flex; 
+        flex-direction: column; 
+        height: calc(100vh - 80px); 
+        overflow: hidden; 
+    }
 
-    /* Style Dossiers Archives (Look "Carte") */
-    .folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; padding-bottom: 2rem; }
-    
-    .folder-card {
-        background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg);
-        overflow: hidden; transition: all 0.2s ease;
-    }
-    .folder-header {
-        padding: 1rem 1.25rem; background: var(--neutral-50); cursor: pointer;
-        display: flex; align-items: center; justify-content: space-between;
-        border-bottom: 1px solid transparent; transition: border-color 0.2s;
-    }
-    .folder-card.open .folder-header { border-bottom-color: var(--border-color); background: white; }
-    .folder-card:hover { border-color: var(--color-primary-light); box-shadow: var(--shadow-sm); }
-    
-    .folder-title { font-weight: 600; color: var(--neutral-800); display: flex; align-items: center; gap: 10px; }
-    .folder-icon { color: #f59e0b; font-size: 1.1rem; } /* Jaune Dossier */
-    
-    .folder-content { display: none; background: white; max-height: 400px; overflow-y: auto; }
-    .folder-row { 
-        padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border-color-light); 
-        display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;
-    }
-    .folder-row:last-child { border-bottom: none; }
-    .folder-row:hover { background: var(--neutral-50); }
-
-    /* Barre d'outils (Copie du style Clients) */
+    /* --- BARRE D'OUTILS --- */
     .toolbar-clean-bar {
         background: white; border: 1px solid var(--border-color); border-radius: 8px;
         padding: 0 1.5rem; display: flex; align-items: center; height: 64px;
@@ -54,6 +35,7 @@
     .toolbar-search-section { display: flex; align-items: center; gap: 0.8rem; color: var(--neutral-400); flex: 0 0 320px; }
     .toolbar-search-section input { border: none; background: transparent; width: 100%; outline: none; padding: 0; font-size: 0.95rem; }
     .toolbar-divider { width: 1px; height: 32px; background: var(--border-color); }
+    
     .toolbar-nav-section { display: flex; gap: 1.5rem; height: 100%; }
     .nav-text-btn {
         background: transparent; border: none; border-bottom: 3px solid transparent; height: 100%;
@@ -66,13 +48,121 @@
     .nav-text-btn.active .nav-badge { background: var(--color-primary-light); color: var(--color-primary); }
     .nav-badge.danger { background: #fee2e2; color: #ef4444; }
 
-    /* Alertes */
+    .toolbar-filters-section select { 
+        border: 1px solid var(--border-color); padding: 0.4rem 2rem 0.4rem 0.8rem; 
+        border-radius: 6px; font-size: 0.9rem; outline: none; 
+    }
+
+    /* --- TABLEAU LISTE --- */
+    .table-container { flex: 1; overflow: hidden; border-radius: 8px; border: 1px solid var(--border-color); }
+    .table-wrapper { height: 100%; overflow-y: auto; }
+
+    /* --- VUE ARCHIVES (LAYOUT FINAL : BLOC PLEINE LARGEUR) --- */
+    #archives-container {
+        display: block; /* Comportement standard : empilement vertical */
+        width: 100%;
+        height: 100%;
+        overflow-y: auto; /* Scroll si nécessaire */
+        padding-bottom: 2rem;
+    }
+    
+    .folder-item { 
+        display: block;
+        width: 100%; /* Force la pleine largeur */
+        height: auto; /* Hauteur automatique selon le contenu */
+        margin-bottom: 1rem; /* Espace entre les dossiers */
+        
+        background: white; 
+        border: 1px solid var(--border-color); 
+        border-radius: var(--radius-lg); 
+        overflow: hidden; 
+        box-shadow: var(--shadow-sm);
+        transition: box-shadow 0.2s;
+    }
+    
+    /* Header Dossier */
+    .folder-header { 
+        padding: 1rem 1.5rem; 
+        background: #f8fafc; 
+        cursor: pointer; 
+        display: flex; align-items: center; justify-content: space-between; 
+        font-weight: 600; color: var(--neutral-800);
+        border-bottom: 1px solid transparent; 
+        transition: background-color 0.2s;
+        min-height: 56px;
+    }
+    .folder-header:hover { background: #f1f5f9; }
+    
+    /* Quand ouvert */
+    .folder-item.open .folder-header { 
+        border-bottom: 1px solid var(--border-color-light); 
+        background: #f8fafc;
+    }
+    
+    .folder-header i.fa-folder { color: #f59e0b; margin-right: 12px; font-size: 1.1em; }
+    .folder-meta { display: flex; align-items: center; gap: 15px; font-size: 0.85rem; color: var(--neutral-500); font-weight: normal; }
+    .folder-meta .date { font-size: 0.8rem; }
+    .folder-meta .count { background: white; border: 1px solid var(--border-color-light); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
+
+    /* Contenu */
+    .folder-content { display: none; background: white; }
+    
+    /* Ligne Fichier */
+    .archive-row {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border-color-light);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        transition: background 0.1s;
+    }
+    .archive-row:last-child { border-bottom: none; }
+    .archive-row:hover { background: #f8fafc; }
+
+    .archive-main { display: flex; gap: 1rem; align-items: flex-start; flex: 1; }
+    .archive-icon { color: var(--neutral-400); font-size: 1.1rem; margin-top: 2px; }
+    
+    .archive-details { display: flex; flex-direction: column; gap: 4px; }
+    .archive-title { 
+        font-weight: 700; color: var(--neutral-800); font-size: 0.95rem; 
+        display: flex; align-items: center; gap: 6px;
+    }
+    .archive-subtitle { font-size: 0.85rem; color: var(--neutral-500); }
+    
+    .archive-machine-badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        background: var(--neutral-100); color: var(--neutral-700);
+        border: 1px solid var(--border-color-light);
+        padding: 2px 8px; border-radius: 4px;
+        font-size: 0.8rem; font-family: var(--font-family-mono);
+        margin-top: 4px; width: fit-content;
+    }
+    .archive-machine-badge i { font-size: 0.75rem; color: var(--neutral-500); }
+
+    /* Boutons d'action */
+    .archive-actions { display: flex; gap: 8px; align-items: center; margin-left: 1rem; }
+    .btn-action-soft {
+        width: 36px; height: 36px;
+        border-radius: 8px;
+        background: #e0f2fe; 
+        color: #0284c7; 
+        border: none;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: all 0.2s;
+    }
+    .btn-action-soft:hover { background: #bae6fd; transform: translateY(-1px); }
+    .btn-action-soft i { font-size: 1rem; }
+
+    /* Alertes & Pagination */
     .rejection-alert { 
         background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; 
         padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1.5rem; 
         display: flex; align-items: center; gap: 10px; 
     }
-  </style>
+    
+    .pagination { margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; }
+    .pagination-info { font-size: 0.9rem; color: var(--neutral-500); }
+</style>
 </head>
 <body>
   <div class="app-container">
