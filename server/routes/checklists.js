@@ -31,10 +31,11 @@ router.get('/:id', requireAuth, (req, res) => {
     if (err) return res.status(500).json({ error: 'Erreur serveur' });
     if (!checklist) return res.status(404).json({ error: 'Checklist non trouvée' });
     
-    // MODIFIÉ : Trier par equipment_order
+    // Récupérer équipements
     db.all('SELECT * FROM checklist_equipment WHERE checklist_id = ? ORDER BY equipment_order, id', [id], (err, equipment) => {
       if (err) return res.status(500).json({ error: 'Erreur serveur' });
       
+      // Récupérer tâches
       db.all('SELECT * FROM checklist_tasks WHERE checklist_id = ? ORDER BY task_order, id', [id], (err, tasks) => {
         if (err) return res.status(500).json({ error: 'Erreur serveur' });
         
@@ -51,113 +52,60 @@ router.get('/:id', requireAuth, (req, res) => {
 // PUT /api/checklists/:id
 router.put('/:id', requireAuth, (req, res) => {
   const { id } = req.params;
-  const { name, description, equipment, tasks } = req.body;
+  // Ajout de 'category' ici
+  const { name, description, category, equipment, tasks } = req.body;
   
-  console.log('📥 Réception PUT /api/checklists/' + id);
-  console.log('  Equipment:', equipment);
-  console.log('  Tasks:', tasks);
-  
+  // Update avec category
   db.run(
-    'UPDATE checklists SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP, updated_by_user_id = ? WHERE id = ?',
-    [name, description, req.session.userId, id],
+    'UPDATE checklists SET name = ?, description = ?, category = ?, updated_at = CURRENT_TIMESTAMP, updated_by_user_id = ? WHERE id = ?',
+    [name, description, category || 'Autre', req.session.userId, id],
     function (err) {
       if (err) {
         console.error('❌ Erreur UPDATE checklist:', err);
         return res.status(500).json({ error: 'Erreur lors de la modification' });
       }
       
-      console.log('✅ Checklist mise à jour');
-      
+      // Suppression anciens items pour les recréer (méthode simple)
       db.run('DELETE FROM checklist_equipment WHERE checklist_id = ?', [id], (err) => {
-        if (err) {
-          console.error('❌ Erreur DELETE equipment:', err);
-          return res.status(500).json({ error: 'Erreur suppression équipements' });
-        }
-        
-        console.log('✅ Anciens équipements supprimés');
+        if (err) return res.status(500).json({ error: 'Erreur suppression équipements' });
         
         db.run('DELETE FROM checklist_tasks WHERE checklist_id = ?', [id], (err) => {
-          if (err) {
-            console.error('❌ Erreur DELETE tasks:', err);
-            return res.status(500).json({ error: 'Erreur suppression tâches' });
-          }
+          if (err) return res.status(500).json({ error: 'Erreur suppression tâches' });
           
-          console.log('✅ Anciennes tâches supprimées');
-          
-          // Insérer les nouveaux équipements AVEC L'ORDRE
+          // Réinsertion Equipements
           const validEquipment = equipment && equipment.length > 0 
             ? equipment.filter(eq => eq.equipment_name && eq.equipment_name.trim() !== '') 
             : [];
           
-          console.log(`📦 Insertion de ${validEquipment.length} équipements`);
-          
           if (validEquipment.length > 0) {
             const stmtEq = db.prepare('INSERT INTO checklist_equipment (checklist_id, equipment_name, quantity, equipment_order) VALUES (?, ?, ?, ?)');
             validEquipment.forEach((eq, idx) => {
-              stmtEq.run(id, eq.equipment_name.trim(), eq.quantity || 1, idx, (err) => {
-                if (err) console.error(`❌ Erreur insert equipment ${idx}:`, err);
-                else console.log(`  ✅ Équipement ${idx} inséré (ordre: ${idx})`);
-              });
+              stmtEq.run(id, eq.equipment_name.trim(), eq.quantity || 1, idx);
             });
-            stmtEq.finalize((err) => {
-              if (err) console.error('❌ Erreur finalize equipment:', err);
-              else console.log('✅ Tous les équipements insérés');
-              
-              insertTasks();
-            });
-          } else {
-            insertTasks();
+            stmtEq.finalize();
           }
-          
-          function insertTasks() {
-            const validTasks = tasks && tasks.length > 0 
-              ? tasks.filter(task => task.task_name && task.task_name.trim() !== '') 
-              : [];
+
+          // Réinsertion Tâches
+          const validTasks = tasks && tasks.length > 0 
+            ? tasks.filter(task => task.task_name && task.task_name.trim() !== '') 
+            : [];
             
-            console.log(`📋 Insertion de ${validTasks.length} tâches`);
-            
-            if (validTasks.length > 0) {
-              const stmtTask = db.prepare('INSERT INTO checklist_tasks (checklist_id, task_name, task_order) VALUES (?, ?, ?)');
-              validTasks.forEach((task, idx) => {
-                stmtTask.run(id, task.task_name.trim(), idx, (err) => {
-                  if (err) console.error(`❌ Erreur insert task ${idx}:`, err);
-                  else console.log(`  ✅ Tâche ${idx} insérée: "${task.task_name}" (ordre: ${idx})`);
-                });
-              });
-              stmtTask.finalize((err) => {
-                if (err) {
-                  console.error('❌ Erreur finalize tasks:', err);
-                  return res.status(500).json({ error: 'Erreur insertion tâches' });
-                }
-                
-                console.log('✅ Toutes les tâches insérées');
-                
-                db.run(
-                  'INSERT INTO activity_logs (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)',
-                  [req.session.userId, 'update', 'checklist', id],
-                  (err) => {
-                    if (err) console.error('❌ Erreur log:', err);
-                    
-                    console.log('🎉 Sauvegarde terminée avec succès');
-                    res.json({ success: true });
-                  }
-                );
-              });
-            } else {
-              console.log('ℹ️ Aucune tâche à insérer');
-              
-              db.run(
-                'INSERT INTO activity_logs (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)',
-                [req.session.userId, 'update', 'checklist', id],
-                (err) => {
-                  if (err) console.error('❌ Erreur log:', err);
-                  
-                  console.log('🎉 Sauvegarde terminée avec succès');
-                  res.json({ success: true });
-                }
-              );
+          if (validTasks.length > 0) {
+            const stmtTask = db.prepare('INSERT INTO checklist_tasks (checklist_id, task_name, task_order) VALUES (?, ?, ?)');
+            validTasks.forEach((task, idx) => {
+              stmtTask.run(id, task.task_name.trim(), idx);
+            });
+            stmtTask.finalize();
+          }
+
+          // Log
+          db.run(
+            'INSERT INTO activity_logs (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)',
+            [req.session.userId, 'update', 'checklist', id],
+            (err) => {
+              res.json({ success: true });
             }
-          }
+          );
         });
       });
     }
@@ -166,15 +114,16 @@ router.put('/:id', requireAuth, (req, res) => {
 
 // POST /api/checklists
 router.post('/', requireAuth, (req, res) => {
-  const { name, description, equipment, tasks, updated_by } = req.body;
+  // Ajout de 'category' ici
+  const { name, description, category, equipment, tasks } = req.body;
   
   if (!name) {
     return res.status(400).json({ error: 'Nom requis' });
   }
   
   db.run(
-    'INSERT INTO checklists (name, description, updated_by_user_id) VALUES (?, ?, ?)',
-    [name, description || null, req.session.userId],
+    'INSERT INTO checklists (name, description, category, updated_by_user_id) VALUES (?, ?, ?, ?)',
+    [name, description || null, category || 'Autre', req.session.userId],
     function (err) {
       if (err) return res.status(500).json({ error: 'Erreur lors de la création' });
       
@@ -221,6 +170,10 @@ router.delete('/:id', requireAuth, (req, res) => {
   
   db.run('DELETE FROM checklists WHERE id = ?', [id], function (err) {
     if (err) return res.status(500).json({ error: 'Erreur lors de la suppression' });
+    
+    // Nettoyage en cascade manuel si pas de foreign keys
+    db.run('DELETE FROM checklist_equipment WHERE checklist_id = ?', [id]);
+    db.run('DELETE FROM checklist_tasks WHERE checklist_id = ?', [id]);
     
     db.run(
       'INSERT INTO activity_logs (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)',
