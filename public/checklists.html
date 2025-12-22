@@ -12,70 +12,8 @@
   <link rel="stylesheet" href="/css/table.css" />
   <link rel="stylesheet" href="/css/pages.css" />
   <link rel="stylesheet" href="/css/utilities.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="/css/transitions.css" />
-  
-  <style>
-    /* STYLE DES ONGLETS (TYPE RAPPORTS) */
-    .tabs-header {
-      display: flex;
-      border-bottom: 2px solid var(--border-color);
-      margin-bottom: 30px;
-      gap: 30px;
-    }
-    
-    .tab-btn {
-      background: none;
-      border: none;
-      padding: 15px 5px;
-      font-size: 1rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-      cursor: pointer;
-      position: relative;
-      transition: all 0.2s;
-    }
-    
-    .tab-btn:hover {
-      color: var(--primary-600);
-    }
-    
-    .tab-btn.active {
-      color: var(--primary-600);
-      font-weight: 600;
-    }
-    
-    .tab-btn.active::after {
-      content: '';
-      position: absolute;
-      bottom: -2px;
-      left: 0;
-      width: 100%;
-      height: 3px;
-      background-color: var(--primary-600);
-      border-radius: 3px 3px 0 0;
-    }
-    
-    .tab-count {
-      background-color: var(--neutral-200);
-      color: var(--text-secondary);
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      margin-left: 8px;
-    }
-    
-    .tab-btn.active .tab-count {
-      background-color: var(--primary-100);
-      color: var(--primary-700);
-    }
-
-    /* Sections cachées par défaut */
-    .tab-content { display: none; animation: fadeIn 0.3s ease; }
-    .tab-content.active { display: block; }
-    
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
 <body>
   <div class="app-container">
@@ -86,7 +24,7 @@
         <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
         <a href="/checklists.html" class="active"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
         <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
-        <a href="/admin.html" id="admin-link"><i class="fas fa-cog"></i><span>Administration</span></a>
+        <a href="/admin.html" id="admin-link" class="hidden"><i class="fas fa-cog"></i><span>Administration</span></a>
       </nav>
       <div class="sidebar-footer">
         <div class="user-info" id="user-info"></div>
@@ -97,128 +35,94 @@
     </aside>
 
     <main class="main-content">
+      
       <div class="page-header">
-        <h1><i class="fas fa-clipboard-check"></i> Gestion des Checklists</h1>
-        <div style="display: flex; gap: var(--space-3); align-items: center;">
-          <input 
-            type="text" 
-            id="checklist-search" 
-            placeholder="Rechercher..." 
-            style="min-width: 250px; padding: 0.5rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: var(--font-size-sm);"
-          />
-          <button class="btn btn-success" id="add-checklist-btn">
-            <i class="fas fa-plus"></i> Nouveau
-          </button>
-        </div>
-      </div>
-
-      <div class="tabs-header">
-        <button class="tab-btn active" onclick="switchTab('all')">
-          <i class="fas fa-layer-group"></i> Tous <span class="tab-count" id="count-all">0</span>
-        </button>
-        <button class="tab-btn" onclick="switchTab('Maintenance')">
-          <i class="fas fa-tools"></i> Maintenance <span class="tab-count" id="count-Maintenance">0</span>
-        </button>
-        <button class="tab-btn" onclick="switchTab('Installation')">
-          <i class="fas fa-plug"></i> Installation <span class="tab-count" id="count-Installation">0</span>
-        </button>
-        <button class="tab-btn" onclick="switchTab('Dépannage')">
-          <i class="fas fa-stethoscope"></i> Dépannage <span class="tab-count" id="count-Dépannage">0</span>
-        </button>
-        <button class="tab-btn" onclick="switchTab('Audit')">
-          <i class="fas fa-clipboard-list"></i> Audit <span class="tab-count" id="count-Audit">0</span>
-        </button>
-        <button class="tab-btn" onclick="switchTab('Autre')">
-          <i class="fas fa-ellipsis-h"></i> Autre <span class="tab-count" id="count-Autre">0</span>
+        <h1><i class="fas fa-clipboard-list"></i> Gestion des Checklists</h1>
+        <button class="btn btn-primary" id="add-checklist-btn">
+            <i class="fas fa-plus"></i> Nouvelle Checklist
         </button>
       </div>
 
-      <div class="checklists-grid" id="checklists-grid">
-        <div style="text-align: center; padding: 40px; color: var(--neutral-500)">
-          <i class="fas fa-spinner fa-spin fa-2x"></i>
-          <p style="margin-top: 10px">Chargement...</p>
-        </div>
-      </div>
+      <div class="checklist-container-fluid" style="padding: 2rem 3rem;">
+      
+        <div class="toolbar-card">
+            
+            <div class="toolbar-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="checklist-search" placeholder="Rechercher une checklist..." />
+            </div>
 
-      <footer class="app-footer">
-        <div class="footer-content">
-          <div class="footer-brand">
-            <div class="footer-logo"><i class="fas fa-stethoscope"></i></div>
-            <div class="footer-info"><h3>KB Medizin Technik GmbH</h3><p>Solutions médicales professionnelles</p></div>
-          </div>
-          <div class="footer-links">
-             </div>
+            <div class="toolbar-divider"></div>
+
+            <div class="toolbar-tabs">
+                <button class="nav-tab active" onclick="switchTab('all')">
+                    Tous <span class="nav-count" id="count-all">0</span>
+                </button>
+                <button class="nav-tab" onclick="switchTab('Maintenance')">
+                    Maintenance <span class="nav-count" id="count-Maintenance">0</span>
+                </button>
+                <button class="nav-tab" onclick="switchTab('Installation')">
+                    Installation <span class="nav-count" id="count-Installation">0</span>
+                </button>
+                <button class="nav-tab" onclick="switchTab('Dépannage')">
+                    Dépannage <span class="nav-count" id="count-Dépannage">0</span>
+                </button>
+                <button class="nav-tab" onclick="switchTab('Audit')">
+                    Audit <span class="nav-count" id="count-Audit">0</span>
+                </button>
+                <button class="nav-tab" onclick="switchTab('Autre')">
+                    Autre <span class="nav-count" id="count-Autre">0</span>
+                </button>
+            </div>
         </div>
-        <div class="footer-bottom"><p>&copy; 2025 KB Medizin Technik GmbH.</p></div>
-      </footer>
+
+        <div class="checklists-grid" id="checklists-grid">
+            </div>
+
+        <div class="pagination-bar" id="pagination-container" style="display: none;">
+            <span class="pagination-info" id="pagination-info">Page 1 sur 1</span>
+            <div class="pagination-buttons">
+                <button class="btn btn-secondary btn-sm" id="prev-page" disabled><i class="fas fa-chevron-left"></i></button>
+                <button class="btn btn-secondary btn-sm" id="next-page" disabled><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+
+      </div>
     </main>
   </div>
 
   <div class="modal" id="checklist-modal">
     <div class="modal-content" style="max-width: 900px">
       <div class="modal-header">
-        <h2 id="checklist-modal-title"><i class="fas fa-plus-circle"></i> Créer une checklist</h2>
+        <h2 id="checklist-modal-title"><i class="fas fa-file-contract" style="color:var(--color-primary)"></i> Éditer la checklist</h2>
         <button class="modal-close" id="close-checklist-modal">&times;</button>
       </div>
       <div class="modal-body">
         <form id="checklist-form">
           <input type="hidden" id="checklist-id" />
-          <div class="form-row" style="display: flex; gap: 20px;">
-            <div class="form-group" style="flex: 2;">
-              <label for="checklist-name">Nom *</label>
-              <input type="text" id="checklist-name" required />
-            </div>
-            <div class="form-group" style="flex: 1;">
-              <label for="checklist-category">Catégorie</label>
-              <select id="checklist-category">
-                <option value="Autre">Autre</option>
-                <option value="Maintenance">Maintenance</option>
-                <option value="Installation">Installation</option>
-                <option value="Dépannage">Dépannage</option>
-                <option value="Audit">Audit</option>
-              </select>
-            </div>
+          <div class="form-row">
+            <div class="form-group" style="flex: 2;"><label>Nom de la checklist *</label><input type="text" id="checklist-name" required placeholder="Ex: Maintenance Annuelle ORL" /></div>
+            <div class="form-group" style="flex: 1;"><label>Catégorie</label><select id="checklist-category"><option value="Autre">Autre</option><option value="Maintenance">Maintenance</option><option value="Installation">Installation</option><option value="Dépannage">Dépannage</option><option value="Audit">Audit</option></select></div>
           </div>
-          <div class="form-group">
-            <label>Description</label>
-            <textarea id="checklist-description" rows="2"></textarea>
-          </div>
-          <div class="checklist-section">
-            <div class="checklist-section-header">
-              <h3>Matériel</h3>
-              <button type="button" class="btn btn-sm btn-primary" id="add-equipment-btn">Ajouter</button>
-            </div>
-            <div id="equipment-list" class="checklist-items-list"></div>
-          </div>
-          <div class="checklist-section">
-            <div class="checklist-section-header">
-              <h3>Tâches</h3>
-              <button type="button" class="btn btn-sm btn-primary" id="add-task-btn">Ajouter</button>
-            </div>
-            <div id="tasks-list" class="checklist-items-list"></div>
+          <div class="form-group"><label>Description courte</label><textarea id="checklist-description" rows="2" placeholder="Instructions..."></textarea></div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
+              <div class="checklist-section">
+                <div class="checklist-section-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem;"><h3 style="font-size:1rem; margin:0;"><i class="fas fa-toolbox" style="color:#3b82f6;"></i> Matériel Requis</h3><button type="button" class="btn btn-sm btn-secondary" id="add-equipment-btn"><i class="fas fa-plus"></i></button></div>
+                <div id="equipment-list" class="checklist-items-list"></div>
+              </div>
+              <div class="checklist-section">
+                <div class="checklist-section-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem;"><h3 style="font-size:1rem; margin:0;"><i class="fas fa-tasks" style="color:#8b5cf6;"></i> Tâches à faire</h3><button type="button" class="btn btn-sm btn-secondary" id="add-task-btn"><i class="fas fa-plus"></i></button></div>
+                <div id="tasks-list" class="checklist-items-list"></div>
+              </div>
           </div>
         </form>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancel-checklist-btn">Annuler</button>
-        <button class="btn btn-success" id="save-checklist-btn">Enregistrer</button>
-      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" id="cancel-checklist-btn">Annuler</button><button class="btn btn-save" id="save-checklist-btn">Enregistrer</button></div>
     </div>
   </div>
 
-  <div class="modal" id="delete-checklist-modal">
-      <div class="modal-content" style="max-width: 400px">
-      <div class="modal-header"><h2>Confirmer suppression</h2><button class="modal-close" id="close-delete-modal">&times;</button></div>
-      <div class="modal-body"><p>Supprimer <strong id="delete-checklist-name"></strong> ?</p></div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancel-delete-checklist-btn">Non</button>
-        <button class="btn btn-danger" id="confirm-delete-checklist-btn">Oui</button>
-      </div>
-    </div>
-  </div>
-
+  <div class="modal" id="delete-checklist-modal"><div class="modal-content" style="max-width: 400px"><div class="modal-header"><h2 style="color:var(--color-danger);">Supprimer ?</h2><button class="modal-close" id="close-delete-modal">&times;</button></div><div class="modal-body"><p>Voulez-vous vraiment supprimer la checklist <strong id="delete-checklist-name"></strong> ?</p></div><div class="modal-footer"><button class="btn btn-secondary" id="cancel-delete-checklist-btn">Annuler</button><button class="btn btn-danger" id="confirm-delete-checklist-btn">Confirmer</button></div></div></div>
   <div id="notification-container" class="notification-container"></div>
   <script src="/js/checklists.js"></script>
-  <script src="/js/page-transitions.js"></script>
 </body>
 </html>

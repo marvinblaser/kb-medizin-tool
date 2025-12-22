@@ -1,12 +1,15 @@
 /* public/css/table.css */
 
 /**
- * KB Medizin Technik - Tables (Table Search Inputs Restored)
+ * KB Medizin Technik - Tables
+ * Theme: Medical Clean
  */
 
 .table-container {
-  background: var(--bg-surface); border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  background: var(--neutral-white); 
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg); 
+  box-shadow: var(--shadow-sm);
   overflow: hidden; margin-bottom: 2rem;
 }
 
@@ -14,22 +17,32 @@
 .table { width: 100%; border-collapse: collapse; text-align: left; min-width: 1000px; }
 
 /* Headers */
-.table thead { background: var(--bg-surface-alt); border-bottom: 1px solid var(--border-color); }
+.table thead { 
+  background: var(--neutral-50); 
+  border-bottom: 1px solid var(--border-color); 
+}
 
 .table th {
-  padding: 1rem 1.25rem; /* Un peu moins de padding vertical pour laisser place aux inputs */
-  vertical-align: top; /* Important : aligne le titre en haut */
-  color: var(--text-muted);
+  padding: 1rem 1.25rem;
+  vertical-align: top;
+  color: var(--neutral-500);
   font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
 }
 
 /* Rows & Cells */
 .table tbody tr { border-bottom: 1px solid var(--border-color-light); transition: background 0.15s; }
 .table tbody tr:last-child { border-bottom: none; }
-.table tbody tr:hover { background-color: var(--bg-hover); }
 
-.table td { padding: 1.25rem 1.25rem; color: var(--text-secondary); vertical-align: middle; font-size: 0.9rem; }
-.table td strong { color: var(--text-main); font-weight: 600; }
+/* Survol léger */
+.table tbody tr:hover { background-color: var(--neutral-50); }
+
+.table td { 
+  padding: 1.25rem 1.25rem; 
+  color: var(--neutral-700); 
+  vertical-align: middle; 
+  font-size: 0.9rem; 
+}
+.table td strong { color: var(--neutral-900); font-weight: 600; }
 
 /* === STYLES POUR LES INPUTS DE COLONNE === */
 .th-content {
@@ -45,29 +58,29 @@
   padding: 0.3rem 0.5rem; 
   width: 100%; 
   font-size: 0.8rem;
-  min-height: 32px; /* Plus petit que les inputs principaux */
+  min-height: 32px;
   border-radius: 4px;
-  background: var(--bg-page); /* Fond légèrement différent du header */
+  background: white;
   border: 1px solid var(--border-color);
-  color: var(--text-main);
-  font-weight: normal; /* Pas de gras dans les inputs */
-  text-transform: none; /* Pas de majuscules forcées */
+  color: var(--neutral-800);
+  font-weight: normal;
+  text-transform: none;
 }
 
 .column-search input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+  box-shadow: 0 0 0 2px rgba(2, 119, 189, 0.1); /* Focus Bleu */
 }
 
 /* Pagination */
 .pagination {
   display: flex; justify-content: space-between; align-items: center; padding: 1.5rem;
-  background: var(--bg-surface); border-top: 1px solid var(--border-color);
+  background: var(--neutral-white); border-top: 1px solid var(--border-color);
 }
-.pagination-info { font-size: 0.85rem; color: var(--text-muted); }
+.pagination-info { font-size: 0.85rem; color: var(--neutral-500); }
 
 /* Empty State */
-.table-empty { padding: 5rem; text-align: center; color: var(--text-muted); }
+.table-empty { padding: 5rem; text-align: center; color: var(--neutral-400); }
 .table-empty i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; display: block; }
 
 /* Admin User Cell */
@@ -75,26 +88,17 @@
 
 /* Client Info Cell */
 .client-info-cell { display: flex; flex-direction: column; gap: 0.25rem; }
-.client-name { font-weight: 600; color: var(--text-main); font-size: 0.95rem; }
-.client-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; }
+.client-name { font-weight: 600; color: var(--neutral-900); font-size: 0.95rem; }
+.client-meta { font-size: 0.8rem; color: var(--neutral-500); display: flex; flex-direction: column; gap: 2px; }
 .client-meta span { display: flex; align-items: center; gap: 0.5rem; }
 
-@media (max-width: 768px) {
-  .table thead { display: none; } /* Cache les headers sur mobile, y compris les inputs colonnes */
-  .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
-  .table tr { margin-bottom: 1rem; border: 1px solid var(--border-color); background: var(--bg-surface); padding: 1rem; }
-  .table td { display: flex; justify-content: space-between; border: none; text-align: right; padding: 0.5rem 0; }
-  .table td::before { content: attr(data-label); float: left; font-weight: 600; color: var(--text-muted); font-size: 0.8rem; }
-}
-/* ... (Garde tout le contenu précédent) ... */
-
-/* === NOUVEAU : BADGES ÉQUIPEMENTS (Aperçu Annuaire) === */
+/* === BADGES ÉQUIPEMENTS (Aperçu Annuaire) === */
 .eq-badge {
   display: inline-block;
   padding: 2px 6px;
-  background-color: #f1f5f9; /* Gris très clair */
-  color: #475569; /* Gris foncé */
-  border: 1px solid #e2e8f0;
+  background-color: var(--neutral-100);
+  color: var(--neutral-600);
+  border: 1px solid var(--neutral-200);
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 600;
@@ -103,21 +107,27 @@
   white-space: nowrap;
 }
 
-.eq-badge i {
-  margin-right: 3px;
-  color: #64748b;
-}
+.eq-badge i { margin-right: 3px; color: var(--neutral-500); }
 
+/* Le "Voir plus" en bleu maintenant */
 .eq-badge-more {
-  background-color: #e0e7ff;
-  color: #4338ca;
-  border-color: #c7d2fe;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: #b3e5fc; /* Bleu très clair */
 }
 
-/* Ajustement pour la grille de filtres du planning */
+/* Ajustement pour la grille de filtres */
 .planning-filters-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 10px;
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .table thead { display: none; }
+  .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
+  .table tr { margin-bottom: 1rem; border: 1px solid var(--border-color); background: var(--neutral-white); padding: 1rem; }
+  .table td { display: flex; justify-content: space-between; border: none; text-align: right; padding: 0.5rem 0; }
+  .table td::before { content: attr(data-label); float: left; font-weight: 600; color: var(--neutral-500); font-size: 0.8rem; }
 }

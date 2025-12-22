@@ -2,7 +2,8 @@
 
 /**
  * KB Medizin Technik - Components
- * Version: Indigo Spacious - Equipment Cards Redesign
+ * Version: Medical Clean - Equipment Cards Redesign
+ * Refonte: Adaptation au thème Bleu/Sarcelle
  */
 
 /* ========== BUTTONS ========== */
@@ -16,24 +17,36 @@
 .btn:disabled { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
 .btn:active { transform: translateY(1px); }
 
+/* Primary: Utilise maintenant le bleu médical */
 .btn-primary, .btn-success {
-  background-image: var(--gradient-primary); color: white; border: none; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);
+  background: var(--color-primary); /* Fallback */
+  background-image: var(--gradient-primary); 
+  color: white; 
+  border: none; 
+  box-shadow: 0 2px 4px rgba(2, 119, 189, 0.25); /* Ombre bleue adaptée */
 }
 .btn-primary:hover, .btn-success:hover {
-  background-image: var(--gradient-primary-hover); box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3); transform: translateY(-1px);
+  background-image: var(--gradient-primary-hover); 
+  box-shadow: 0 4px 6px -1px rgba(2, 119, 189, 0.3); 
+  transform: translateY(-1px);
 }
-.btn-secondary { background: white; border-color: var(--border-color); color: var(--neutral-700); }
-.btn-secondary:hover { background: var(--neutral-50); border-color: var(--neutral-300); color: var(--neutral-900); }
-.btn-danger { background: #fee2e2; color: #b91c1c; border-color: #fecaca; box-shadow: none; }
-.btn-danger:hover { background: #fecaca; color: #991b1b; }
 
+.btn-secondary { background: white; border-color: var(--border-color); color: var(--neutral-700); }
+.btn-secondary:hover { background: var(--neutral-50); border-color: var(--neutral-400); color: var(--neutral-900); }
+
+.btn-danger { background: #fee2e2; color: #c62828; border-color: #ef9a9a; box-shadow: none; }
+.btn-danger:hover { background: #ef9a9a; color: #b71c1c; }
+
+/* Bouton Save spécifique */
 .btn-save {
   background: var(--color-success); color: white; border: none; display: inline-flex; align-items: center; justify-content: center;
   gap: 0.5rem; padding: 0 1rem; min-height: 38px; font-weight: 600; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;
 }
-.btn-save:hover { background: #059669; }
+.btn-save:hover { background: #1b5e20; } /* Vert plus foncé */
 
 .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.75rem; min-height: 32px; }
+
+/* Icon Buttons */
 .btn-icon, .btn-icon-sm {
   display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent;
   cursor: pointer; border-radius: var(--radius-md); transition: all 0.2s; color: var(--neutral-500); padding: 0; box-shadow: none;
@@ -41,10 +54,13 @@
 .btn-icon { width: 36px; height: 36px; font-size: 1rem; }
 .btn-icon-sm { width: 32px; height: 32px; font-size: 0.85rem; }
 .btn-icon:hover { background: var(--neutral-100); color: var(--neutral-900); }
+
+/* Adapté au nouveau bleu */
 .btn-icon-primary { color: var(--color-primary); background: var(--color-primary-light); }
-.btn-icon-primary:hover { background: #c7d2fe; }
-.btn-icon-danger { color: var(--color-danger); background: #fee2e2; }
-.btn-icon-danger:hover { background: #fecaca; }
+.btn-icon-primary:hover { background: #b3e5fc; color: var(--color-primary-hover); }
+
+.btn-icon-danger { color: var(--color-danger); background: #ffebee; }
+.btn-icon-danger:hover { background: #ffcdd2; }
 
 /* ========== BADGES ========== */
 .badge {
@@ -54,7 +70,8 @@
 .badge-success { background: var(--status-jour-bg); color: var(--status-jour-text); border-color: var(--status-jour-border); }
 .badge-warning { background: var(--status-soon-bg); color: var(--status-soon-text); border-color: var(--status-soon-border); }
 .badge-danger { background: var(--status-expire-bg); color: var(--status-expire-text); border-color: var(--status-expire-border); }
-.badge-info, .badge-primary { background: var(--color-primary-light); color: var(--color-primary); border-color: #c7d2fe; }
+
+.badge-info, .badge-primary { background: var(--color-primary-light); color: var(--color-primary); border-color: #b3e5fc; }
 .badge-secondary { background: var(--neutral-100); color: var(--neutral-600); border-color: var(--neutral-200); }
 
 .user-avatar-sm {
@@ -64,26 +81,32 @@
 
 /* ========== MODALS ========== */
 .modal {
-  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px);
   z-index: var(--z-modal); display: none; align-items: center; justify-content: center; padding: 1rem;
 }
 .modal.active { display: flex; animation: fadeIn 0.2s ease-out; }
+
 .modal-content {
   background: white; border-radius: var(--radius-xl); width: 100%; max-width: 650px; max-height: 90vh;
   overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color);
   transform: scale(0.95); opacity: 0; animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; display: flex; flex-direction: column;
 }
+
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scaleIn { to { transform: scale(1); opacity: 1; } }
+
 .modal-header {
   padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: white; position: sticky; top: 0; z-index: 10;
 }
 .modal-header h2 { font-size: 1.1rem; font-weight: 700; color: var(--neutral-900); margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+
 .modal-close {
   background: transparent; border: none; font-size: 1.5rem; color: var(--neutral-400); cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); transition: all 0.2s;
 }
 .modal-close:hover { background: var(--neutral-100); color: var(--neutral-900); }
+
 .modal-body { padding: 1.5rem; flex: 1; overflow-y: auto; }
+
 .modal-footer {
   padding: 1rem 1.5rem; background: var(--neutral-50); border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 0.75rem; position: sticky; bottom: 0; z-index: 10;
 }
@@ -122,17 +145,20 @@
 .table-actions button { opacity: 0.7; transition: all 0.2s; }
 .table-actions button:hover { opacity: 1; transform: scale(1.1); }
 
+/* Action Menu */
 .action-menu { position: relative; display: inline-block; }
 .action-menu-trigger {
   width: 32px; height: 32px; border-radius: var(--radius-md); border: 1px solid transparent; background: transparent;
   color: var(--neutral-500); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
 }
 .action-menu-trigger:hover { background: var(--neutral-100); color: var(--color-primary); }
+
 .action-menu-dropdown {
   position: absolute; right: 0; top: 100%; margin-top: 0.25rem; width: 180px; background: white; border: 1px solid var(--border-color);
   border-radius: var(--radius-md); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: var(--z-dropdown); display: none; padding: 0.25rem;
 }
 .action-menu-dropdown.active { display: block; animation: fadeIn 0.2s; }
+
 .action-menu-item {
   width: 100%; text-align: left; padding: 0.5rem 0.75rem; background: transparent; border: none; font-size: 0.85rem;
   color: var(--neutral-700); cursor: pointer; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.5rem;
@@ -141,14 +167,13 @@
 .action-menu-item.danger { color: var(--color-danger); }
 .action-menu-item.danger:hover { background: #fee2e2; }
 
-/* ========== EQUIPMENT CARDS (NOUVEAU DESIGN ÉPURÉ) ========== */
+/* ========== EQUIPMENT CARDS ========== */
 .equipment-badges {
   display: flex;
   flex-direction: column;
-  gap: 10px; /* Espace aéré entre les cartes */
+  gap: 10px;
 }
 
-/* La carte elle-même */
 .equipment-card {
   background: white;
   border-radius: var(--radius-md);
@@ -163,7 +188,6 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.02);
 }
 
-/* La barre de statut à gauche (couleur) */
 .equipment-card::before {
   content: '';
   position: absolute;
@@ -171,75 +195,32 @@
   top: 0;
   bottom: 0;
   width: 4px;
-  background: var(--neutral-300); /* Défaut */
+  background: var(--neutral-300);
 }
 
 .equipment-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05); /* Ombre neutre */
   border-color: var(--color-primary-light);
 }
 
-/* Variantes de statut pour la barre */
 .equipment-card.status-ok::before { background-color: var(--color-success); }
 .equipment-card.status-warning::before { background-color: var(--color-warning); }
 .equipment-card.status-expired::before { background-color: var(--color-danger); }
 
-/* Infos Gauche (Nom + Série) */
-.equipment-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
+.equipment-info { display: flex; flex-direction: column; gap: 0.25rem; }
+.equipment-name { font-weight: 700; color: var(--neutral-800); font-size: 0.95rem; letter-spacing: -0.01em; }
+.equipment-meta { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--neutral-500); }
+.equipment-brand { font-weight: 500; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; }
+.equipment-serial { font-family: var(--font-family-mono); background: var(--neutral-100); padding: 1px 6px; border-radius: 4px; color: var(--neutral-600); }
 
-.equipment-name {
-  font-weight: 700;
-  color: var(--neutral-800);
-  font-size: 0.95rem;
-  letter-spacing: -0.01em;
-}
-
-.equipment-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--neutral-500);
-}
-
-.equipment-brand {
-  font-weight: 500;
-  text-transform: uppercase;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-}
-
-.equipment-serial {
-  font-family: var(--font-family-mono);
-  background: var(--neutral-100);
-  padding: 1px 6px;
-  border-radius: 4px;
-  color: var(--neutral-600);
-}
-
-/* Infos Droite (Badge + Date) */
-.equipment-status {
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
-}
-
-.equipment-days {
-  font-size: 0.75rem;
-  font-weight: 600;
-}
+.equipment-status { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
+.equipment-days { font-size: 0.75rem; font-weight: 600; }
 .text-danger { color: var(--color-danger); }
-.text-warning { color: #b45309; }
+.text-warning { color: #f57f17; } /* Ajusté */
 .text-success { color: var(--color-success); }
 
-/* Le badge en forme de pilule (pill) */
+/* Badge Pill */
 .status-pill {
   padding: 0.2rem 0.6rem;
   border-radius: 99px;
@@ -252,21 +233,14 @@
 .status-pill.warning { background: var(--status-soon-bg); color: var(--status-soon-text); border: 1px solid var(--status-soon-border); }
 .status-pill.expired { background: var(--status-expire-bg); color: var(--status-expire-text); border: 1px solid var(--status-expire-border); }
 
-/* État vide ou filtré */
 .equipment-empty {
-  color: var(--neutral-400);
-  font-size: 0.85rem;
-  font-style: italic;
-  padding: 0.5rem;
-  background: var(--neutral-50);
-  border-radius: 6px;
-  text-align: center;
+  color: var(--neutral-400); font-size: 0.85rem; font-style: italic; padding: 0.5rem; background: var(--neutral-50); border-radius: 6px; text-align: center;
 }
 
 /* --- DETAILS CARDS --- */
 .equipment-detail-card {
   background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem;
-  margin-bottom: 1rem; box-shadow: var(--shadow-sm); border-top: 3px solid var(--color-primary);
+  margin-bottom: 1rem; box-shadow: var(--shadow-sm); border-top: 3px solid var(--color-primary); /* Bleu */
 }
 .equipment-detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color-light); }
 .equipment-detail-name { font-size: 1rem; font-weight: 700; color: var(--neutral-900); }
@@ -278,15 +252,25 @@
 
 /* History Items */
 .history-list { display: flex; flex-direction: column; gap: 0.75rem; }
-.history-item { background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; border-left: 3px solid var(--neutral-300); transition: all 0.2s; }
-.history-item:hover { border-left-color: var(--color-primary); box-shadow: var(--shadow-sm); }
+.history-item { 
+  background: white; 
+  border: 1px solid var(--border-color); 
+  border-radius: 8px; 
+  padding: 1rem; 
+  border-left: 3px solid var(--neutral-300); 
+  transition: all 0.2s; 
+}
+.history-item:hover { 
+  border-left-color: var(--color-primary); /* Bleu au survol */
+  box-shadow: var(--shadow-sm); 
+}
 .history-item-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
 .history-date { font-weight: 600; color: var(--neutral-900); display: flex; align-items: center; gap: 0.5rem; }
 .history-tech { font-size: 0.75rem; background: var(--neutral-100); padding: 2px 8px; border-radius: 12px; color: var(--neutral-600); }
 .history-content { color: var(--neutral-600); font-size: 0.85rem; line-height: 1.4; }
 .history-actions { display: flex; gap: 5px; }
-.btn-xs { padding: 2px 6px; font-size: 0.7rem; height: 22px; line-height: 1; }
 
+/* Petits boutons utilitaires */
 .btn-xs {
   padding: 2px 8px;
   font-size: 0.75rem;

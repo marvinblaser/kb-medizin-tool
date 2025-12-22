@@ -14,207 +14,6 @@
     <link rel="stylesheet" href="/css/utilities.css" />
     <link rel="stylesheet" href="/css/transitions.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <style>
-      .planning-row-danger { background-color: #fef2f2 !important; }
-      .planning-row-warning { background-color: #fffbeb !important; }
-      .planning-row-success { background-color: #ecfdf5 !important; }
-      
-      /* --- VIEW SWITCHER --- */
-      .view-switcher { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
-      .view-btn { 
-        padding: 0.5rem 1rem; background: transparent; border: none; font-weight: 600; cursor: pointer; 
-        color: var(--neutral-500); transition: all 0.2s; border-radius: var(--radius-md); 
-        display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem;
-      }
-      .view-btn.active { color: var(--color-primary); background: var(--color-primary-light); }
-      .view-btn:hover:not(.active) { color: var(--neutral-900); background: var(--neutral-100); }
-      .view-section { display: none; animation: fadeIn 0.3s ease; }
-      .view-section.active { display: block; }
-
-      /* --- FICHE CLIENT --- */
-      .client-sheet { max-width: 1100px; height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
-      .client-sheet-body { display: flex; flex: 1; overflow: hidden; padding: 0; }
-      .sheet-sidebar { width: 300px; background: var(--neutral-50); border-right: 1px solid var(--border-color); padding: 1.5rem; overflow-y: auto; }
-      .sheet-avatar { width: 80px; height: 80px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--color-primary); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); margin-bottom: 1rem; }
-      .sheet-title { font-size: 1.25rem; font-weight: 700; color: var(--neutral-900); margin-bottom: 0.25rem; line-height: 1.2; }
-      .sheet-subtitle { font-size: 0.9rem; color: var(--neutral-500); margin-bottom: 1.5rem; }
-      .sheet-contact-item { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 1rem; font-size: 0.9rem; color: var(--neutral-700); }
-      .sheet-contact-item i { color: var(--color-primary); margin-top: 3px; }
-      .sheet-main { flex: 1; padding: 2rem; overflow-y: auto; background: white; }
-      .sheet-tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem; }
-      .sheet-tab { padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 600; color: var(--neutral-500); transition: all 0.2s; }
-      .sheet-tab:hover { color: var(--color-primary); }
-      .sheet-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-      
-      /* --- FILTRES GRID --- */
-      .filters-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 1.5rem; }
-      .filter-box { background: white; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1rem; box-shadow: var(--shadow-sm); }
-      
-      /* Grid pour les selects principaux */
-      .planning-main-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: center; }
-      
-      /* Grid pour les inputs machines (caché par défaut) */
-      .planning-advanced-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); }
-      
-      .eq-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: white; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.75rem; font-weight: 500; color: var(--neutral-700); margin-right: 4px; margin-bottom: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
-      .eq-badge i { color: var(--color-primary); font-size: 0.7rem; }
-      .eq-badge-more { background: var(--color-primary-light); color: var(--color-primary); border-color: transparent; cursor: help; }
-      th.sortable { cursor: pointer; user-select: none; transition: background 0.15s; }
-      th.sortable:hover { background-color: var(--neutral-100); color: var(--neutral-900); }
-      th.active-sort { color: var(--color-primary); background-color: var(--color-primary-light) !important; }
-
-    /* --- OPTION 1 : BADGES GROUPÉS & TOOLTIP --- */
-      .eq-group-badge {
-        display: inline-flex;
-        align-items: center;
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 2px 6px;
-        margin-right: 6px;
-        margin-bottom: 4px;
-        font-size: 0.8rem;
-        color: var(--neutral-700);
-        cursor: help; /* Curseur ? pour indiquer l'info */
-        transition: all 0.2s;
-        box-shadow: var(--shadow-sm);
-      }
-      .eq-group-badge:hover {
-        border-color: var(--color-primary);
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-      }
-      .eq-count {
-        font-weight: 700;
-        background: var(--neutral-100);
-        color: var(--neutral-900);
-        padding: 0 5px;
-        border-radius: 4px;
-        margin-right: 6px;
-        font-size: 0.75rem;
-      }
-      .eq-group-badge:hover .eq-count {
-        background: white;
-        color: var(--color-primary);
-      }
-      .eq-icon { margin-right: 4px; opacity: 0.7; }
-
-      /* Le Tooltip Flottant */
-      #custom-tooltip {
-        position: fixed;
-        background: rgba(15, 23, 42, 0.95); /* Noir/Bleu très foncé */
-        color: white;
-        padding: 8px 12px;
-        border-radius: 6px;
-        font-size: 0.8rem;
-        z-index: 9999;
-        pointer-events: none; /* La souris passe au travers */
-        white-space: pre-line; /* Gère les retours à la ligne */
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
-        opacity: 0;
-        transition: opacity 0.15s;
-        max-width: 300px;
-        line-height: 1.4;
-      }
-      .tooltip-row { margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; }
-      .tooltip-row:last-child { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
-      .tooltip-model { font-weight: 600; color: #e0e7ff; }
-      .tooltip-serial { color: #94a3b8; font-size: 0.75rem; }
-
-      /* --- TIMELINE HISTORY DESIGN --- */
-      .history-list {
-        position: relative;
-        padding-left: 20px; /* Espace pour la ligne verticale */
-      }
-      /* La ligne verticale */
-      .history-list::before {
-        content: '';
-        position: absolute;
-        left: 6px;
-        top: 5px;
-        bottom: 0;
-        width: 2px;
-        background: var(--neutral-200);
-      }
-
-      .history-item {
-        position: relative;
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-        transition: all 0.2s;
-      }
-      .history-item:hover {
-        transform: translateX(2px);
-        box-shadow: var(--shadow-md);
-        border-color: var(--color-primary-light);
-      }
-
-      /* Le point sur la ligne */
-      .history-dot {
-        position: absolute;
-        left: -20px; /* Ajusté pour s'aligner sur la ligne */
-        top: 15px;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: white;
-        border: 3px solid var(--neutral-300);
-        z-index: 2;
-      }
-      .history-item.type-report .history-dot { border-color: var(--color-primary); }
-      .history-item.type-appointment .history-dot { border-color: var(--color-warning); }
-
-      .history-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.5rem;
-      }
-      .history-date {
-        font-weight: 700;
-        font-size: 0.9rem;
-        color: var(--neutral-800);
-      }
-      .history-badge {
-        font-size: 0.7rem;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-      }
-      .badge-report { background: #e0e7ff; color: #4338ca; }
-      .badge-manual { background: #fef3c7; color: #b45309; }
-
-      .history-machine {
-        background: var(--neutral-50);
-        border-left: 3px solid var(--neutral-400);
-        padding: 4px 8px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--neutral-700);
-        margin-bottom: 0.5rem;
-        border-radius: 0 4px 4px 0;
-        display: inline-block;
-      }
-      .history-desc {
-        color: var(--neutral-600);
-        font-size: 0.85rem;
-        line-height: 1.5;
-      }
-      .history-footer {
-        margin-top: 0.75rem;
-        padding-top: 0.75rem;
-        border-top: 1px solid var(--neutral-100);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      .history-tech { font-size: 0.75rem; color: var(--neutral-500); font-style: italic; }
-    </style>
   </head>
   <body>
     <div class="app-container">
@@ -239,108 +38,113 @@
           <button class="btn btn-primary" onclick="openClientModal()"><i class="fas fa-plus"></i> Nouveau Client</button>
         </div>
 
-        <div class="view-switcher">
-            <button class="view-btn active" id="btn-view-directory" onclick="switchView('directory')"><i class="fas fa-address-book"></i> Annuaire Clients</button>
-            <button class="view-btn" id="btn-view-planning" onclick="switchView('planning')"><i class="fas fa-calendar-alt"></i> Planning Service</button>
-        </div>
-
-        <div id="view-directory" class="view-section active">
-            <div class="table-controls" style="flex-direction: column; align-items: stretch; gap: 1rem;">
-                <div class="table-controls-row">
-                    <div class="search-box" style="flex:1;">
-                        <input type="text" id="global-search" placeholder="🔍 Rechercher (Nom, Ville, Contact)..." />
-                    </div>
-                    <button class="btn btn-secondary" id="toggle-filters-btn"><i class="fas fa-filter"></i> Filtres Avancés</button>
-                </div>
-                
-                <div id="advanced-filters" class="filter-box hidden" style="margin-bottom:0;">
-                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
-                        <div class="form-group" style="margin:0;"><label>Marque</label><input type="text" id="filter-brand" placeholder="Ex: Atmos" /></div>
-                        <div class="form-group" style="margin:0;"><label>Modèle</label><input type="text" id="filter-model" placeholder="Ex: C31" /></div>
-                        <div class="form-group" style="margin:0;"><label>Série</label><input type="text" id="filter-serial" placeholder="N° Série" /></div>
-                        <div class="form-group" style="margin:0;"><label>Secteur</label><select id="filter-category"><option value="">-- Tout --</option><option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option></select></div>
-                    </div>
-                    <div style="margin-top:10px; text-align:right;">
-                        <button class="btn btn-secondary btn-sm" id="clear-filters-btn">Effacer</button>
-                    </div>
+        <div style="padding: 2rem 3rem;">
+            
+            <div class="tabs-container">
+                <div class="tabs">
+                    <button class="tab active" id="btn-view-directory" onclick="switchView('directory')">
+                        <i class="fas fa-address-book"></i> Annuaire Clients
+                    </button>
+                    <button class="tab" id="btn-view-planning" onclick="switchView('planning')">
+                        <i class="fas fa-calendar-alt"></i> Planning Service
+                    </button>
                 </div>
             </div>
 
-            <div class="table-container">
-              <div class="table-wrapper">
-                <table id="clients-table" class="table">
-                  <thead>
-                    <tr>
-                      <th class="sortable" onclick="handleSort('cabinet_name')" data-col="cabinet_name" style="min-width: 220px"><i class="fas fa-sort"></i> Cabinet / Client</th>
-                      <th class="sortable" onclick="handleSort('city')" data-col="city" style="min-width: 180px"><i class="fas fa-sort"></i> Localisation</th>
-                      <th style="min-width: 180px">Contact</th>
-                      <th style="min-width: 300px">Parc Machine</th>
-                      <th class="sortable" onclick="handleSort('appointment_at')" data-col="appointment_at" style="width: 130px"><i class="fas fa-sort"></i> RDV</th>
-                      <th style="width: 50px"></th>
-                    </tr>
-                  </thead>
-                  <tbody id="clients-tbody"><tr><td colspan="6" class="text-center">Chargement...</td></tr></tbody>
-                </table>
-              </div>
-              <div class="pagination">
-                <div class="pagination-info" id="pagination-info">-</div>
-                <div class="pagination-buttons"><button class="btn btn-secondary btn-sm" id="prev-page" disabled><i class="fas fa-chevron-left"></i></button><button class="btn btn-secondary btn-sm" id="next-page" disabled><i class="fas fa-chevron-right"></i></button></div>
-              </div>
-            </div>
-        </div>
-
-        <div id="view-planning" class="view-section">
-            <div class="filters-container">
-                <div class="filter-box" style="display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap;">
-                    <div class="search-box" style="flex:1; min-width:250px;">
-                        <input type="text" id="planning-search" placeholder="🔍 Rechercher dans le planning..." />
+            <div id="view-directory" class="view-section active">
+                <div class="table-controls">
+                    <div class="table-controls-row">
+                        <div class="search-box">
+                            <input type="text" id="global-search" placeholder="Rechercher un client, une ville..." />
+                        </div>
+                        <div style="flex: 1;"></div>
+                        <button class="btn btn-secondary" id="toggle-filters-btn"><i class="fas fa-filter"></i> Filtres</button>
                     </div>
-                    <div style="display:flex; gap:10px;">
-                        <span style="display:flex; align-items:center; gap:5px; font-size:0.8em;"><span style="width:12px; height:12px; background:#fee2e2; border:1px solid #b91c1c; border-radius:3px;"></span> Retard</span>
-                        <span style="display:flex; align-items:center; gap:5px; font-size:0.8em;"><span style="width:12px; height:12px; background:#ffedd5; border:1px solid #c2410c; border-radius:3px;"></span> Bientôt</span>
-                        <span style="display:flex; align-items:center; gap:5px; font-size:0.8em;"><span style="width:12px; height:12px; background:#dcfce7; border:1px solid #15803d; border-radius:3px;"></span> OK</span>
+                    
+                    <div id="advanced-filters" class="table-controls-row advanced-filters hidden">
+                        <div class="form-group mb-0"><input type="text" id="filter-brand" placeholder="Marque" /></div>
+                        <div class="form-group mb-0"><input type="text" id="filter-model" placeholder="Modèle" /></div>
+                        <div class="form-group mb-0"><input type="text" id="filter-serial" placeholder="N° Série" /></div>
+                        <div class="form-group mb-0">
+                            <select id="filter-category">
+                                <option value="">-- Secteur --</option>
+                                <option value="ORL">ORL</option>
+                                <option value="Gynécologie">Gynécologie</option>
+                                <option value="Stérilisation">Stérilisation</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-sm btn-secondary" id="clear-filters-btn">Effacer</button>
                     </div>
                 </div>
 
-                <div class="filter-box">
-                    <div class="planning-main-filters">
-                        <select id="plan-filter-status"><option value="">-- Statut --</option><option value="overdue">⚠️ En retard</option><option value="soon">🕒 Bientôt</option><option value="future">📅 Futur</option></select>
-                        <select id="plan-filter-canton"><option value="">-- Canton --</option><option value="VD">VD</option><option value="GE">GE</option><option value="VS">VS</option><option value="NE">NE</option><option value="FR">FR</option><option value="JU">JU</option><option value="BE">BE</option><option value="ZH">ZH</option><option value="AG">AG</option><option value="BS">BS</option><option value="BL">BL</option><option value="SO">SO</option></select>
-                        <select id="plan-filter-category"><option value="">-- Secteur --</option><option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option><option value="Podologie">Podologie</option><option value="Chirurgie">Chirurgie</option></select>
-                        
-                        <div style="display:flex; gap:5px;">
-                            <button class="btn btn-secondary" id="toggle-planning-filters-btn" style="flex:1;"><i class="fas fa-sliders-h"></i> Filtres Machine</button>
-                            <button class="btn btn-secondary" id="plan-reset-btn"><i class="fas fa-undo"></i></button>
+                <div class="table-container">
+                  <div class="table-wrapper">
+                    <table id="clients-table" class="table">
+                      <thead>
+                        <tr>
+                          <th class="sortable" onclick="handleSort('cabinet_name')" data-col="cabinet_name" style="width: 25%;">Cabinet / Client <i class="fas fa-sort"></i></th>
+                          <th class="sortable" onclick="handleSort('city')" data-col="city" style="width: 20%;">Localisation <i class="fas fa-sort"></i></th>
+                          <th style="width: 20%;">Contact</th>
+                          <th style="width: 25%;">Parc Machine</th>
+                          <th class="sortable" onclick="handleSort('appointment_at')" data-col="appointment_at" style="width: 10%;">Prochain RDV <i class="fas fa-sort"></i></th>
+                          <th style="width: 50px;"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="clients-tbody">
+                          </tbody>
+                    </table>
+                  </div>
+                  <div class="pagination">
+                    <div class="pagination-info" id="pagination-info">Page 1</div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary btn-sm" id="prev-page" disabled><i class="fas fa-chevron-left"></i></button>
+                        <button class="btn btn-secondary btn-sm" id="next-page" disabled><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                  </div>
+                </div>
+            </div>
+
+            <div id="view-planning" class="view-section" style="display: none;">
+                <div class="table-controls">
+                    <div class="table-controls-row">
+                        <div class="search-box">
+                            <input type="text" id="planning-search" placeholder="Rechercher dans le planning..." />
+                        </div>
+                        <div style="flex: 1; display: flex; gap: 10px; justify-content: flex-end; align-items: center;">
+                            <select id="plan-filter-status" style="max-width: 150px;"><option value="">Statut</option><option value="overdue">En retard</option><option value="soon">Bientôt</option><option value="future">Futur</option></select>
+                            <select id="plan-filter-canton" style="max-width: 100px;"><option value="">Canton</option><option value="VD">VD</option><option value="GE">GE</option><option value="VS">VS</option><option value="NE">NE</option><option value="FR">FR</option><option value="JU">JU</option><option value="BE">BE</option><option value="ZH">ZH</option></select>
+                            <button class="btn btn-secondary" id="toggle-planning-filters-btn"><i class="fas fa-sliders-h"></i> Avancé</button>
+                            <button class="btn btn-icon" id="plan-reset-btn"><i class="fas fa-undo"></i></button>
                         </div>
                     </div>
 
-                    <div id="planning-advanced-filters" class="planning-advanced-filters hidden">
-                        <input type="text" id="plan-filter-device" placeholder="Appareil (ex: Audiomètre)" />
+                    <div id="planning-advanced-filters" class="table-controls-row advanced-filters hidden">
+                        <input type="text" id="plan-filter-device" placeholder="Appareil" />
                         <input type="text" id="plan-filter-brand" placeholder="Marque" />
                         <input type="text" id="plan-filter-model" placeholder="Modèle" />
                         <input type="text" id="plan-filter-serial" placeholder="N° Série" />
-                        <input type="number" id="plan-filter-year" placeholder="Année Install." min="2000" max="2100" />
                     </div>
                 </div>
-            </div>
-            
-            <div class="table-container">
-                <div class="table-wrapper">
-                    <table class="table" style="font-size: 0.9rem;">
-                        <thead>
-                            <tr>
-                                <th class="sortable" onclick="handlePlanningSort('cabinet_name')" data-plan-col="cabinet_name"><i class="fas fa-sort"></i> Client</th>
-                                <th class="sortable" onclick="handlePlanningSort('canton')" data-plan-col="canton" style="width:60px;"><i class="fas fa-sort"></i> Qt.</th>
-                                <th class="sortable" onclick="handlePlanningSort('catalog_name')" data-plan-col="catalog_name"><i class="fas fa-sort"></i> Machine</th>
-                                <th class="sortable" onclick="handlePlanningSort('type')" data-plan-col="type"><i class="fas fa-sort"></i> Secteur</th>
-                                <th class="sortable" onclick="handlePlanningSort('last_maintenance_date')" data-plan-col="last_maintenance_date"><i class="fas fa-sort"></i> Dernier</th>
-                                <th class="sortable" onclick="handlePlanningSort('next_maintenance_date')" data-plan-col="next_maintenance_date"><i class="fas fa-sort"></i> Prochain</th>
-                                <th class="sortable" onclick="handlePlanningSort('days_remaining')" data-plan-col="days_remaining" style="text-align:center;"><i class="fas fa-sort"></i> Jours</th>
-                                <th style="width:80px;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="planning-tbody"><tr><td colspan="8" class="text-center">Chargement...</td></tr></tbody>
-                    </table>
+                
+                <div class="table-container">
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" onclick="handlePlanningSort('cabinet_name')" data-plan-col="cabinet_name">Client <i class="fas fa-sort"></i></th>
+                                    <th class="sortable" onclick="handlePlanningSort('canton')" data-plan-col="canton" style="width:60px;">Ct. <i class="fas fa-sort"></i></th>
+                                    <th class="sortable" onclick="handlePlanningSort('catalog_name')" data-plan-col="catalog_name">Machine <i class="fas fa-sort"></i></th>
+                                    <th class="sortable" onclick="handlePlanningSort('type')" data-plan-col="type">Secteur <i class="fas fa-sort"></i></th>
+                                    <th class="sortable" onclick="handlePlanningSort('last_maintenance_date')" data-plan-col="last_maintenance_date">Dernier <i class="fas fa-sort"></i></th>
+                                    <th class="sortable" onclick="handlePlanningSort('next_maintenance_date')" data-plan-col="next_maintenance_date">Prochain <i class="fas fa-sort"></i></th>
+                                    <th class="sortable" onclick="handlePlanningSort('days_remaining')" data-plan-col="days_remaining" style="text-align:center;">État <i class="fas fa-sort"></i></th>
+                                    <th style="width:80px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="planning-tbody">
+                                </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -348,54 +152,62 @@
     </div>
 
     <div class="modal" id="client-details-modal">
-        <div class="modal-content client-sheet">
-            <div class="modal-header">
-                <h2><i class="fas fa-user-circle"></i> Fiche Client</h2>
+        <div class="modal-content client-sheet-modal"> <div class="modal-header">
+                <h2><i class="fas fa-hospital-user" style="color: var(--color-primary);"></i> Fiche Client</h2>
                 <button class="modal-close" onclick="closeClientDetailsModal()">&times;</button>
             </div>
             <div class="client-sheet-body">
-                <div class="sheet-sidebarFm">
-                  <div class="sheet-avatar"><i class="fas fa-building"></i></div>
-                  <div class="sheet-title" id="sheet-name">Cabinet Nom</div>
-                  <div class="sheet-subtitle" id="sheet-activity">Activité</div>
-                  
-                  <div class="sheet-contact-item"><i class="fas fa-map-marker-alt"></i> <span id="sheet-address">Adresse...</span></div>
-                  
-                  <div class="sheet-contact-item" style="font-size:0.8rem; color:#64748b; margin-top:-5px; padding-left:24px;">
-                      <i class="fas fa-satellite" style="font-size:0.7rem;"></i> 
-                      <span id="sheet-coords">Lat: - / Lon: -</span>
+                
+                <div class="sheet-sidebar">
+                  <div class="sheet-header-profile">
+                      <div class="sheet-avatar"><i class="fas fa-building"></i></div>
+                      <h3 class="sheet-title" id="sheet-name">Cabinet</h3>
+                      <div class="sheet-subtitle" id="sheet-activity">Spécialité</div>
                   </div>
-
-                  <div class="sheet-contact-item"><i class="fas fa-phone"></i> <span id="sheet-phone">-</span></div>
-                  <div class="sheet-contact-item"><i class="fas fa-envelope"></i> <span id="sheet-email">-</span></div>
-                  <div class="sheet-contact-item"><i class="fas fa-user"></i> <span id="sheet-contact">-</span></div>
                   
-                  <button class="btn btn-primary btn-sm" id="sheet-edit-btn" style="width:100%; margin-top:1rem;">
-                      <i class="fas fa-pen"></i> Modifier Infos
-                  </button>
-
-                  <button class="btn btn-sm" id="sheet-delete-btn" style="width:100%; margin-top:0.5rem; background:white; border:1px solid #fee2e2; color:#ef4444;">
-                      <i class="fas fa-trash-alt"></i> Supprimer Client
-                  </button>
+                  <div class="sheet-info-group">
+                      <div class="sheet-contact-item"><i class="fas fa-map-marker-alt"></i> <span id="sheet-address">Adresse</span></div>
+                      <div class="sheet-contact-item gps"><i class="fas fa-satellite"></i> <span id="sheet-coords">GPS</span></div>
+                      <div class="sheet-contact-item"><i class="fas fa-phone"></i> <span id="sheet-phone">Tél</span></div>
+                      <div class="sheet-contact-item"><i class="fas fa-envelope"></i> <span id="sheet-email">Email</span></div>
+                      <div class="sheet-contact-item"><i class="fas fa-user-md"></i> <span id="sheet-contact">Contact</span></div>
+                  </div>
                   
-                  <div style="margin-top:2rem; border-top:1px solid #e2e8f0; padding-top:1rem;">
-                      <label style="font-size:0.8rem; font-weight:600; color:#64748b;">Notes :</label>
-                      <div id="sheet-notes" style="font-size:0.85rem; color:#334155; margin-top:0.5rem; font-style:italic;"></div>
+                  <div class="sheet-actions">
+                      <button class="btn btn-primary btn-sm w-100" id="sheet-edit-btn">
+                          <i class="fas fa-pen"></i> Modifier
+                      </button>
+                      <button class="btn btn-secondary btn-sm w-100" id="sheet-delete-btn" style="color: var(--color-danger); border-color: var(--color-danger);">
+                          <i class="fas fa-trash"></i> Supprimer
+                      </button>
+                  </div>
+                  
+                  <div class="sheet-notes-box">
+                      <label>Notes internes</label>
+                      <div id="sheet-notes"></div>
                   </div>
               </div>
+
                 <div class="sheet-main">
-                    <div class="sheet-tabs">
-                        <div class="sheet-tab active" onclick="switchSheetTab('equipment')">Parc Machines</div>
-                        <div class="sheet-tab" onclick="switchSheetTab('history')">Historique</div>
+                    <div class="sheet-tabs-nav">
+                        <button class="sheet-tab active" onclick="switchSheetTab('equipment')">
+                            <i class="fas fa-tools"></i> Parc Machines
+                        </button>
+                        <button class="sheet-tab" onclick="switchSheetTab('history')">
+                            <i class="fas fa-history"></i> Historique
+                        </button>
                     </div>
-                    <div id="sheet-tab-equipment" style="display:block;">
-                        <div style="display:flex; justify-content:flex-end; margin-bottom:1rem;">
-                            <button class="btn btn-success btn-sm" id="sheet-add-equip-btn"><i class="fas fa-plus"></i> Ajouter Machine</button>
+
+                    <div id="sheet-tab-equipment" class="sheet-tab-content active">
+                        <div class="tab-actions-row">
+                            <h3 class="tab-title">Équipements installés</h3>
+                            <button class="btn btn-success btn-sm" id="sheet-add-equip-btn"><i class="fas fa-plus"></i> Ajouter</button>
                         </div>
-                        <div id="sheet-equipment-list" class="equipment-badges"></div>
+                        <div id="sheet-equipment-list" class="equipment-grid"></div>
                     </div>
-                    <div id="sheet-tab-history" style="display:none;">
-                        <div class="history-list" id="sheet-history-list"></div>
+
+                    <div id="sheet-tab-history" class="sheet-tab-content">
+                        <div id="sheet-history-list" class="history-list"></div>
                     </div>
                 </div>
             </div>
@@ -415,18 +227,18 @@
                     <div class="form-group"><label>Adresse</label><input type="text" id="address" placeholder="Rue et numéro" /></div>
                     <div class="form-row"><div class="form-group"><label>NPA</label><input type="text" id="postal-code" /></div><div class="form-group"><label>Ville</label><input type="text" id="city" /></div><div class="form-group"><label>Canton</label><input type="text" id="canton" style="text-transform:uppercase;" maxlength="2" /></div></div>
                     
-                    <div style="background:#f0fdf4; padding:10px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:1.5rem;">
+                    <div style="background:var(--neutral-50); padding:1rem; border-radius:var(--radius-md); border:1px solid var(--border-color); margin-bottom:1.5rem;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                            <label style="margin:0; color:#166534; font-weight:600;"><i class="fas fa-map-marked-alt"></i> Géolocalisation</label>
-                            <button type="button" id="btn-geo-search" class="btn-sm btn-success" style="font-size:0.75rem;">
-                                <i class="fas fa-search-location"></i> Trouver via Adresse
+                            <label style="margin:0; font-weight:600;"><i class="fas fa-map-marked-alt"></i> Géolocalisation</label>
+                            <button type="button" id="btn-geo-search" class="btn-sm btn-secondary">
+                                <i class="fas fa-search-location"></i> Auto-détecter
                             </button>
                         </div>
-                        <div class="form-row" style="gap:10px;">
-                            <div class="form-group" style="margin:0;"><label style="font-size:0.8rem;">Latitude</label><input type="number" id="client-lat" step="0.0000001" placeholder="0.000000" /></div>
-                            <div class="form-group" style="margin:0;"><label style="font-size:0.8rem;">Longitude</label><input type="number" id="client-lon" step="0.0000001" placeholder="0.000000" /></div>
+                        <div class="form-row">
+                            <div class="form-group mb-0"><label>Latitude</label><input type="number" id="client-lat" step="0.0000001" /></div>
+                            <div class="form-group mb-0"><label>Longitude</label><input type="number" id="client-lon" step="0.0000001" /></div>
                         </div>
-                        <div id="geo-status" style="font-size:0.75rem; color:#166534; margin-top:5px; min-height:1rem;"></div>
+                        <div id="geo-status" style="font-size:0.75rem; margin-top:5px;"></div>
                     </div>
 
                     <div class="form-group"><label>Notes</label><textarea id="notes"></textarea></div>
@@ -445,9 +257,9 @@
                     <div class="form-group"><label>Modèle (Catalogue)</label><select id="equipment-select" required><option>Chargement...</option></select></div>
                     <div class="form-group"><label>N° Série</label><input type="text" id="equipment-serial" /></div>
                     <div class="form-row"><div class="form-group"><label>Installé le</label><input type="date" id="equipment-installed" /></div><div class="form-group"><label>Garantie fin</label><input type="date" id="equipment-warranty" /></div></div>
-                    <div class="form-row" style="background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
-                        <div class="form-group"><label>Dernier Service</label><input type="date" id="last-maintenance" /></div>
-                        <div class="form-group"><label>Intervalle (Ans)</label><select id="maintenance-interval"><option value="1">1 an</option><option value="2">2 ans</option><option value="3">3 ans</option></select></div>
+                    <div class="form-row" style="background:var(--neutral-50); padding:10px; border-radius:6px; border:1px solid var(--border-color);">
+                        <div class="form-group mb-0"><label>Dernier Service</label><input type="date" id="last-maintenance" /></div>
+                        <div class="form-group mb-0"><label>Intervalle (Ans)</label><select id="maintenance-interval"><option value="1">1 an</option><option value="2">2 ans</option><option value="3">3 ans</option></select></div>
                     </div>
                 </form>
             </div>
@@ -455,27 +267,49 @@
         </div>
     </div>
 
-    <div class="modal" id="delete-modal"><div class="modal-content"><div class="modal-header"><h2>Supprimer</h2><button class="modal-close" onclick="closeDeleteModal()">&times;</button></div><div class="modal-body"><p>Supprimer <strong id="delete-client-name"></strong>?</p></div><div class="modal-footer"><button id="cancel-delete-btn">Non</button><button id="confirm-delete-btn" class="btn-danger">Oui</button></div></div></div>
+    <div class="modal" id="delete-modal"><div class="modal-content" style="max-width:400px;"><div class="modal-header"><h2 style="color:var(--color-danger);">Supprimer</h2><button class="modal-close" onclick="closeDeleteModal()">&times;</button></div><div class="modal-body"><p>Êtes-vous sûr de vouloir supprimer <strong id="delete-client-name"></strong> ? <br><small>Cette action est irréversible.</small></p></div><div class="modal-footer"><button class="btn btn-secondary" id="cancel-delete-btn">Annuler</button><button class="btn btn-danger" id="confirm-delete-btn">Confirmer</button></div></div></div>
+    
     <div id="notification-container" class="notification-container"></div>
-
     <div id="custom-tooltip"></div>
 
     <script src="/js/clients.js"></script>
     <script>
+        // Logique simplifiée pour les tabs et l'affichage
         function switchView(view) {
-            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            // Gestion des boutons
+            document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
             document.getElementById('btn-view-'+view).classList.add('active');
-            document.getElementById('view-'+view).classList.add('active');
+            
+            // Gestion des sections (Utilisation stricte de display: none/block)
+            document.querySelectorAll('.view-section').forEach(s => s.style.display = 'none');
+            const activeSection = document.getElementById('view-'+view);
+            if(activeSection) {
+                activeSection.style.display = 'block';
+                // Petit hack pour forcer le redessin si besoin
+                activeSection.classList.add('active');
+            }
+            
             if(view === 'planning') loadPlanning();
         }
+
+        // Logic pour les tabs de la fiche client
         function switchSheetTab(tab) {
             document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
-            // Selection sécurisée du bouton
+            document.querySelectorAll('.sheet-tab-content').forEach(c => {
+                c.style.display = 'none';
+                c.classList.remove('active');
+            });
+            
+            // Active button
             const btn = document.querySelector(`.sheet-tab[onclick*="'${tab}'"]`);
             if(btn) btn.classList.add('active');
-            document.getElementById('sheet-tab-equipment').style.display = tab === 'equipment' ? 'block' : 'none';
-            document.getElementById('sheet-tab-history').style.display = tab === 'history' ? 'block' : 'none';
+            
+            // Active content
+            const content = document.getElementById('sheet-tab-'+tab);
+            if(content) {
+                content.style.display = 'block';
+                setTimeout(() => content.classList.add('active'), 10);
+            }
         }
     </script>
   </body>

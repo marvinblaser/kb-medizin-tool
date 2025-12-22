@@ -1,128 +1,304 @@
 // public/js/checklists.js
 
+// --- INJECTION CSS (STYLE TOOLBAR + CARTE PROPRE) ---
+const checklistStyles = `
+/* Conteneur */
+.checklist-container-fluid { width: 100%; max-width: 100%; box-sizing: border-box; }
+
+/* BARRE D'OUTILS (Style "Une seule ligne") */
+.toolbar-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    height: 64px; /* Hauteur fixe élégante */
+    margin-bottom: 2rem;
+    gap: 1.5rem;
+}
+
+/* Zone Recherche (Sans bordure, fondue dans la barre) */
+.toolbar-search {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--neutral-400);
+    flex: 0 0 300px; /* Largeur fixe pour la recherche */
+}
+.toolbar-search input {
+    border: none;
+    background: transparent;
+    width: 100%;
+    font-size: 0.95rem;
+    color: var(--neutral-900);
+    padding: 0;
+    box-shadow: none !important;
+    outline: none;
+}
+.toolbar-search i { font-size: 1.1rem; }
+
+/* Séparateur vertical */
+.toolbar-divider {
+    width: 1px;
+    height: 32px;
+    background-color: var(--border-color-light);
+}
+
+/* Zone Onglets (Navigation horizontale) */
+.toolbar-tabs {
+    flex: 1;
+    display: flex;
+    gap: 2rem;
+    height: 100%;
+    overflow: hidden;
+    align-items: center;
+}
+
+.nav-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--neutral-500);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: -1px; /* Chevauchement bordure */
+}
+
+.nav-tab:hover { color: var(--color-primary); }
+
+.nav-tab.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: 600;
+}
+
+/* Compteur (Badge) */
+.nav-count {
+    font-size: 0.75rem;
+    background: var(--neutral-100);
+    color: var(--neutral-600);
+    padding: 1px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+}
+.nav-tab.active .nav-count {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+}
+
+/* --- CARTE CHECKLIST (Design "Clean") --- */
+.checklists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.checklist-card-clean {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
+    min-height: 180px;
+}
+
+.checklist-card-clean:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-primary-light);
+}
+
+/* Header de la carte */
+.clean-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.card-cat {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--neutral-500);
+}
+
+/* Actions flottantes (apparaissent au survol) */
+.card-actions-floating {
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0; /* Caché par défaut */
+    transition: opacity 0.2s;
+}
+.checklist-card-clean:hover .card-actions-floating { opacity: 1; }
+
+.clean-card-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--neutral-900);
+    margin: 0;
+    line-height: 1.3;
+}
+
+.clean-card-desc {
+    font-size: 0.9rem;
+    color: var(--neutral-500);
+    line-height: 1.5;
+    flex: 1; /* Pousse le footer vers le bas */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Footer Stats */
+.clean-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 1rem;
+    border-top: 1px solid var(--neutral-50);
+    margin-top: auto;
+}
+
+.card-stats-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.stat-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--neutral-600);
+    font-weight: 500;
+}
+.stat-chip i { color: var(--color-primary); opacity: 0.8; font-size: 0.9rem; }
+
+.card-date {
+    font-size: 0.75rem;
+    color: var(--neutral-400);
+}
+
+/* Modale Items */
+.checklist-items-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto; padding-right: 5px; }
+.checklist-item { 
+    display: flex; align-items: center; gap: 0.5rem; 
+    background: var(--neutral-50); padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);
+    transition: background 0.2s;
+}
+.checklist-item:hover { background: white; border-color: var(--color-primary-light); }
+.checklist-item-inputs { flex: 1; display: flex; gap: 0.5rem; }
+.checklist-item input { margin: 0 !important; height: 32px !important; font-size: 0.85rem !important; }
+.drag-handle { cursor: grab; opacity: 0.5; }
+.drag-handle:hover { opacity: 1; color: var(--color-primary); }
+.checklist-item.dragging { opacity: 0.5; border: 2px dashed var(--color-primary); }
+
+/* PAGINATION */
+.pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 0; margin-top: 1rem; border-top: 1px solid var(--border-color-light); }
+.pagination-info { font-size: 0.85rem; color: var(--neutral-500); }
+.pagination-buttons { display: flex; gap: 0.5rem; }
+
+@media (max-width: 1024px) {
+    .toolbar-card { height: auto; flex-direction: column; padding: 1rem; align-items: stretch; gap: 1rem; }
+    .toolbar-divider { display: none; }
+    .toolbar-search { flex: none; border-bottom: 1px solid var(--border-color-light); padding-bottom: 0.5rem; }
+    .toolbar-tabs { padding-bottom: 0.5rem; gap: 1.5rem; }
+}
+`;
+
 // --- VARIABLES GLOBALES ---
 let checklists = [];
+let filteredChecklists = [];
 let currentChecklist = null;
 let checklistToDelete = null;
 let currentUser = null;
-let currentTab = 'all'; // Onglet actif par défaut
+let currentTab = 'all';
 
-// --- INITIALISATION ---
+// Pagination
+let currentPage = 1;
+let itemsPerPage = 12;
+
 document.addEventListener('DOMContentLoaded', async () => {
+  const styleEl = document.createElement('style');
+  styleEl.innerHTML = checklistStyles;
+  document.head.appendChild(styleEl);
+
   await checkAuth();
   await loadChecklists();
 
-  // Listeners globaux
-  const logoutBtn = document.getElementById('logout-btn');
-  if (logoutBtn) logoutBtn.addEventListener('click', logout);
+  // Listeners
+  document.getElementById('logout-btn')?.addEventListener('click', logout);
+  document.getElementById('add-checklist-btn')?.addEventListener('click', () => openChecklistModal());
 
-  // Bouton "Nouveau"
-  const addBtn = document.getElementById('add-checklist-btn');
-  if (addBtn) addBtn.addEventListener('click', () => openChecklistModal());
+  document.getElementById('close-checklist-modal')?.addEventListener('click', closeChecklistModal);
+  document.getElementById('cancel-checklist-btn')?.addEventListener('click', closeChecklistModal);
+  document.getElementById('save-checklist-btn')?.addEventListener('click', saveChecklist);
 
-  // Modale Création / Édition
-  document.getElementById('close-checklist-modal').addEventListener('click', closeChecklistModal);
-  document.getElementById('cancel-checklist-btn').addEventListener('click', closeChecklistModal);
-  document.getElementById('save-checklist-btn').addEventListener('click', saveChecklist);
+  document.getElementById('close-delete-modal')?.addEventListener('click', closeDeleteModal);
+  document.getElementById('cancel-delete-checklist-btn')?.addEventListener('click', closeDeleteModal);
+  document.getElementById('confirm-delete-checklist-btn')?.addEventListener('click', confirmDelete);
 
-  // Modale Suppression
-  document.getElementById('close-delete-modal').addEventListener('click', closeDeleteModal);
-  document.getElementById('cancel-delete-checklist-btn').addEventListener('click', closeDeleteModal);
-  document.getElementById('confirm-delete-checklist-btn').addEventListener('click', confirmDelete);
+  document.getElementById('add-equipment-btn')?.addEventListener('click', (e) => { e.preventDefault(); addEquipmentItem(); });
+  document.getElementById('add-task-btn')?.addEventListener('click', (e) => { e.preventDefault(); addTaskItem(); });
 
-  // Ajout dynamique d'items dans le formulaire
-  document.getElementById('add-equipment-btn').addEventListener('click', (e) => { 
-    e.preventDefault(); 
-    addEquipmentItem(); 
-  });
-  
-  document.getElementById('add-task-btn').addEventListener('click', (e) => { 
-    e.preventDefault(); 
-    addTaskItem(); 
-  });
-
-  // Recherche (Filtrage)
   const searchInput = document.getElementById('checklist-search');
-  if (searchInput) {
-    searchInput.addEventListener('input', debounce(filterChecklists, 300));
-  }
+  if (searchInput) searchInput.addEventListener('input', debounce(() => { currentPage = 1; filterChecklists(); }, 300));
 
-  // Vérifier s'il faut ouvrir une checklist via URL (ex: ?edit=12)
+  // Pagination Listener
+  document.getElementById('limit-select')?.addEventListener('change', (e) => { itemsPerPage = parseInt(e.target.value); currentPage = 1; renderCurrentPage(); });
+  document.getElementById('prev-page')?.addEventListener('click', () => { if(currentPage > 1) { currentPage--; renderCurrentPage(); } });
+  document.getElementById('next-page')?.addEventListener('click', () => { const maxPage = Math.ceil(filteredChecklists.length / itemsPerPage); if(currentPage < maxPage) { currentPage++; renderCurrentPage(); } });
+
   const urlParams = new URLSearchParams(window.location.search);
   const editId = urlParams.get('edit');
-  if (editId) {
-    setTimeout(() => {
-      openChecklistModal(parseInt(editId));
-      // Nettoyer l'URL
-      window.history.replaceState({}, document.title, '/checklists.html');
-    }, 300);
-  }
+  if (editId) { setTimeout(() => { openChecklistModal(parseInt(editId)); window.history.replaceState({}, document.title, '/checklists.html'); }, 300); }
 });
 
-// --- AUTHENTIFICATION ---
 async function checkAuth() {
   try {
     const response = await fetch('/api/me');
     if (!response.ok) { window.location.href = '/login.html'; return; }
-    
     const data = await response.json();
     currentUser = data.user;
-    
-    const userInfoEl = document.getElementById('user-info');
-    if (userInfoEl) {
-      userInfoEl.innerHTML = `
-        <div class="user-avatar">${data.user.name.charAt(0)}</div>
-        <div class="user-details">
-          <strong>${data.user.name}</strong>
-          <span>${data.user.role === 'admin' ? 'Administrateur' : 'Technicien'}</span>
-        </div>
-      `;
-    }
-    
-    if (data.user.role === 'admin') {
-      const adminLink = document.getElementById('admin-link');
-      if (adminLink) adminLink.classList.remove('hidden');
-    }
-  } catch (error) { 
-    console.error('Auth error:', error);
-    window.location.href = '/login.html'; 
-  }
+    document.getElementById('user-info').innerHTML = `<div class="user-avatar">${data.user.name.charAt(0)}</div><div class="user-details"><strong>${escapeHtml(data.user.name)}</strong><span>${data.user.role === 'admin' ? 'Admin' : 'Tech'}</span></div>`;
+    if (data.user.role === 'admin') document.getElementById('admin-link')?.classList.remove('hidden');
+  } catch { window.location.href = '/login.html'; }
 }
+async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login.html'; }
 
-async function logout() { 
-  try {
-    await fetch('/api/logout', { method: 'POST' }); 
-    window.location.href = '/login.html'; 
-  } catch (error) {
-    console.error('Logout error:', error);
-  }
-}
-
-// --- GESTION DES ONGLETS (TABS) ---
+// --- TABS & COUNTS ---
 function switchTab(category) {
   currentTab = category;
+  currentPage = 1; 
   
-  // Mettre à jour l'état visuel des boutons
-  document.querySelectorAll('.tab-btn').forEach(btn => {
+  document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.classList.remove('active');
-    // On vérifie si l'attribut onclick du bouton contient la catégorie sélectionnée
-    if(btn.getAttribute('onclick').includes(`'${category}'`)) {
-      btn.classList.add('active');
-    }
+    if(btn.getAttribute('onclick').includes(`'${category}'`)) btn.classList.add('active');
   });
-
-  // Relancer le filtrage
   filterChecklists();
 }
 
 function updateTabCounts() {
   const categories = ['Maintenance', 'Installation', 'Dépannage', 'Audit', 'Autre'];
-  
-  // Mise à jour du compteur "Tous"
-  const countAll = document.getElementById('count-all');
-  if(countAll) countAll.textContent = checklists.length;
-
-  // Mise à jour des compteurs par catégorie
+  document.getElementById('count-all').textContent = checklists.length;
   categories.forEach(cat => {
     const count = checklists.filter(c => c.category === cat).length;
     const el = document.getElementById(`count-${cat}`);
@@ -130,212 +306,133 @@ function updateTabCounts() {
   });
 }
 
-// --- CHARGEMENT DES DONNÉES ---
+// --- LOAD & RENDER ---
 async function loadChecklists() {
   try {
     const response = await fetch('/api/checklists');
     if (!response.ok) throw new Error('Erreur réseau');
-    
     checklists = await response.json();
-    
-    // Une fois chargé, on met à jour les badges et on affiche
     updateTabCounts();
     filterChecklists();
   } catch (error) {
-    console.error('Erreur chargement:', error);
-    showNotification('Impossible de charger les checklists', 'error');
-    
-    const grid = document.getElementById('checklists-grid');
-    if(grid) {
-        grid.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--error-500)">
-                <i class="fas fa-exclamation-triangle fa-2x"></i>
-                <p>Erreur de connexion au serveur.</p>
-            </div>`;
-    }
+    console.error(error);
+    document.getElementById('checklists-grid').innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--color-danger);">Erreur de chargement.</div>`;
   }
 }
 
-// --- FILTRAGE ET RENDU ---
 function filterChecklists() {
-  const searchInput = document.getElementById('checklist-search');
-  const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-  
-  const filtered = checklists.filter(c => {
-    // 1. Filtre Recherche Texte
-    const matchesSearch = c.name.toLowerCase().includes(searchTerm) || 
-                          (c.description && c.description.toLowerCase().includes(searchTerm));
-    
-    // 2. Filtre Onglet (Catégorie)
+  const searchTerm = document.getElementById('checklist-search')?.value.toLowerCase() || '';
+  filteredChecklists = checklists.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(searchTerm) || (c.description && c.description.toLowerCase().includes(searchTerm));
     const matchesTab = currentTab === 'all' ? true : (c.category === currentTab);
-    
     return matchesSearch && matchesTab;
   });
-  
-  renderChecklists(filtered);
+  renderCurrentPage();
 }
 
-function renderChecklists(listToRender) {
-  const grid = document.getElementById('checklists-grid');
-  if (!grid) return;
+function renderCurrentPage() {
+    const grid = document.getElementById('checklists-grid');
+    const paginationContainer = document.getElementById('pagination-container');
+    const paginationInfo = document.getElementById('pagination-info');
+    const prevBtn = document.getElementById('prev-page');
+    const nextBtn = document.getElementById('next-page');
 
-  if (listToRender.length === 0) {
-    let emptyMessage = 'Créez votre première checklist en cliquant sur "Nouveau".';
-    if (currentTab !== 'all') emptyMessage = `Aucune checklist dans la catégorie <strong>${currentTab}</strong>.`;
-    if (document.getElementById('checklist-search').value) emptyMessage = 'Aucun résultat pour votre recherche.';
+    if (filteredChecklists.length === 0) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:4rem;color:var(--neutral-400);"><i class="fas fa-folder-open fa-3x" style="opacity:0.3;margin-bottom:1rem;"></i><p>Aucune checklist trouvée.</p></div>`;
+        paginationContainer.style.display = 'none';
+        return;
+    }
 
-    grid.innerHTML = `
-      <div style="grid-column: 1/-1; text-align: center; padding: 60px; color: var(--neutral-500)">
-        <i class="fas fa-folder-open fa-4x" style="margin-bottom: 20px; opacity: 0.3"></i>
-        <h3>Liste vide</h3>
-        <p>${emptyMessage}</p>
-      </div>`;
-    return;
-  }
+    const totalPages = Math.ceil(filteredChecklists.length / itemsPerPage);
+    if(currentPage > totalPages) currentPage = totalPages;
+    if(currentPage < 1) currentPage = 1;
 
-  grid.innerHTML = listToRender.map(checklist => `
-    <div class="checklist-card" ondblclick="openChecklistWork(${checklist.id})" style="cursor: pointer;">
-      <div class="checklist-card-header">
-        <div style="display:flex; flex-direction:column; gap:5px;">
-           <span class="badge badge-neutral" style="width:fit-content; font-size:10px;">
-             ${checklist.category ? checklist.category.toUpperCase() : 'AUTRE'}
-           </span>
-           <h3>${escapeHtml(checklist.name)}</h3>
-        </div>
-        <div class="checklist-card-actions">
-          <button class="btn-icon-sm btn-icon-secondary" onclick="event.stopPropagation(); duplicateChecklist(${checklist.id})" title="Dupliquer">
-            <i class="fas fa-copy"></i>
-          </button>
-          <button class="btn-icon-sm btn-icon-primary" onclick="event.stopPropagation(); openChecklistModal(${checklist.id})" title="Modifier">
-            <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn-icon-sm btn-icon-danger" onclick="event.stopPropagation(); openDeleteModal(${checklist.id}, '${escapeHtml(checklist.name).replace(/'/g, "\\'")}')">
-            <i class="fas fa-trash"></i>
-          </button>
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const itemsToShow = filteredChecklists.slice(start, end);
+
+    paginationContainer.style.display = 'flex';
+    paginationInfo.textContent = `Page ${currentPage} sur ${totalPages} (${filteredChecklists.length} checklists)`;
+    prevBtn.disabled = currentPage === 1;
+    nextBtn.disabled = currentPage === totalPages;
+
+    grid.innerHTML = itemsToShow.map(c => `
+    <div class="checklist-card-clean" onclick="openChecklistWork(${c.id})">
+      
+      <div class="clean-card-header">
+        <span class="card-cat">${c.category ? c.category.toUpperCase() : 'AUTRE'}</span>
+        <div class="card-actions-floating">
+          <button class="btn-icon-sm btn-icon-secondary" onclick="event.stopPropagation(); duplicateChecklist(${c.id})" title="Dupliquer"><i class="fas fa-copy"></i></button>
+          <button class="btn-icon-sm btn-icon-primary" onclick="event.stopPropagation(); openChecklistModal(${c.id})" title="Modifier"><i class="fas fa-pen"></i></button>
+          <button class="btn-icon-sm btn-icon-danger" onclick="event.stopPropagation(); openDeleteModal(${c.id}, '${escapeHtml(c.name).replace(/'/g, "\\'")}')" title="Supprimer"><i class="fas fa-trash"></i></button>
         </div>
       </div>
+
+      <h3 class="clean-card-title">${escapeHtml(c.name)}</h3>
+      <div class="clean-card-desc">${c.description ? escapeHtml(c.description) : '<span style="font-style:italic;opacity:0.5;">Pas de description</span>'}</div>
       
-      ${checklist.description ? `<p class="checklist-card-description">${escapeHtml(checklist.description)}</p>` : ''}
-      
-      <div class="checklist-card-stats">
-        <div class="checklist-stat">
-            <i class="fas fa-toolbox"></i><span>${checklist.equipment_count || 0} équipement(s)</span>
+      <div class="clean-card-footer">
+        <div class="card-stats-row">
+            <span class="stat-chip"><i class="fas fa-toolbox"></i> ${c.equipment_count || 0}</span>
+            <span class="stat-chip"><i class="fas fa-tasks"></i> ${c.tasks_count || 0}</span>
         </div>
-        <div class="checklist-stat">
-            <i class="fas fa-tasks"></i><span>${checklist.tasks_count || 0} tâche(s)</span>
+        <div class="card-date">
+            ${formatDate(c.updated_at)}
         </div>
       </div>
-      
-      <div class="checklist-card-footer" style="display: flex; justify-content: space-between; align-items: center;">
-        <small><i class="fas fa-clock"></i> ${formatDate(checklist.updated_at)}</small>
-        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); openChecklistWork(${checklist.id})">
-          <i class="fas fa-folder-open"></i> Ouvrir
-        </button>
-      </div>
+
     </div>
   `).join('');
 }
 
-// --- NAVIGATION ---
-function openChecklistWork(id) {
-  window.location.href = `/checklist-view.html?id=${id}`;
-}
+function openChecklistWork(id) { window.location.href = `/checklist-view.html?id=${id}`; }
 
-// --- MODALES & FORMULAIRES ---
-async function openChecklistModal(checklistId = null) {
+// --- MODALES & FORMS ---
+async function openChecklistModal(id = null) {
   const modal = document.getElementById('checklist-modal');
   const title = document.getElementById('checklist-modal-title');
-  const form = document.getElementById('checklist-form');
-  
-  // Reset complet du formulaire
-  form.reset();
+  document.getElementById('checklist-form').reset();
   document.getElementById('checklist-id').value = '';
   document.getElementById('equipment-list').innerHTML = '';
   document.getElementById('tasks-list').innerHTML = '';
   
-  // Valeur par défaut catégorie
-  const catSelect = document.getElementById('checklist-category');
-  if(catSelect) catSelect.value = 'Autre';
-
-  if (checklistId) {
-    // MODE MODIFICATION
-    title.innerHTML = '<i class="fas fa-edit"></i> Modifier la checklist';
+  if (id) {
+    title.innerHTML = '<i class="fas fa-pen"></i> Modifier la checklist';
     try {
-      const response = await fetch(`/api/checklists/${checklistId}`);
-      if (!response.ok) throw new Error('Checklist introuvable');
-      
-      currentChecklist = await response.json();
-      
-      // Remplissage des champs
+      const res = await fetch(`/api/checklists/${id}`);
+      if (!res.ok) throw new Error();
+      currentChecklist = await res.json();
       document.getElementById('checklist-id').value = currentChecklist.id;
       document.getElementById('checklist-name').value = currentChecklist.name;
       document.getElementById('checklist-description').value = currentChecklist.description || '';
-      if(catSelect && currentChecklist.category) {
-        catSelect.value = currentChecklist.category;
-      }
-      
-      // Remplissage listes
-      if (currentChecklist.equipment) {
-        currentChecklist.equipment.forEach(eq => addEquipmentItem(eq.equipment_name, eq.quantity));
-      }
-      if (currentChecklist.tasks) {
-        currentChecklist.tasks.forEach(task => addTaskItem(task.task_name));
-      }
-    } catch (error) { 
-      console.error(error); 
-      showNotification('Erreur chargement des données', 'error'); 
-      return; 
-    }
+      document.getElementById('checklist-category').value = currentChecklist.category || 'Autre';
+      if (currentChecklist.equipment) currentChecklist.equipment.forEach(eq => addEquipmentItem(eq.equipment_name, eq.quantity));
+      if (currentChecklist.tasks) currentChecklist.tasks.forEach(task => addTaskItem(task.task_name));
+    } catch { showNotification('Erreur chargement', 'error'); return; }
   } else {
-    // MODE CRÉATION
-    // Si le titre contient "Dupliquer", on le laisse, sinon on met "Créer"
-    if(!title.innerHTML.includes('Dupliquer')) {
-      title.innerHTML = '<i class="fas fa-plus-circle"></i> Créer une checklist';
-    }
+    if(!title.innerHTML.includes('Dupliquer')) title.innerHTML = '<i class="fas fa-plus-circle"></i> Nouvelle checklist';
   }
-  
   modal.classList.add('active');
-  setupDragAndDrop(); // Initialiser le drag & drop
+  setupDragAndDrop();
 }
 
-function closeChecklistModal() {
-  document.getElementById('checklist-modal').classList.remove('active');
-  currentChecklist = null;
-}
+function closeChecklistModal() { document.getElementById('checklist-modal').classList.remove('active'); currentChecklist = null; }
 
-// --- DUPLICATION ---
-async function duplicateChecklist(checklistId) {
+async function duplicateChecklist(id) {
   try {
-    const response = await fetch(`/api/checklists/${checklistId}`);
-    if(!response.ok) throw new Error("Erreur fetch");
-    const source = await response.json();
-
-    // 1. Ouvrir modale (reset)
+    const res = await fetch(`/api/checklists/${id}`);
+    const source = await res.json();
     openChecklistModal(); 
-    
-    // 2. Modifier visuellement pour indiquer la copie
     document.getElementById('checklist-modal-title').innerHTML = '<i class="fas fa-copy"></i> Dupliquer la checklist';
     document.getElementById('checklist-name').value = source.name + ' - Copie';
     document.getElementById('checklist-description').value = source.description || '';
-    
-    const catSelect = document.getElementById('checklist-category');
-    if(catSelect && source.category) catSelect.value = source.category;
-
-    // 3. Remplir les items
-    document.getElementById('equipment-list').innerHTML = '';
-    document.getElementById('tasks-list').innerHTML = '';
-
-    if (source.equipment) source.equipment.forEach(eq => addEquipmentItem(eq.equipment_name, eq.quantity));
-    if (source.tasks) source.tasks.forEach(task => addTaskItem(task.task_name));
-
-    showNotification('Données dupliquées. Vérifiez avant d\'enregistrer.', 'info');
-  } catch (e) {
-    console.error(e);
-    showNotification('Impossible de dupliquer', 'error');
-  }
+    document.getElementById('checklist-category').value = source.category || 'Autre';
+    if(source.equipment) source.equipment.forEach(e => addEquipmentItem(e.equipment_name, e.quantity));
+    if(source.tasks) source.tasks.forEach(t => addTaskItem(t.task_name));
+    showNotification('Contenu dupliqué.', 'info');
+  } catch { showNotification('Erreur duplication', 'error'); }
 }
 
-// --- GESTION DES ITEMS (DOM) ---
 function addEquipmentItem(name = '', quantity = 1) {
   const list = document.getElementById('equipment-list');
   const div = document.createElement('div');
@@ -343,13 +440,10 @@ function addEquipmentItem(name = '', quantity = 1) {
   div.innerHTML = `
     <div class="checklist-item-inputs">
       <input type="text" class="equipment-name" placeholder="Nom équipement" value="${escapeHtml(name)}"/>
-      <input type="number" class="equipment-quantity" value="${quantity}" min="1" style="width:80px" placeholder="Qté"/>
+      <input type="number" class="equipment-quantity" value="${quantity}" min="1" style="width:70px" placeholder="Qté"/>
     </div>
-    <button type="button" class="btn-icon-sm btn-icon-danger remove-item">
-      <i class="fas fa-times"></i>
-    </button>
+    <button type="button" class="btn-icon-sm btn-icon-danger remove-item"><i class="fas fa-times"></i></button>
   `;
-  
   div.querySelector('.remove-item').addEventListener('click', () => div.remove());
   list.appendChild(div);
 }
@@ -358,228 +452,79 @@ function addTaskItem(name = '') {
   const list = document.getElementById('tasks-list');
   const div = document.createElement('div');
   div.className = 'checklist-item';
-  div.draggable = true; // IMPORTANT pour le drag & drop
-  
+  div.draggable = true;
   div.innerHTML = `
-    <button type="button" class="btn-icon-sm drag-handle" style="cursor:grab; color:var(--neutral-400)">
-      <i class="fas fa-grip-vertical"></i>
-    </button>
+    <button type="button" class="btn-icon-sm drag-handle"><i class="fas fa-grip-vertical"></i></button>
     <div class="checklist-item-inputs">
       <input type="text" class="task-name" placeholder="Description de la tâche" value="${escapeHtml(name)}"/>
     </div>
-    <button type="button" class="btn-icon-sm btn-icon-danger remove-item">
-      <i class="fas fa-times"></i>
-    </button>
+    <button type="button" class="btn-icon-sm btn-icon-danger remove-item"><i class="fas fa-times"></i></button>
   `;
-  
   div.querySelector('.remove-item').addEventListener('click', () => div.remove());
   list.appendChild(div);
-  
-  // Ré-appliquer les listeners de drag & drop à cause du nouvel élément
   setupDragAndDrop();
 }
 
-// --- DRAG & DROP SYSTEM ---
 function setupDragAndDrop() {
   const list = document.getElementById('tasks-list');
   if(!list) return;
-
-  const draggables = list.querySelectorAll('.checklist-item');
-
-  // Nettoyage sommaire (pour éviter accumulation de listeners si fonction appelée souvent)
-  // Dans une app vanilla simple, écraser n'est pas critique, mais c'est mieux d'être propre.
-  // Ici on ré-attache simplement.
-  
-  draggables.forEach(draggable => {
-    draggable.addEventListener('dragstart', () => {
-      draggable.classList.add('dragging');
-    });
-
-    draggable.addEventListener('dragend', () => {
-      draggable.classList.remove('dragging');
-    });
+  list.querySelectorAll('.checklist-item').forEach(draggable => {
+    draggable.addEventListener('dragstart', () => draggable.classList.add('dragging'));
+    draggable.addEventListener('dragend', () => draggable.classList.remove('dragging'));
   });
-
-  list.addEventListener('dragover', e => {
-    e.preventDefault(); // Nécessaire pour autoriser le drop
-    const afterElement = getDragAfterElement(list, e.clientY);
-    const draggable = document.querySelector('.dragging');
-    
-    if (draggable) {
-      if (afterElement == null) {
-        list.appendChild(draggable);
-      } else {
-        list.insertBefore(draggable, afterElement);
-      }
-    }
-  });
+  list.addEventListener('dragover', e => { e.preventDefault(); const afterElement = getDragAfterElement(list, e.clientY); const draggable = document.querySelector('.dragging'); if (draggable) afterElement == null ? list.appendChild(draggable) : list.insertBefore(draggable, afterElement); });
 }
 
 function getDragAfterElement(container, y) {
   const draggableElements = [...container.querySelectorAll('.checklist-item:not(.dragging)')];
-
   return draggableElements.reduce((closest, child) => {
     const box = child.getBoundingClientRect();
     const offset = y - box.top - box.height / 2;
-    
-    // On cherche l'élément dont le centre est juste après le curseur (offset négatif le plus proche de 0)
-    if (offset < 0 && offset > closest.offset) {
-      return { offset: offset, element: child };
-    } else {
-      return closest;
-    }
+    return (offset < 0 && offset > closest.offset) ? { offset: offset, element: child } : closest;
   }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
-// --- SAUVEGARDE ---
 async function saveChecklist() {
   const btn = document.getElementById('save-checklist-btn');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
-  btn.disabled = true;
-
-  const checklistId = document.getElementById('checklist-id').value;
-  const catSelect = document.getElementById('checklist-category');
-
-  // Collecte des données
-  const data = { 
-    name: document.getElementById('checklist-name').value.trim(), 
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ...'; btn.disabled = true;
+  const id = document.getElementById('checklist-id').value;
+  const data = {
+    name: document.getElementById('checklist-name').value.trim(),
     description: document.getElementById('checklist-description').value.trim(),
-    category: catSelect ? catSelect.value : 'Autre',
+    category: document.getElementById('checklist-category').value,
     updated_by: currentUser ? currentUser.name : null,
-    
-    equipment: Array.from(document.querySelectorAll('#equipment-list .checklist-item')).map(item => ({
-      equipment_name: item.querySelector('.equipment-name').value.trim(),
-      quantity: parseInt(item.querySelector('.equipment-quantity').value) || 1
-    })).filter(e => e.equipment_name),
-    
-    tasks: Array.from(document.querySelectorAll('#tasks-list .checklist-item')).map(item => ({
-      task_name: item.querySelector('.task-name').value.trim()
-    })).filter(t => t.task_name)
+    equipment: Array.from(document.querySelectorAll('#equipment-list .checklist-item')).map(i => ({ equipment_name: i.querySelector('.equipment-name').value.trim(), quantity: parseInt(i.querySelector('.equipment-quantity').value)||1 })).filter(e => e.equipment_name),
+    tasks: Array.from(document.querySelectorAll('#tasks-list .checklist-item')).map(i => ({ task_name: i.querySelector('.task-name').value.trim() })).filter(t => t.task_name)
   };
-
-  if (!data.name) { 
-    showNotification('Le nom est requis', 'error'); 
-    btn.innerHTML = originalText; 
-    btn.disabled = false; 
-    return; 
-  }
-
+  if(!data.name) { showNotification('Nom requis', 'error'); btn.innerHTML = 'Enregistrer'; btn.disabled = false; return; }
   try {
-    const url = checklistId ? `/api/checklists/${checklistId}` : '/api/checklists';
-    const method = checklistId ? 'PUT' : 'POST';
-    
-    const response = await fetch(url, { 
-      method, 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify(data) 
-    });
-
-    if (response.ok) {
-      closeChecklistModal();
-      await loadChecklists(); // Recharge tout pour mettre à jour les compteurs
-      showNotification('Checklist enregistrée avec succès', 'success');
-    } else {
-      const err = await response.json();
-      showNotification(err.error || 'Erreur serveur', 'error');
-    }
-  } catch (error) { 
-    showNotification('Erreur de connexion', 'error'); 
-  } finally { 
-    btn.innerHTML = originalText; 
-    btn.disabled = false; 
-  }
+    const res = await fetch(id ? `/api/checklists/${id}` : '/api/checklists', { method: id ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+    if(res.ok) { closeChecklistModal(); loadChecklists(); showNotification('Enregistré !', 'success'); } 
+    else showNotification('Erreur serveur', 'error');
+  } catch { showNotification('Erreur réseau', 'error'); } 
+  finally { btn.innerHTML = 'Enregistrer'; btn.disabled = false; }
 }
 
-// --- SUPPRESSION ---
-function openDeleteModal(id, name) {
-  checklistToDelete = id;
-  const nameSpan = document.getElementById('delete-checklist-name');
-  if(nameSpan) nameSpan.textContent = name;
-  document.getElementById('delete-checklist-modal').classList.add('active');
-}
-
-function closeDeleteModal() {
-  document.getElementById('delete-checklist-modal').classList.remove('active');
-  checklistToDelete = null;
-}
-
+function openDeleteModal(id, name) { checklistToDelete = id; document.getElementById('delete-checklist-name').textContent = name; document.getElementById('delete-checklist-modal').classList.add('active'); }
+function closeDeleteModal() { document.getElementById('delete-checklist-modal').classList.remove('active'); checklistToDelete = null; }
 async function confirmDelete() {
-  if (!checklistToDelete) return;
-
-  const btn = document.getElementById('confirm-delete-checklist-btn');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-  btn.disabled = true;
-
+  if(!checklistToDelete) return;
   try {
-    const response = await fetch(`/api/checklists/${checklistToDelete}`, { method: 'DELETE' });
-    if (response.ok) {
-      showNotification('Checklist supprimée', 'success');
-      loadChecklists();
-      closeDeleteModal();
-    } else {
-      showNotification('Erreur lors de la suppression', 'error');
-    }
-  } catch (error) {
-    showNotification('Erreur connexion', 'error');
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
+    const res = await fetch(`/api/checklists/${checklistToDelete}`, { method: 'DELETE' });
+    if(res.ok) { showNotification('Supprimé', 'success'); loadChecklists(); closeDeleteModal(); }
+  } catch { showNotification('Erreur', 'error'); }
 }
 
-// --- UTILITAIRES ---
-function showNotification(message, type = 'info') {
-  const container = document.getElementById('notification-container');
-  if (!container) return;
-
-  const notif = document.createElement('div');
-  notif.className = `notification notification-${type}`;
-  notif.innerHTML = `
-    <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
-    <span>${message}</span>
-  `;
-  
-  container.appendChild(notif);
-  
-  requestAnimationFrame(() => {
-    notif.style.opacity = '1';
-    notif.style.transform = 'translateY(0)';
-  });
-
-  setTimeout(() => {
-    notif.style.opacity = '0';
-    notif.style.transform = 'translateY(20px)';
-    setTimeout(() => notif.remove(), 300);
-  }, 3000);
+function showNotification(msg, type='info') {
+  const c = document.getElementById('notification-container');
+  const n = document.createElement('div'); n.className = `notification notification-${type} show`;
+  n.innerHTML = `<i class="fas ${type==='success'?'fa-check':type==='error'?'fa-exclamation':'fa-info'}"></i> ${msg}`;
+  c.appendChild(n); setTimeout(()=>n.remove(), 3000);
 }
+function debounce(f,w){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>f.apply(this,a),w);};}
+function formatDate(d){return d?new Date(d).toLocaleDateString('fr-CH'):'-';}
+function escapeHtml(t){if(!t)return'';const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
 
-function debounce(func, wait) {
-  let timeout;
-  return function(...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(this, args), wait);
-  };
-}
-
-function formatDate(d) {
-  if(!d) return '-';
-  return new Date(d).toLocaleDateString('fr-CH', {
-    day: '2-digit', 
-    month: '2-digit', 
-    year: 'numeric'
-  });
-}
-
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// Exposition globale pour les onclick inline du HTML
 window.openChecklistModal = openChecklistModal;
 window.openDeleteModal = openDeleteModal;
 window.openChecklistWork = openChecklistWork;
