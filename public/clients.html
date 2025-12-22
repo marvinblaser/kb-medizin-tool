@@ -1,316 +1,296 @@
 <!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Clients - KB Medizin Tool</title>
-    <link rel="stylesheet" href="/css/tokens.css" />
-    <link rel="stylesheet" href="/css/base.css" />
-    <link rel="stylesheet" href="/css/layout.css" />
-    <link rel="stylesheet" href="/css/forms.css" />
-    <link rel="stylesheet" href="/css/components.css" />
-    <link rel="stylesheet" href="/css/table.css" />
-    <link rel="stylesheet" href="/css/pages.css" />
-    <link rel="stylesheet" href="/css/utilities.css" />
-    <link rel="stylesheet" href="/css/transitions.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  </head>
-  <body>
-    <div class="app-container">
-      <aside class="sidebar">
-        <div class="sidebar-header"><h2>KB Medizin</h2></div>
-        <nav class="sidebar-nav">
-          <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
-          <a href="/clients.html" class="active"><i class="fas fa-users"></i><span>Clients</span></a>
-          <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
-          <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
-          <a href="/admin.html" id="admin-link" class="hidden"><i class="fas fa-cog"></i><span>Administration</span></a>
-        </nav>
-        <div class="sidebar-footer">
-          <div class="user-info" id="user-info"></div>
-          <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%"><i class="fas fa-sign-out-alt"></i>Déconnexion</button>
-        </div>
-      </aside>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clients ERP - KB Medizin Tool</title>
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/forms.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/table.css" />
+  <link rel="stylesheet" href="/css/pages.css" />
+  <link rel="stylesheet" href="/css/utilities.css" />
+  <link rel="stylesheet" href="/css/transitions.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h2>KB Medizin</h2></div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
+        <a href="/clients.html" class="active"><i class="fas fa-users"></i><span>Clients</span></a>
+        <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
+        <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+        <a href="/admin.html" id="admin-link" class="hidden"><i class="fas fa-cog"></i><span>Administration</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info" id="user-info"></div>
+        <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%">
+          <i class="fas fa-sign-out-alt"></i> Déconnexion
+        </button>
+      </div>
+    </aside>
 
-      <main class="main-content">
-        <div class="page-header">
-          <h1><i class="fas fa-users"></i> Clients & Parc Machine</h1>
-          <button class="btn btn-primary" onclick="openClientModal()"><i class="fas fa-plus"></i> Nouveau Client</button>
+    <main class="main-content">
+      
+      <div class="page-header">
+        <div class="header-title-group">
+            <h1><i class="fas fa-building"></i> Répertoire Clients</h1>
         </div>
+        <div class="header-actions-group">
+            <button class="btn btn-secondary" onclick="exportData()" title="Exporter">
+                <i class="fas fa-file-export"></i>
+            </button>
+            <button class="btn btn-primary" onclick="openClientModal()">
+                <i class="fas fa-plus"></i> Nouveau Client
+            </button>
+        </div>
+      </div>
 
-        <div style="padding: 2rem 3rem;">
-            
-            <div class="tabs-container">
-                <div class="tabs">
-                    <button class="tab active" id="btn-view-directory" onclick="switchView('directory')">
-                        <i class="fas fa-address-book"></i> Annuaire Clients
+      <div class="client-container-fluid">
+        
+        <div class="erp-toolbar">
+            <div class="toolbar-left">
+                <div class="view-selector">
+                    <button class="view-tab active" onclick="switchView('directory')" id="tab-directory">
+                        <i class="fas fa-address-book"></i> Annuaire
                     </button>
-                    <button class="tab" id="btn-view-planning" onclick="switchView('planning')">
-                        <i class="fas fa-calendar-alt"></i> Planning Service
+                    <button class="view-tab" onclick="switchView('planning')" id="tab-planning">
+                        <i class="fas fa-calendar-alt"></i> Planning
                     </button>
                 </div>
             </div>
 
-            <div id="view-directory" class="view-section active">
-                <div class="table-controls">
-                    <div class="table-controls-row">
-                        <div class="search-box">
-                            <input type="text" id="global-search" placeholder="Rechercher un client, une ville..." />
-                        </div>
-                        <div style="flex: 1;"></div>
-                        <button class="btn btn-secondary" id="toggle-filters-btn"><i class="fas fa-filter"></i> Filtres</button>
-                    </div>
+            <div class="toolbar-right">
+                <div class="search-input-group">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="global-search" placeholder="Rechercher..." />
+                </div>
+                
+                <div class="filters-inline-group">
+                    <select id="filter-canton" class="compact-select">
+                        <option value="">Canton</option>
+                        <option value="VD">Vaud</option><option value="GE">Genève</option><option value="VS">Valais</option><option value="NE">Neuchâtel</option><option value="FR">Fribourg</option><option value="JU">Jura</option><option value="BE">Berne</option><option value="ZH">Zurich</option>
+                    </select>
                     
-                    <div id="advanced-filters" class="table-controls-row advanced-filters hidden">
-                        <div class="form-group mb-0"><input type="text" id="filter-brand" placeholder="Marque" /></div>
-                        <div class="form-group mb-0"><input type="text" id="filter-model" placeholder="Modèle" /></div>
-                        <div class="form-group mb-0"><input type="text" id="filter-serial" placeholder="N° Série" /></div>
-                        <div class="form-group mb-0">
-                            <select id="filter-category">
-                                <option value="">-- Secteur --</option>
-                                <option value="ORL">ORL</option>
-                                <option value="Gynécologie">Gynécologie</option>
-                                <option value="Stérilisation">Stérilisation</option>
-                            </select>
-                        </div>
-                        <button class="btn btn-sm btn-secondary" id="clear-filters-btn">Effacer</button>
-                    </div>
-                </div>
+                    <select id="filter-sector" class="compact-select">
+                        <option value="">Secteur</option>
+                        <option value="ORL">ORL</option><option value="Gynécologie">Gynéco</option><option value="Stérilisation">Stéril.</option>
+                    </select>
 
-                <div class="table-container">
-                  <div class="table-wrapper">
-                    <table id="clients-table" class="table">
-                      <thead>
-                        <tr>
-                          <th class="sortable" onclick="handleSort('cabinet_name')" data-col="cabinet_name" style="width: 25%;">Cabinet / Client <i class="fas fa-sort"></i></th>
-                          <th class="sortable" onclick="handleSort('city')" data-col="city" style="width: 20%;">Localisation <i class="fas fa-sort"></i></th>
-                          <th style="width: 20%;">Contact</th>
-                          <th style="width: 25%;">Parc Machine</th>
-                          <th class="sortable" onclick="handleSort('appointment_at')" data-col="appointment_at" style="width: 10%;">Prochain RDV <i class="fas fa-sort"></i></th>
-                          <th style="width: 50px;"></th>
-                        </tr>
-                      </thead>
-                      <tbody id="clients-tbody">
-                          </tbody>
-                    </table>
-                  </div>
-                  <div class="pagination">
-                    <div class="pagination-info" id="pagination-info">Page 1</div>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button class="btn btn-secondary btn-sm" id="prev-page" disabled><i class="fas fa-chevron-left"></i></button>
-                        <button class="btn btn-secondary btn-sm" id="next-page" disabled><i class="fas fa-chevron-right"></i></button>
-                    </div>
-                  </div>
-                </div>
-            </div>
-
-            <div id="view-planning" class="view-section" style="display: none;">
-                <div class="table-controls">
-                    <div class="table-controls-row">
-                        <div class="search-box">
-                            <input type="text" id="planning-search" placeholder="Rechercher dans le planning..." />
-                        </div>
-                        <div style="flex: 1; display: flex; gap: 10px; justify-content: flex-end; align-items: center;">
-                            <select id="plan-filter-status" style="max-width: 150px;"><option value="">Statut</option><option value="overdue">En retard</option><option value="soon">Bientôt</option><option value="future">Futur</option></select>
-                            <select id="plan-filter-canton" style="max-width: 100px;"><option value="">Canton</option><option value="VD">VD</option><option value="GE">GE</option><option value="VS">VS</option><option value="NE">NE</option><option value="FR">FR</option><option value="JU">JU</option><option value="BE">BE</option><option value="ZH">ZH</option></select>
-                            <button class="btn btn-secondary" id="toggle-planning-filters-btn"><i class="fas fa-sliders-h"></i> Avancé</button>
-                            <button class="btn btn-icon" id="plan-reset-btn"><i class="fas fa-undo"></i></button>
-                        </div>
-                    </div>
-
-                    <div id="planning-advanced-filters" class="table-controls-row advanced-filters hidden">
-                        <input type="text" id="plan-filter-device" placeholder="Appareil" />
-                        <input type="text" id="plan-filter-brand" placeholder="Marque" />
-                        <input type="text" id="plan-filter-model" placeholder="Modèle" />
-                        <input type="text" id="plan-filter-serial" placeholder="N° Série" />
-                    </div>
-                </div>
-                
-                <div class="table-container">
-                    <div class="table-wrapper">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th class="sortable" onclick="handlePlanningSort('cabinet_name')" data-plan-col="cabinet_name">Client <i class="fas fa-sort"></i></th>
-                                    <th class="sortable" onclick="handlePlanningSort('canton')" data-plan-col="canton" style="width:60px;">Ct. <i class="fas fa-sort"></i></th>
-                                    <th class="sortable" onclick="handlePlanningSort('catalog_name')" data-plan-col="catalog_name">Machine <i class="fas fa-sort"></i></th>
-                                    <th class="sortable" onclick="handlePlanningSort('type')" data-plan-col="type">Secteur <i class="fas fa-sort"></i></th>
-                                    <th class="sortable" onclick="handlePlanningSort('last_maintenance_date')" data-plan-col="last_maintenance_date">Dernier <i class="fas fa-sort"></i></th>
-                                    <th class="sortable" onclick="handlePlanningSort('next_maintenance_date')" data-plan-col="next_maintenance_date">Prochain <i class="fas fa-sort"></i></th>
-                                    <th class="sortable" onclick="handlePlanningSort('days_remaining')" data-plan-col="days_remaining" style="text-align:center;">État <i class="fas fa-sort"></i></th>
-                                    <th style="width:80px;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="planning-tbody">
-                                </tbody>
-                        </table>
-                    </div>
+                    <button class="btn-filter-toggle" id="toggle-advanced-filters">
+                        <i class="fas fa-sliders-h"></i> Filtres
+                    </button>
                 </div>
             </div>
         </div>
-      </main>
-    </div>
 
-    <div class="modal" id="client-details-modal">
-        <div class="modal-content client-sheet-modal"> <div class="modal-header">
-                <h2><i class="fas fa-hospital-user" style="color: var(--color-primary);"></i> Fiche Client</h2>
-                <button class="modal-close" onclick="closeClientDetailsModal()">&times;</button>
+        <div id="advanced-filters-panel" class="filters-panel hidden">
+            <div class="filters-row-compact">
+                <div class="filter-item"><label>Marque</label><input type="text" id="adv-brand" placeholder="Ex: Atmos"></div>
+                <div class="filter-item"><label>Modèle</label><input type="text" id="adv-model" placeholder="Ex: C31"></div>
+                <div class="filter-item"><label>N° Série</label><input type="text" id="adv-serial" placeholder="S/N..."></div>
+                <div class="filter-item"><label>Statut</label><select id="adv-status"><option value="">Tous</option><option value="expired">Expiré</option><option value="warning">Bientôt</option><option value="ok">À jour</option></select></div>
+                <div class="filter-item filter-actions">
+                    <button class="btn-link-reset" id="clear-filters">Effacer</button>
+                </div>
             </div>
-            <div class="client-sheet-body">
-                
-                <div class="sheet-sidebar">
-                  <div class="sheet-header-profile">
-                      <div class="sheet-avatar"><i class="fas fa-building"></i></div>
-                      <h3 class="sheet-title" id="sheet-name">Cabinet</h3>
-                      <div class="sheet-subtitle" id="sheet-activity">Spécialité</div>
+        </div>
+
+        <div id="view-directory" class="view-content active">
+            <div class="erp-table-wrapper">
+                <table class="erp-table" id="clients-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="handleSort('cabinet_name')" style="width:25%;">Client / Cabinet <i class="fas fa-sort"></i></th>
+                            <th class="sortable" onclick="handleSort('city')" style="width:15%;">Localisation <i class="fas fa-sort"></i></th>
+                            <th style="width:20%;">Contact</th>
+                            <th style="width:25%;">Parc Machine</th>
+                            <th class="sortable" onclick="handleSort('appointment_at')" style="width:10%;">RDV <i class="fas fa-sort"></i></th>
+                            <th style="width:50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="clients-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="view-planning" class="view-content">
+            <div class="erp-table-wrapper">
+                <table class="erp-table planning-table" id="planning-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="handlePlanningSort('status')" style="width:100px;">État <i class="fas fa-sort"></i></th>
+                            <th class="sortable" onclick="handlePlanningSort('cabinet_name')">Client <i class="fas fa-sort"></i></th>
+                            <th class="sortable" onclick="handlePlanningSort('city')">Lieu <i class="fas fa-sort"></i></th>
+                            <th class="sortable" onclick="handlePlanningSort('catalog_name')">Machine <i class="fas fa-sort"></i></th>
+                            <th>Type</th>
+                            <th class="sortable" onclick="handlePlanningSort('last_maintenance_date')">Dernière <i class="fas fa-sort"></i></th>
+                            <th class="sortable" onclick="handlePlanningSort('next_maintenance_date')">Échéance <i class="fas fa-sort"></i></th>
+                            <th style="text-align:right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="planning-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="erp-pagination">
+            <div id="pagination-info">Chargement...</div>
+            <div class="pagination-controls">
+                <button class="pg-btn" id="prev-page"><i class="fas fa-chevron-left"></i></button>
+                <button class="pg-btn" id="next-page"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="pagination-limit">
+                <select id="limit-select">
+                    <option value="25">25 / page</option>
+                    <option value="50">50 / page</option>
+                    <option value="100">100 / page</option>
+                </select>
+            </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <div class="modal" id="client-details-modal">
+      <div class="modal-content client-sheet-modal">
+          
+          <div class="sheet-header">
+              <div class="sheet-title-box">
+                  <div class="sheet-icon-box"><i class="fas fa-hospital-user"></i></div>
+                  <div>
+                      <h2 id="sheet-name">Nom Cabinet</h2>
+                      <div class="sheet-meta-tags">
+                          <span id="sheet-category" class="meta-badge">SECTEUR</span>
+                          <span class="meta-sep">•</span>
+                          <span id="sheet-city-header">VILLE</span>
+                      </div>
                   </div>
-                  
-                  <div class="sheet-info-group">
-                      <div class="sheet-contact-item"><i class="fas fa-map-marker-alt"></i> <span id="sheet-address">Adresse</span></div>
-                      <div class="sheet-contact-item gps"><i class="fas fa-satellite"></i> <span id="sheet-coords">GPS</span></div>
-                      <div class="sheet-contact-item"><i class="fas fa-phone"></i> <span id="sheet-phone">Tél</span></div>
-                      <div class="sheet-contact-item"><i class="fas fa-envelope"></i> <span id="sheet-email">Email</span></div>
-                      <div class="sheet-contact-item"><i class="fas fa-user-md"></i> <span id="sheet-contact">Contact</span></div>
+              </div>
+              
+              <div class="sheet-actions-row">
+                  <button class="btn-sheet-action" onclick="openClientModal(currentClientId)">
+                      <i class="fas fa-pen"></i> Modifier
+                  </button>
+                  <button class="btn-sheet-action btn-sheet-danger" onclick="openDeleteModal(currentClientId)">
+                      <i class="fas fa-trash"></i>
+                  </button>
+                  <div class="v-sep"></div>
+                  <button class="btn-sheet-close" onclick="closeClientDetailsModal()">
+                      <i class="fas fa-times"></i>
+                  </button>
+              </div>
+          </div>
+          
+          <div class="sheet-layout">
+              <div class="sheet-sidebar">
+                  <div class="info-group">
+                      <label>COORDONNÉES</label>
+                      <div class="info-line"><i class="fas fa-map-marker-alt"></i> <span id="sheet-address">-</span></div>
+                      <div class="info-line"><i class="fas fa-phone"></i> <span id="sheet-phone">-</span></div>
+                      <div class="info-line"><i class="fas fa-envelope"></i> <span id="sheet-email">-</span></div>
+                      <div class="info-line"><i class="fas fa-user-md"></i> <strong id="sheet-contact">-</strong></div>
                   </div>
-                  
-                  <div class="sheet-actions">
-                      <button class="btn btn-primary btn-sm w-100" id="sheet-edit-btn">
-                          <i class="fas fa-pen"></i> Modifier
-                      </button>
-                      <button class="btn btn-secondary btn-sm w-100" id="sheet-delete-btn" style="color: var(--color-danger); border-color: var(--color-danger);">
-                          <i class="fas fa-trash"></i> Supprimer
-                      </button>
+                  <div class="info-group">
+                      <label>GÉOLOCALISATION</label>
+                      <div id="sheet-coords" class="geo-box">Non défini</div>
                   </div>
-                  
-                  <div class="sheet-notes-box">
-                      <label>Notes internes</label>
-                      <div id="sheet-notes"></div>
+                  <div class="info-group">
+                      <label>NOTES INTERNES</label>
+                      <div id="sheet-notes" class="notes-box">Aucune note.</div>
                   </div>
               </div>
 
-                <div class="sheet-main">
-                    <div class="sheet-tabs-nav">
-                        <button class="sheet-tab active" onclick="switchSheetTab('equipment')">
-                            <i class="fas fa-tools"></i> Parc Machines
-                        </button>
-                        <button class="sheet-tab" onclick="switchSheetTab('history')">
-                            <i class="fas fa-history"></i> Historique
-                        </button>
-                    </div>
+              <div class="sheet-content">
+                  <div class="sheet-tabs">
+                      <button class="sheet-tab active" onclick="switchSheetTab('equipment')">Parc Machines <span class="badge-count" id="count-eq">0</span></button>
+                      <button class="sheet-tab" onclick="switchSheetTab('history')">Historique <span class="badge-count" id="count-hist">0</span></button>
+                  </div>
+                  
+                  <div id="tab-equipment" class="tab-pane active">
+                      <div class="pane-actions">
+                          <h3>Équipements installés</h3>
+                          <button class="btn btn-primary btn-sm" onclick="openEquipFormModal()">
+                              <i class="fas fa-plus"></i> Ajouter
+                          </button>
+                      </div>
+                      <div id="sheet-equipment-list" class="cards-grid"></div>
+                  </div>
 
-                    <div id="sheet-tab-equipment" class="sheet-tab-content active">
-                        <div class="tab-actions-row">
-                            <h3 class="tab-title">Équipements installés</h3>
-                            <button class="btn btn-success btn-sm" id="sheet-add-equip-btn"><i class="fas fa-plus"></i> Ajouter</button>
-                        </div>
-                        <div id="sheet-equipment-list" class="equipment-grid"></div>
-                    </div>
+                  <div id="tab-history" class="tab-pane">
+                      <div id="sheet-history-list" class="timeline-container"></div>
+                  </div>
+              </div>
+          </div>
+      </div>
+  </div>
 
-                    <div id="sheet-tab-history" class="sheet-tab-content">
-                        <div id="sheet-history-list" class="history-list"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+  <div class="modal" id="client-modal">
+      <div class="modal-content" style="max-width: 700px;">
+          <div class="modal-header"><h2>Édition Client</h2><button class="modal-close" onclick="closeClientModal()">&times;</button></div>
+          <div class="modal-body">
+              <form id="client-form">
+                  <input type="hidden" id="client-id">
+                  <div class="form-row">
+                      <div class="form-group" style="flex:2"><label>Nom Cabinet *</label><input type="text" id="client-name" required></div>
+                      <div class="form-group"><label>Secteur</label><select id="client-activity"><option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option><option value="Autre">Autre</option></select></div>
+                  </div>
+                  <div class="form-row">
+                      <div class="form-group"><label>Contact</label><input type="text" id="client-contact"></div>
+                      <div class="form-group"><label>Téléphone</label><input type="text" id="client-phone"></div>
+                      <div class="form-group"><label>Email</label><input type="email" id="client-email"></div>
+                  </div>
+                  <div class="form-group"><label>Adresse</label><input type="text" id="client-address"></div>
+                  <div class="form-row">
+                      <div class="form-group"><label>NPA</label><input type="text" id="client-npa"></div>
+                      <div class="form-group" style="flex:2"><label>Ville</label><input type="text" id="client-city"></div>
+                      <div class="form-group"><label>Canton</label><input type="text" id="client-canton" style="text-transform:uppercase" maxlength="2"></div>
+                  </div>
+                  <div class="gps-container">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                          <label style="margin:0; font-size:0.8rem; font-weight:bold; color:#166534;">COORDONNÉES GPS</label>
+                          <button type="button" id="btn-geo-search" class="btn-xs-geo">Détecter</button>
+                      </div>
+                      <div class="form-row">
+                          <div class="form-group mb-0"><input type="number" id="client-lat" step="0.0000001" placeholder="Latitude"></div>
+                          <div class="form-group mb-0"><input type="number" id="client-lon" step="0.0000001" placeholder="Longitude"></div>
+                      </div>
+                      <div id="geo-status" style="font-size:0.75rem; margin-top:5px; min-height:1rem;"></div>
+                  </div>
+                  <div class="form-group"><label>Notes</label><textarea id="client-notes" rows="2"></textarea></div>
+              </form>
+          </div>
+          <div class="modal-footer"><button class="btn btn-secondary" onclick="closeClientModal()">Annuler</button><button class="btn btn-primary" onclick="saveClient()">Enregistrer</button></div>
+      </div>
+  </div>
 
-    <div class="modal" id="client-modal">
-        <div class="modal-content" style="max-width: 700px;">
-            <div class="modal-header"><h2>Modifier Client</h2><button class="modal-close" onclick="closeClientModal()">&times;</button></div>
-            <div class="modal-body">
-                <form id="client-form">
-                    <input type="hidden" id="client-id" />
-                    <div class="form-row"><div class="form-group"><label>Cabinet *</label><input type="text" id="cabinet-name" required /></div><div class="form-group"><label>Contact</label><input type="text" id="contact-name" /></div></div>
-                    <div class="form-row"><div class="form-group"><label>Activité</label><select id="activity"><option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option><option value="Podologie">Podologie</option><option value="Chirurgie">Chirurgie</option></select></div><div class="form-group"><label>Téléphone</label><input type="text" id="phone" /></div></div>
-                    <div class="form-group"><label>Email</label><input type="email" id="email" /></div>
-                    
-                    <div class="form-group"><label>Adresse</label><input type="text" id="address" placeholder="Rue et numéro" /></div>
-                    <div class="form-row"><div class="form-group"><label>NPA</label><input type="text" id="postal-code" /></div><div class="form-group"><label>Ville</label><input type="text" id="city" /></div><div class="form-group"><label>Canton</label><input type="text" id="canton" style="text-transform:uppercase;" maxlength="2" /></div></div>
-                    
-                    <div style="background:var(--neutral-50); padding:1rem; border-radius:var(--radius-md); border:1px solid var(--border-color); margin-bottom:1.5rem;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                            <label style="margin:0; font-weight:600;"><i class="fas fa-map-marked-alt"></i> Géolocalisation</label>
-                            <button type="button" id="btn-geo-search" class="btn-sm btn-secondary">
-                                <i class="fas fa-search-location"></i> Auto-détecter
-                            </button>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group mb-0"><label>Latitude</label><input type="number" id="client-lat" step="0.0000001" /></div>
-                            <div class="form-group mb-0"><label>Longitude</label><input type="number" id="client-lon" step="0.0000001" /></div>
-                        </div>
-                        <div id="geo-status" style="font-size:0.75rem; margin-top:5px;"></div>
-                    </div>
+  <div class="modal" id="equipment-form-modal">
+      <div class="modal-content" style="max-width:600px;">
+          <div class="modal-header"><h2>Machine</h2><button class="modal-close" onclick="closeEquipModal()">&times;</button></div>
+          <div class="modal-body">
+              <form id="equip-form">
+                  <input type="hidden" id="equip-id">
+                  <div class="form-group"><label>Modèle</label><select id="equip-select" required></select></div>
+                  <div class="form-group"><label>N° Série</label><input type="text" id="equip-serial"></div>
+                  <div class="form-row">
+                      <div class="form-group"><label>Installé le</label><input type="date" id="equip-install"></div>
+                      <div class="form-group"><label>Dernière Maint.</label><input type="date" id="equip-last"></div>
+                  </div>
+                  <div class="form-group"><label>Intervalle (Années)</label><select id="equip-interval"><option value="1">1 An</option><option value="2">2 Ans</option><option value="3">3 Ans</option></select></div>
+              </form>
+          </div>
+          <div class="modal-footer"><button class="btn btn-secondary" onclick="closeEquipModal()">Annuler</button><button class="btn btn-primary" onclick="saveEquipment()">Sauvegarder</button></div>
+      </div>
+  </div>
 
-                    <div class="form-group"><label>Notes</label><textarea id="notes"></textarea></div>
-                </form>
-            </div>
-            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeClientModal()">Annuler</button><button class="btn btn-save" onclick="saveClient()">Enregistrer</button></div>
-        </div>
-    </div>
+  <div class="modal" id="delete-modal"><div class="modal-content"><div class="modal-header"><h2>Confirmer</h2></div><div class="modal-body"><p>Supprimer définitivement ?</p></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeDeleteModal()">Non</button><button class="btn btn-danger" id="confirm-delete-btn">Oui</button></div></div></div>
+  <div id="notification-container"></div>
 
-    <div class="modal" id="equipment-form-modal">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header"><h2>Gérer Machine</h2><button class="modal-close" onclick="closeEquipFormModal()">&times;</button></div>
-            <div class="modal-body">
-                <form id="equipment-item-form">
-                    <input type="hidden" id="equipment-item-id" />
-                    <div class="form-group"><label>Modèle (Catalogue)</label><select id="equipment-select" required><option>Chargement...</option></select></div>
-                    <div class="form-group"><label>N° Série</label><input type="text" id="equipment-serial" /></div>
-                    <div class="form-row"><div class="form-group"><label>Installé le</label><input type="date" id="equipment-installed" /></div><div class="form-group"><label>Garantie fin</label><input type="date" id="equipment-warranty" /></div></div>
-                    <div class="form-row" style="background:var(--neutral-50); padding:10px; border-radius:6px; border:1px solid var(--border-color);">
-                        <div class="form-group mb-0"><label>Dernier Service</label><input type="date" id="last-maintenance" /></div>
-                        <div class="form-group mb-0"><label>Intervalle (Ans)</label><select id="maintenance-interval"><option value="1">1 an</option><option value="2">2 ans</option><option value="3">3 ans</option></select></div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeEquipFormModal()">Annuler</button><button class="btn btn-save" id="save-equipment-item-btn">Enregistrer</button></div>
-        </div>
-    </div>
-
-    <div class="modal" id="delete-modal"><div class="modal-content" style="max-width:400px;"><div class="modal-header"><h2 style="color:var(--color-danger);">Supprimer</h2><button class="modal-close" onclick="closeDeleteModal()">&times;</button></div><div class="modal-body"><p>Êtes-vous sûr de vouloir supprimer <strong id="delete-client-name"></strong> ? <br><small>Cette action est irréversible.</small></p></div><div class="modal-footer"><button class="btn btn-secondary" id="cancel-delete-btn">Annuler</button><button class="btn btn-danger" id="confirm-delete-btn">Confirmer</button></div></div></div>
-    
-    <div id="notification-container" class="notification-container"></div>
-    <div id="custom-tooltip"></div>
-
-    <script src="/js/clients.js"></script>
-    <script>
-        // Logique simplifiée pour les tabs et l'affichage
-        function switchView(view) {
-            // Gestion des boutons
-            document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
-            document.getElementById('btn-view-'+view).classList.add('active');
-            
-            // Gestion des sections (Utilisation stricte de display: none/block)
-            document.querySelectorAll('.view-section').forEach(s => s.style.display = 'none');
-            const activeSection = document.getElementById('view-'+view);
-            if(activeSection) {
-                activeSection.style.display = 'block';
-                // Petit hack pour forcer le redessin si besoin
-                activeSection.classList.add('active');
-            }
-            
-            if(view === 'planning') loadPlanning();
-        }
-
-        // Logic pour les tabs de la fiche client
-        function switchSheetTab(tab) {
-            document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.sheet-tab-content').forEach(c => {
-                c.style.display = 'none';
-                c.classList.remove('active');
-            });
-            
-            // Active button
-            const btn = document.querySelector(`.sheet-tab[onclick*="'${tab}'"]`);
-            if(btn) btn.classList.add('active');
-            
-            // Active content
-            const content = document.getElementById('sheet-tab-'+tab);
-            if(content) {
-                content.style.display = 'block';
-                setTimeout(() => content.classList.add('active'), 10);
-            }
-        }
-    </script>
-  </body>
+  <script src="/js/clients.js"></script>
+</body>
 </html>
