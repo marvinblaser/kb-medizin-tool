@@ -5,57 +5,58 @@ const erpStyles = `
 /* Layout Fluide */
 .client-container-fluid { width: 100%; height: calc(100vh - 80px); display: flex; flex-direction: column; padding: 1.5rem 2rem !important; background: #f8fafc; overflow: hidden; }
 
-/* TOOLBAR */
-.erp-toolbar {
-    background: white; border: 1px solid #e2e8f0; border-radius: 12px;
-    padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center;
+/* --- TOOLBAR STYLE CHECKLIST (UNIFIÉE) --- */
+.toolbar-clean-bar {
+    background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 0 1.5rem; display: flex; align-items: center; height: 64px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.03); margin-bottom: 1.5rem; flex-shrink: 0;
+    gap: 1.5rem;
 }
-.view-selector { display: flex; gap: 0.5rem; background: #f1f5f9; padding: 4px; border-radius: 8px; }
-.view-tab {
-    border: none; background: transparent; padding: 8px 16px; font-size: 0.9rem; font-weight: 600;
-    color: #64748b; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 8px;
-    transition: all 0.2s;
-}
-.view-tab.active { background: white; color: var(--color-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
 
-/* Recherche & Filtres */
-.toolbar-right { display: flex; align-items: center; gap: 0.8rem; }
-.search-input-group {
-    position: relative; width: 300px;
+/* Zone Recherche (Sans bordure, fondue) */
+.toolbar-search-section {
+    display: flex; align-items: center; gap: 0.8rem; color: #94a3b8; flex: 0 0 320px;
 }
-.search-input-group i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
-.search-input-group input {
-    width: 100%; padding: 0.6rem 1rem 0.6rem 2.4rem; border: 1px solid #e2e8f0; background: #fff;
-    border-radius: 8px; font-size: 0.9rem; outline: none; transition: all 0.2s; color: #1e293b;
+.toolbar-search-section input {
+    border: none; background: transparent; width: 100%; font-size: 0.95rem; color: #1e293b; outline: none; padding: 0;
 }
-.search-input-group input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.1); }
+.toolbar-search-section i { font-size: 1.1rem; }
 
-.filters-inline-group { display: flex; gap: 0.5rem; align-items: center; }
-.compact-select {
-    border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.5rem 2rem 0.5rem 0.8rem;
-    font-size: 0.85rem; background-color: white; cursor: pointer; height: 38px; color: #334155; font-weight: 500;
-    outline: none; max-width: 140px;
-}
-.compact-select:hover { border-color: #cbd5e1; }
+/* Séparateur Vertical */
+.toolbar-divider { width: 1px; height: 32px; background: #e2e8f0; }
 
-.btn-filter-toggle {
-    background: white; border: 1px solid #e2e8f0; color: #64748b; cursor: pointer; border-radius: 8px; 
-    height: 38px; padding: 0 12px; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;
-    transition: all 0.2s;
+/* Onglets de Vue (Texte + Soulignement) */
+.toolbar-nav-section { display: flex; gap: 1.5rem; height: 100%; }
+.nav-text-btn {
+    background: transparent; border: none; border-bottom: 3px solid transparent;
+    height: 100%; display: flex; align-items: center; font-size: 0.95rem; font-weight: 500;
+    color: #64748b; cursor: pointer; transition: all 0.2s; padding: 0 5px; margin-bottom: -1px;
 }
-.btn-filter-toggle:hover { background: #f1f5f9; color: var(--color-primary); border-color: var(--color-primary); }
+.nav-text-btn:hover { color: var(--color-primary); }
+.nav-text-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
 
-/* PANNEAU FILTRES HORIZONTAL */
+/* Filtres (Droite) */
+.toolbar-filters-section { display: flex; align-items: center; gap: 0.8rem; }
+.minimal-select {
+    border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.4rem 2rem 0.4rem 0.8rem;
+    font-size: 0.85rem; background-color: white; cursor: pointer; height: 36px; color: #334155; font-weight: 500;
+    outline: none; max-width: 160px;
+}
+.minimal-select:hover { border-color: #cbd5e1; }
+
+.btn-icon-simple {
+    background: white; border: 1px solid #e2e8f0; color: #64748b; cursor: pointer; border-radius: 6px; 
+    height: 36px; width: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.btn-icon-simple:hover { background: #f1f5f9; color: var(--color-primary); }
+
+/* PANNEAU FILTRES AVANCÉS */
 .filters-panel { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; margin-top: -1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-.filters-row-compact { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
-.filter-item { flex: 1; min-width: 150px; }
-.filter-item label { display: block; font-size: 0.75rem; color: #64748b; margin-bottom: 4px; font-weight: 600; }
-.filter-item input, .filter-item select { width: 100%; border: 1px solid #e2e8f0; padding: 6px; border-radius: 6px; font-size: 0.9rem; }
-.filter-actions { flex: 0 0 auto; display: flex; align-items: center; padding-bottom: 4px; }
+.filters-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.filters-footer { margin-top: 1rem; text-align: right; border-top: 1px solid #f1f5f9; padding-top: 0.5rem; }
 .btn-link-reset { background: none; border: none; color: #ef4444; font-size: 0.85rem; cursor: pointer; text-decoration: underline; }
 
-/* TABLEAUX */
+/* TABLEAUX DATAGRID */
 .view-content { flex: 1; overflow: hidden; display: none; flex-direction: column; }
 .view-content.active { display: flex; }
 .erp-table-wrapper { flex: 1; overflow: auto; border: 1px solid #e2e8f0; border-radius: 12px; background: white; }
@@ -69,7 +70,7 @@ const erpStyles = `
 .erp-table tbody tr:hover { background: #f8fafc !important; }
 .erp-table td { padding: 0.8rem 1.2rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: #1e293b; }
 
-/* CODE COULEUR PLANNING (DEGRADÉ + BORDURE) */
+/* CODE COULEUR PLANNING */
 .row-ok { background: linear-gradient(90deg, #f0fdf4 0%, #ffffff 100%) !important; }
 .row-ok td:first-child { border-left: 5px solid #22c55e; }
 .row-warning { background: linear-gradient(90deg, #fff7ed 0%, #ffffff 100%) !important; }
@@ -77,7 +78,12 @@ const erpStyles = `
 .row-expired { background: linear-gradient(90deg, #fef2f2 0%, #ffffff 100%) !important; }
 .row-expired td:first-child { border-left: 5px solid #ef4444; }
 
-/* BOUTONS ACTIONS (CRAYON/POUBELLE) */
+.status-pill { padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+.pill-ok { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.pill-warn { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
+.pill-err { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+/* Boutons Actions Tableau */
 .btn-icon-table {
     background: transparent; border: none; cursor: pointer; color: #94a3b8; 
     width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
@@ -97,6 +103,9 @@ const erpStyles = `
     width: 60px; height: 60px; border-radius: 50%; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center;
     font-size: 1.6rem; color: var(--color-primary); background: #f0f9ff;
 }
+.sheet-meta-tags { display: flex; gap: 0.5rem; margin-top: 0.4rem; color: #64748b; font-size: 0.9rem; align-items: center; }
+.meta-badge { background: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: #475569; }
+
 .sheet-actions-row { display: flex; align-items: center; gap: 0.8rem; }
 .btn-sheet-action {
     background: white; border: 1px solid #e2e8f0; color: #64748b; padding: 0.5rem 1rem; border-radius: 6px; 
@@ -115,40 +124,62 @@ const erpStyles = `
 .sheet-layout { display: flex; flex: 1; overflow: hidden; }
 .sheet-sidebar { width: 340px; background: #f8fafc; border-right: 1px solid #e2e8f0; padding: 2.5rem 2rem; overflow-y: auto; flex-shrink: 0; }
 .sheet-content { flex: 1; background: white; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.sheet-main-padding { padding: 2rem; overflow-y: auto; flex: 1; }
 
-/* Timeline Historique */
-.timeline-container { padding: 2rem; }
-.timeline-item { position: relative; padding-left: 2rem; margin-bottom: 2rem; border-left: 2px solid #e2e8f0; }
-.timeline-item:last-child { border-left: 2px solid transparent; }
-.timeline-marker {
-    position: absolute; left: -9px; top: 0; width: 16px; height: 16px; border-radius: 50%; background: white; border: 4px solid var(--color-primary);
-}
-.timeline-date { font-weight: 700; color: #1e293b; font-size: 0.9rem; margin-bottom: 4px; }
-.timeline-card {
-    background: white; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-    display: flex; justify-content: space-between; align-items: flex-start;
-}
-.timeline-card h4 { margin: 0; font-size: 0.95rem; font-weight: 600; color: #334155; }
-.timeline-card p { margin: 4px 0 0; font-size: 0.85rem; color: #64748b; }
+.info-group { margin-bottom: 2.5rem; }
+.info-group label { display: block; font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 1rem; letter-spacing: 0.05em; }
+.info-line { display: flex; align-items: flex-start; gap: 1rem; font-size: 0.95rem; color: #334155; margin-bottom: 0.8rem; line-height: 1.4; }
+.info-line i { color: var(--color-primary); width: 18px; text-align: center; margin-top: 3px; }
 
-/* Autres styles conservés (Pagination, Tabs...) */
+.geo-box { background: #ecfdf5; color: #15803d; border: 1px solid #bbf7d0; padding: 8px 12px; border-radius: 6px; font-family: monospace; display: inline-block; font-size: 0.85rem; }
+.notes-box { background: white; border: 1px solid #e2e8f0; padding: 1.2rem; border-radius: 8px; font-style: italic; color: #64748b; font-size: 0.9rem; line-height: 1.5; }
+
+/* TABS SHEET */
 .sheet-tabs { display: flex; border-bottom: 1px solid #e2e8f0; margin-bottom: 1.5rem; padding: 0 2rem; }
-.sheet-tab { background: transparent; border: none; padding: 1.2rem 0; margin-right: 2.5rem; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.95rem; }
+.sheet-tab {
+    background: transparent; border: none; padding: 1.2rem 0; margin-right: 2.5rem; font-weight: 600; color: #64748b; cursor: pointer;
+    border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.95rem;
+}
+.sheet-tab:hover { color: var(--color-primary); }
 .sheet-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .badge-count { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px; }
+
 .tab-pane { flex: 1; padding: 0 2rem 2rem; overflow-y: auto; display: none; }
 .tab-pane.active { display: block; }
+.pane-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+
+/* CARDS & HISTORY */
 .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
-.eq-card-pro { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.2rem; display: flex; justify-content: space-between; align-items: start; box-shadow: 0 1px 2px rgba(0,0,0,0.02); border-left: 4px solid var(--color-primary); transition: transform 0.2s; }
+.eq-card-pro {
+    background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.2rem;
+    display: flex; justify-content: space-between; align-items: start; box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    border-left: 4px solid var(--color-primary); transition: transform 0.2s;
+}
 .eq-card-pro:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+.eq-title { margin: 0 0 4px 0; font-size: 1rem; font-weight: 600; color: #1e293b; }
+.eq-sub { margin: 0; font-size: 0.85rem; color: #64748b; }
+.eq-date { font-size: 0.8rem; font-weight: 600; margin-top: 8px; display: block; }
+
+.history-feed { display: flex; flex-direction: column; gap: 1rem; padding-left: 10px; }
+.timeline-item { position: relative; padding-left: 2rem; border-left: 2px solid #e2e8f0; padding-bottom: 1.5rem; }
+.timeline-item:last-child { border-left: 2px solid transparent; }
+.timeline-marker { position: absolute; left: -9px; top: 0; width: 16px; height: 16px; border-radius: 50%; background: white; border: 4px solid var(--color-primary); }
+.timeline-date { font-weight: 700; color: #1e293b; font-size: 0.85rem; margin-bottom: 4px; }
+.timeline-card { background: white; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); display: flex; justify-content: space-between; align-items: center; }
+
+/* PAGINATION */
 .erp-pagination { display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; margin-top: 0.5rem; border-top: 1px solid #e2e8f0; }
 .pg-btn { width: 36px; height: 36px; border: 1px solid #e2e8f0; background: white; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
 .pg-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
 .pg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* GPS Form */
 .gps-container { background:#f0fdf4; padding:12px; border-radius:8px; margin-bottom:1.5rem; border:1px solid #bbf7d0; }
 .btn-xs-geo { background: #166534; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+.btn-xs-geo:hover { background: #14532d; }
 `;
 
+// --- VARIABLES GLOBALES ---
 let currentView = 'directory';
 let clients = [];
 let catalog = [];
@@ -161,6 +192,7 @@ let itemsPerPage = 25;
 let currentUser = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Inject Styles
     const styleEl = document.createElement('style');
     styleEl.innerHTML = erpStyles;
     document.head.appendChild(styleEl);
@@ -169,6 +201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadCatalog();
     loadData();
 
+    // Listeners
     document.getElementById('global-search')?.addEventListener('input', debounce(e => { currentFilters.search = e.target.value; currentPage = 1; loadData(); }, 300));
     document.getElementById('filter-canton')?.addEventListener('change', e => { currentFilters.canton = e.target.value; currentPage = 1; loadData(); });
     document.getElementById('filter-sector')?.addEventListener('change', e => { currentFilters.sector = e.target.value; currentPage = 1; loadData(); });
@@ -192,10 +225,14 @@ async function loadCatalog() { try { const r = await fetch('/api/admin/equipment
 
 function switchView(view) {
     currentView = view;
-    document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
-    document.getElementById(`tab-${view}`).classList.add('active');
-    document.querySelectorAll('.view-content').forEach(c => c.classList.remove('active'));
-    document.getElementById(`view-${view}`).classList.add('active');
+    // Mise à jour des boutons
+    document.getElementById('tab-directory').classList.toggle('active', view === 'directory');
+    document.getElementById('tab-planning').classList.toggle('active', view === 'planning');
+    
+    // Mise à jour des contenus
+    document.getElementById('view-directory').classList.toggle('active', view === 'directory');
+    document.getElementById('view-planning').classList.toggle('active', view === 'planning');
+    
     if(view === 'planning') currentSort = { col: 'next_maintenance_date', order: 'asc' };
     else currentSort = { col: 'cabinet_name', order: 'asc' };
     currentPage = 1;
@@ -226,9 +263,11 @@ function renderDirectory(list) {
             <td><strong>${escapeHtml(c.cabinet_name)}</strong><br><span style="font-size:0.8rem; color:#64748b;">${escapeHtml(c.activity)}</span></td>
             <td>${escapeHtml(c.city)} <span style="font-size:0.75rem; color:#94a3b8;">(${c.canton||''})</span></td>
             <td>${escapeHtml(c.contact_name)}<br><span style="font-size:0.75rem; color:#64748b;">${escapeHtml(c.phone||'-')}</span></td>
-            <td><small style="color:#64748b;">${c.equipment_summary ? c.equipment_summary.split(';;').length + ' machines' : 'Aucune machine'}</small></td>
+            <td><small style="color:#64748b;">${c.equipment_summary ? c.equipment_summary.split(';;').length + ' machines installées' : 'Aucune machine'}</small></td>
             <td>${c.appointment_at ? formatDate(c.appointment_at) : '-'}</td>
-            <td style="text-align:right;"><button class="btn-icon-table" onclick="event.stopPropagation(); openClientModal(${c.id})"><i class="fas fa-pen"></i></button></td>
+            <td style="text-align:right;">
+                <button class="btn-icon-table" onclick="event.stopPropagation(); openClientModal(${c.id})" title="Éditer"><i class="fas fa-pen"></i></button>
+            </td>
         </tr>`).join('');
 }
 
@@ -248,7 +287,9 @@ function renderPlanning(list) {
             <td>${escapeHtml(r.type)}</td>
             <td>${formatDate(r.last_maintenance_date)}</td>
             <td style="font-weight:700;">${formatDate(r.next_maintenance_date)}</td>
-            <td style="text-align:right;"><button class="btn-icon-table" onclick="event.stopPropagation(); window.location.href='/reports.html?action=create&client=${r.client_id}&eq=${r.id}'"><i class="fas fa-file-signature"></i></button></td>
+            <td style="text-align:right;">
+                <button class="btn-icon-table" onclick="event.stopPropagation(); window.location.href='/reports.html?action=create&client=${r.client_id}&eq=${r.id}'" title="Créer rapport"><i class="fas fa-file-signature"></i></button>
+            </td>
         </tr>`;
     }).join('');
 }
@@ -321,8 +362,8 @@ async function loadClientHistory(id) {
             <div class="timeline-date">${formatDate(h.appointment_date)}</div>
             <div class="timeline-card">
                 <div>
-                    <h4>${h.source_type === 'report' ? 'Rapport Intervention' : 'Rendez-vous'}</h4>
-                    <p>${escapeHtml(h.task_description)}</p>
+                    <h4 style="margin:0; font-size:0.9rem;">${h.source_type === 'report' ? 'Rapport Intervention' : 'Rendez-vous'}</h4>
+                    <p style="margin:4px 0 0; color:#64748b; font-size:0.85rem;">${escapeHtml(h.task_description)}</p>
                 </div>
                 ${h.report_id ? `<button class="btn-icon-table" onclick="window.open('/report-view.html?id=${h.report_id}')"><i class="fas fa-file-pdf"></i></button>` : ''}
             </div>
@@ -437,6 +478,7 @@ async function confirmDeleteClient() {
     try { const res = await fetch(`/api/clients/${clientIdToDelete}`, { method: 'DELETE' }); if(res.ok) { closeDeleteModal(); if(document.getElementById('client-details-modal').classList.contains('active')) closeClientDetailsModal(); loadData(); } } catch {}
 }
 
+// --- UTILS ---a
 function debounce(f,w){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>f.apply(this,a),w);};}
 function escapeHtml(t){if(!t)return '';return t.toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function formatDate(s){return s?new Date(s).toLocaleDateString('fr-CH'):'-';}

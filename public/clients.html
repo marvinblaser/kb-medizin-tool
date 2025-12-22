@@ -52,51 +52,50 @@
 
       <div class="client-container-fluid">
         
-        <div class="erp-toolbar">
-            <div class="toolbar-left">
-                <div class="view-selector">
-                    <button class="view-tab active" onclick="switchView('directory')" id="tab-directory">
-                        <i class="fas fa-address-book"></i> Annuaire
-                    </button>
-                    <button class="view-tab" onclick="switchView('planning')" id="tab-planning">
-                        <i class="fas fa-calendar-alt"></i> Planning
-                    </button>
-                </div>
+        <div class="toolbar-clean-bar">
+            
+            <div class="toolbar-search-section">
+                <i class="fas fa-search"></i>
+                <input type="text" id="global-search" placeholder="Rechercher un client, une ville..." />
             </div>
 
-            <div class="toolbar-right">
-                <div class="search-input-group">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="global-search" placeholder="Rechercher..." />
-                </div>
-                
-                <div class="filters-inline-group">
-                    <select id="filter-canton" class="compact-select">
-                        <option value="">Canton</option>
-                        <option value="VD">Vaud</option><option value="GE">Genève</option><option value="VS">Valais</option><option value="NE">Neuchâtel</option><option value="FR">Fribourg</option><option value="JU">Jura</option><option value="BE">Berne</option><option value="ZH">Zurich</option>
-                    </select>
-                    
-                    <select id="filter-sector" class="compact-select">
-                        <option value="">Secteur</option>
-                        <option value="ORL">ORL</option><option value="Gynécologie">Gynéco</option><option value="Stérilisation">Stéril.</option>
-                    </select>
+            <div class="toolbar-divider"></div>
 
-                    <button class="btn-filter-toggle" id="toggle-advanced-filters">
-                        <i class="fas fa-sliders-h"></i> Filtres
-                    </button>
-                </div>
+            <div class="toolbar-nav-section">
+                <button class="nav-text-btn active" onclick="switchView('directory')" id="tab-directory">
+                    Annuaire
+                </button>
+                <button class="nav-text-btn" onclick="switchView('planning')" id="tab-planning">
+                    Planning Services
+                </button>
+            </div>
+
+            <div style="flex: 1;"></div> <div class="toolbar-filters-section">
+                <select id="filter-canton" class="minimal-select">
+                    <option value="">Canton (Tous)</option>
+                    <option value="VD">Vaud</option><option value="GE">Genève</option><option value="VS">Valais</option><option value="NE">Neuchâtel</option><option value="FR">Fribourg</option><option value="JU">Jura</option><option value="BE">Berne</option><option value="ZH">Zurich</option>
+                </select>
+                
+                <select id="filter-sector" class="minimal-select">
+                    <option value="">Secteur (Tous)</option>
+                    <option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option>
+                </select>
+
+                <button class="btn-icon-simple" id="toggle-advanced-filters" title="Filtres avancés">
+                    <i class="fas fa-sliders-h"></i>
+                </button>
             </div>
         </div>
 
         <div id="advanced-filters-panel" class="filters-panel hidden">
-            <div class="filters-row-compact">
-                <div class="filter-item"><label>Marque</label><input type="text" id="adv-brand" placeholder="Ex: Atmos"></div>
-                <div class="filter-item"><label>Modèle</label><input type="text" id="adv-model" placeholder="Ex: C31"></div>
-                <div class="filter-item"><label>N° Série</label><input type="text" id="adv-serial" placeholder="S/N..."></div>
-                <div class="filter-item"><label>Statut</label><select id="adv-status"><option value="">Tous</option><option value="expired">Expiré</option><option value="warning">Bientôt</option><option value="ok">À jour</option></select></div>
-                <div class="filter-item filter-actions">
-                    <button class="btn-link-reset" id="clear-filters">Effacer</button>
-                </div>
+            <div class="filters-grid">
+                <div class="form-group mb-0"><label>Marque</label><input type="text" id="adv-brand" placeholder="Ex: Atmos"></div>
+                <div class="form-group mb-0"><label>Modèle</label><input type="text" id="adv-model" placeholder="Ex: C31"></div>
+                <div class="form-group mb-0"><label>N° Série</label><input type="text" id="adv-serial" placeholder="S/N..."></div>
+                <div class="form-group mb-0"><label>Statut</label><select id="adv-status"><option value="">Tous</option><option value="expired">Expiré</option><option value="warning">Bientôt</option><option value="ok">À jour</option></select></div>
+            </div>
+            <div class="filters-footer">
+                <button class="btn-link-reset" id="clear-filters">Effacer les filtres</button>
             </div>
         </div>
 
@@ -110,7 +109,7 @@
                             <th style="width:20%;">Contact</th>
                             <th style="width:25%;">Parc Machine</th>
                             <th class="sortable" onclick="handleSort('appointment_at')" style="width:10%;">RDV <i class="fas fa-sort"></i></th>
-                            <th style="width:50px;"></th>
+                            <th style="width:60px;"></th>
                         </tr>
                     </thead>
                     <tbody id="clients-tbody"></tbody>
@@ -172,7 +171,6 @@
                       </div>
                   </div>
               </div>
-              
               <div class="sheet-actions-row">
                   <button class="btn-sheet-action" onclick="openClientModal(currentClientId)">
                       <i class="fas fa-pen"></i> Modifier
@@ -196,10 +194,12 @@
                       <div class="info-line"><i class="fas fa-envelope"></i> <span id="sheet-email">-</span></div>
                       <div class="info-line"><i class="fas fa-user-md"></i> <strong id="sheet-contact">-</strong></div>
                   </div>
+                  
                   <div class="info-group">
                       <label>GÉOLOCALISATION</label>
                       <div id="sheet-coords" class="geo-box">Non défini</div>
                   </div>
+
                   <div class="info-group">
                       <label>NOTES INTERNES</label>
                       <div id="sheet-notes" class="notes-box">Aucune note.</div>
@@ -223,7 +223,7 @@
                   </div>
 
                   <div id="tab-history" class="tab-pane">
-                      <div id="sheet-history-list" class="timeline-container"></div>
+                      <div id="sheet-history-list" class="history-feed"></div>
                   </div>
               </div>
           </div>
@@ -245,12 +245,13 @@
                       <div class="form-group"><label>Téléphone</label><input type="text" id="client-phone"></div>
                       <div class="form-group"><label>Email</label><input type="email" id="client-email"></div>
                   </div>
-                  <div class="form-group"><label>Adresse</label><input type="text" id="client-address"></div>
+                  <div class="form-group"><label>Adresse</label><input type="text" id="client-address" placeholder="Rue et numéro"></div>
                   <div class="form-row">
                       <div class="form-group"><label>NPA</label><input type="text" id="client-npa"></div>
                       <div class="form-group" style="flex:2"><label>Ville</label><input type="text" id="client-city"></div>
                       <div class="form-group"><label>Canton</label><input type="text" id="client-canton" style="text-transform:uppercase" maxlength="2"></div>
                   </div>
+                  
                   <div class="gps-container">
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                           <label style="margin:0; font-size:0.8rem; font-weight:bold; color:#166534;">COORDONNÉES GPS</label>
@@ -262,6 +263,7 @@
                       </div>
                       <div id="geo-status" style="font-size:0.75rem; margin-top:5px; min-height:1rem;"></div>
                   </div>
+
                   <div class="form-group"><label>Notes</label><textarea id="client-notes" rows="2"></textarea></div>
               </form>
           </div>
