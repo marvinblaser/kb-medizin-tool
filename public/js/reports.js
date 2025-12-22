@@ -15,59 +15,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Chargements initiaux
     await Promise.all([loadClients(), loadTechnicians(), loadMaterials()]);
     
-    // --- LOGIQUE DE REDIRECTION DEPUIS CLIENTS (PONT MAGIQUE) ---
+    // --- LOGIQUE DE REDIRECTION ---
     const urlParams = new URLSearchParams(window.location.search);
     const action = urlParams.get('action');
     
     if (action === 'create') {
-        // Mode Création Automatique depuis le Planning
         const clientId = urlParams.get('client');
         const eqId = urlParams.get('eq');
-        
-        // 1. Ouvrir la modale
         openReportModal();
-        
-        // 2. Sélectionner le client
         if (clientId) {
             const clientSelect = document.getElementById('client-select');
             clientSelect.value = clientId;
-            
-            // 3. Charger les infos du client et ses équipements
             await handleClientChange(clientId);
-            
-            // 4. Cocher la machine spécifique
             if (eqId) {
-                // Petit délai pour s'assurer que le DOM des checkboxes est prêt
                 setTimeout(() => {
                     const cb = document.getElementById(`rep-eq-${eqId}`);
-                    if (cb) {
-                        cb.checked = true;
-                        updateInstallationText(); // Mettre à jour le champ texte
-                    }
+                    if (cb) { cb.checked = true; updateInstallationText(); }
                 }, 100);
             }
         }
-        
-        // Nettoyer l'URL pour ne pas réouvrir la modale au F5
         window.history.replaceState({}, document.title, "/reports.html");
-        
-        // Initialiser la vue (on reste sur draft en fond)
         switchTab('draft', true);
 
     } else if (urlParams.get('status')) {
-        // Mode navigation classique par onglet
         currentStatusFilter = urlParams.get('status');
         window.history.replaceState({}, document.title, "/reports.html");
         switchTab(currentStatusFilter, false); 
     } else {
-        // Défaut
         switchTab(currentStatusFilter, false); 
     }
 
     // Event Listeners
     document.getElementById('logout-btn').addEventListener('click', logout);
     document.getElementById('add-report-btn').addEventListener('click', () => openReportModal());
-    document.getElementById('save-report-btn').addEventListener('click', saveReport);
+    // Pas de bouton save global dans la page, seulement dans la modale
     document.getElementById('travel-canton').addEventListener('change', updateTravelCost);
     document.getElementById('report-type').addEventListener('change', updateReportTitleHeader);
     
@@ -76,14 +57,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('prev-page').addEventListener('click', () => { if(currentPage>1) { currentPage--; loadReports(); }});
     document.getElementById('next-page').addEventListener('click', () => { currentPage++; loadReports(); });
 
+    // Navigation Onglets
     ['draft', 'pending', 'validated', 'archived'].forEach(status => {
         document.getElementById(`tab-${status}`).addEventListener('click', () => switchTab(status));
     });
 
     // Listener Client Select
-    document.getElementById('client-select').addEventListener('change', function() {
-        handleClientChange(this.value);
-    });
+    document.getElementById('client-select').addEventListener('change', function() { handleClientChange(this.value); });
 
     document.getElementById('add-technician-btn').addEventListener('click', () => addTechnicianRow());
     document.getElementById('add-material-btn').addEventListener('click', () => addMaterialRow());
@@ -93,11 +73,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
     document.getElementById('confirm-reject-btn').addEventListener('click', confirmReject);
     
-    // Si on n'est pas en mode création auto, on charge la liste
     if (action !== 'create') await loadReports();
 });
 
-// --- FONCTION GESTION CHANGEMENT CLIENT (Réutilisable) ---
+// --- FONCTIONS CLIENT ---
 async function handleClientChange(clientId) {
     if (!clientId) return;
     const c = clients.find(x => x.id == clientId);
@@ -105,31 +84,28 @@ async function handleClientChange(clientId) {
         ['cabinet_name', 'address', 'city'].forEach(k => document.getElementById(k.replace('_','-')).value = c[k]||'');
         document.getElementById('postal-code').value = c.postal_code||'';
         document.getElementById('interlocutor').value = c.contact_name||'';
-        
-        // Calcul automatique du déplacement
         if (c.canton) {
             document.getElementById('travel-canton').value = c.canton;
             document.getElementById('travel-city').value = c.city;
             updateTravelCost();
         }
-        
         await loadClientEquipmentForReport(c.id);
     }
 }
 
-// --- MISE A JOUR TEXTE INSTALLATION ---
 function updateInstallationText() {
     const container = document.getElementById('client-equipment-list');
     const selected = Array.from(container.querySelectorAll('.eq-cb:checked')).map(c => c.dataset.txt);
     document.getElementById('installation-text').value = selected.join(', ');
 }
 
-// --- GESTION BADGES ET STATS ---
+// --- BADGES ---
 async function updateBadges() {
     try {
         const res = await fetch('/api/reports/stats');
         const stats = await res.json();
         
+        // Sidebar Badge
         const sidebarLink = document.querySelector('a[href="/reports.html"]');
         if (sidebarLink) {
             const oldBadge = sidebarLink.querySelector('.sidebar-badge');
@@ -137,26 +113,27 @@ async function updateBadges() {
             if (stats.pending > 0) {
                 const badge = document.createElement('span');
                 badge.className = 'sidebar-badge';
-                badge.style.cssText = 'background:#ef4444; color:white; font-size:0.75rem; padding:2px 6px; border-radius:10px; margin-left:auto; font-weight:bold;';
+                badge.style.cssText = 'background:var(--color-danger); color:white; font-size:0.75rem; padding:2px 6px; border-radius:10px; margin-left:auto; font-weight:bold;';
                 badge.textContent = stats.pending;
                 sidebarLink.appendChild(badge);
                 sidebarLink.style.display = 'flex'; sidebarLink.style.alignItems = 'center';
             }
         }
 
-        const updateTab = (id, count, isDanger) => {
-            const btn = document.getElementById(id);
-            if(btn) {
-                const baseText = btn.innerText.split('(')[0].trim(); 
-                const style = isDanger && count > 0 ? 'color:#ef4444; font-weight:bold;' : '';
-                btn.innerHTML = `<i class="${btn.querySelector('i').className}"></i> <span style="${style}">${baseText} (${count})</span>`;
+        // Toolbar Badges
+        const setBadge = (id, count, isAlert) => {
+            const el = document.getElementById(`badge-${id}`);
+            if(el) {
+                el.textContent = count;
+                if(isAlert && count > 0) el.classList.add('danger');
+                else el.classList.remove('danger');
             }
         };
 
-        updateTab('tab-draft', stats.draft);
-        updateTab('tab-pending', stats.pending, true);
-        updateTab('tab-validated', stats.validated);
-        updateTab('tab-archived', stats.archived);
+        setBadge('draft', stats.draft);
+        setBadge('pending', stats.pending, true);
+        setBadge('validated', stats.validated);
+        setBadge('archived', stats.archived);
 
     } catch(e) { console.error("Err Badges:", e); }
 }
@@ -166,23 +143,22 @@ function switchTab(status, reload = true) {
     currentStatusFilter = status;
     currentPage = 1;
     
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    const activeBtn = document.getElementById(`tab-${status}`);
-    if(activeBtn) activeBtn.classList.add('active');
+    document.querySelectorAll('.nav-text-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${status}`).classList.add('active');
     
-    document.getElementById('add-report-btn').style.display = (status === 'draft') ? 'block' : 'none';
+    document.getElementById('add-report-btn').style.display = (status === 'draft') ? 'inline-flex' : 'none';
 
-    const tableContainer = document.querySelector('.table-container');
-    const archivesContainer = document.getElementById('archives-container');
+    const tableView = document.getElementById('table-view-container');
+    const archivesView = document.getElementById('archives-container');
     const pagination = document.getElementById('pagination-controls');
 
     if (status === 'archived') {
-        tableContainer.style.display = 'none';
-        archivesContainer.style.display = 'block';
+        tableView.style.display = 'none';
+        archivesView.style.display = 'grid'; // Utilise Grid pour les dossiers
         pagination.style.display = 'none'; 
     } else {
-        tableContainer.style.display = 'block';
-        archivesContainer.style.display = 'none';
+        tableView.style.display = 'block';
+        archivesView.style.display = 'none';
         pagination.style.display = 'flex';
     }
 
@@ -195,15 +171,14 @@ async function loadReports() {
 
     if (currentStatusFilter === 'archived') {
         const container = document.getElementById('archives-container');
-        container.innerHTML = '<div style="text-align:center; padding:40px; color:#666;"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Chargement des archives...</p></div>';
-        
+        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--neutral-400);"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Chargement des archives...</p></div>';
         try {
             const res = await fetch(`/api/reports?page=1&limit=1000&search=${search}&type=${type}&status=archived`);
             const data = await res.json();
             renderArchivedFolders(data.reports);
         } catch(e) { 
             console.error(e); 
-            container.innerHTML = '<p class="text-center">Erreur de chargement.</p>';
+            container.innerHTML = '<p class="text-center" style="grid-column:1/-1; color:var(--color-danger);">Erreur de chargement.</p>';
         }
         return; 
     }
@@ -219,9 +194,14 @@ async function loadReports() {
 // --- RENDER TABLEAU STANDARD ---
 function renderReports(reports) {
     const tbody = document.getElementById('reports-tbody');
-    if (!reports.length) { tbody.innerHTML = `<tr><td colspan="7" class="text-center">Aucun rapport.</td></tr>`; return; }
+    if (!reports.length) { tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:2rem; color:var(--neutral-500);">Aucun rapport trouvé.</td></tr>`; return; }
 
-    const badges = { 'draft': 'status-draft', 'pending': 'status-pending', 'validated': 'status-validated', 'archived': 'status-archived' };
+    const badges = { 
+        'draft': 'badge badge-secondary', 
+        'pending': 'badge badge-warning', 
+        'validated': 'badge badge-success', 
+        'archived': 'badge badge-info' 
+    };
     const names = { 'draft': 'Brouillon', 'pending': 'En attente', 'validated': 'Validé', 'archived': 'Archivé' };
 
     tbody.innerHTML = reports.map(r => generateReportRow(r, badges, names)).join('');
@@ -238,15 +218,13 @@ function generateReportRow(r, badges, names) {
         <td>${escapeHtml(r.work_type)}</td>
         <td><strong>${escapeHtml(r.cabinet_name)}</strong></td>
         <td title="${escapeHtml(installationText)}">
-            <div style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #555;">
-                ${escapeHtml(installationDisplay)}
-            </div>
+            <div style="font-size:0.9rem; color:var(--neutral-600);">${escapeHtml(installationDisplay)}</div>
         </td>
         <td>${formatDate(r.created_at)}</td>
-        <td><span class="status-badge ${badges[r.status]}">${names[r.status]}</span></td>
+        <td><span class="${badges[r.status]}">${names[r.status]}</span></td>
         <td style="text-align:right;">
           <div class="table-actions">
-            <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${r.id}','_blank')" title="Voir PDF"><i class="fas fa-file-pdf"></i></button>
+            <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${r.id}','_blank')" title="PDF"><i class="fas fa-file-pdf"></i></button>
             <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${r.id})" title="Ouvrir"><i class="fas fa-edit"></i></button>
             ${canDelete ? `<button class="btn-icon-sm btn-icon-danger" onclick="openDeleteModal(${r.id})" title="Supprimer"><i class="fas fa-trash"></i></button>` : ''}
           </div>
@@ -254,11 +232,11 @@ function generateReportRow(r, badges, names) {
       </tr>`;
 }
 
-// --- RENDER DOSSIERS ARCHIVES ---
+// --- RENDER DOSSIERS ARCHIVES (NOUVEAU STYLE) ---
 function renderArchivedFolders(reports) {
     const container = document.getElementById('archives-container');
     if (!reports.length) {
-        container.innerHTML = '<div class="text-center" style="padding:20px;">Aucune archive trouvée.</div>';
+        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:2rem; color:var(--neutral-500);">Aucune archive trouvée.</div>';
         return;
     }
 
@@ -277,47 +255,30 @@ function renderArchivedFolders(reports) {
         clientReports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         html += `
-        <div class="folder-item">
+        <div class="folder-card" id="folder-card-${index}">
             <div class="folder-header" onclick="toggleFolder(${index})">
-                <div style="display:flex; align-items:center;">
-                    <i class="fas fa-folder"></i>
+                <div class="folder-title">
+                    <i class="fas fa-folder folder-icon"></i>
                     <span>${escapeHtml(clientName)}</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <span class="count-badge">${clientReports.length} rapports</span>
-                    <i class="fas fa-chevron-down" id="arrow-${index}" style="transition: transform 0.2s;"></i>
+                    <span class="badge badge-secondary" style="font-size:0.75rem;">${clientReports.length}</span>
+                    <i class="fas fa-chevron-down" id="arrow-${index}" style="color:var(--neutral-400); transition: transform 0.2s;"></i>
                 </div>
             </div>
             <div class="folder-content" id="folder-${index}">
-                <table class="table" style="width:100%;">
-                    <thead>
-                        <tr>
-                            <th>N° Rapport</th>
-                            <th>Type</th>
-                            <th style="width: 30%;">Installation</th>
-                            <th>Date</th>
-                            <th style="text-align:right;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${clientReports.map(r => {
-                            const installationText = r.installation || '-';
-                            const installationDisplay = installationText.length > 50 ? installationText.substring(0, 50) + '...' : installationText;
-                            return `
-                                <tr>
-                                    <td style="font-weight:600; color:#555;">${escapeHtml(r.report_number)}</td>
-                                    <td>${escapeHtml(r.work_type)}</td>
-                                    <td style="font-size:0.9em; color:#666;">${escapeHtml(installationDisplay)}</td>
-                                    <td>${formatDate(r.created_at)}</td>
-                                    <td style="text-align:right;">
-                                        <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${r.id}','_blank')"><i class="fas fa-file-pdf"></i></button>
-                                        <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${r.id})"><i class="fas fa-eye"></i></button>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
+                ${clientReports.map(r => `
+                    <div class="folder-row">
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <strong style="color:var(--color-primary); font-size:0.9rem;">${escapeHtml(r.report_number)}</strong>
+                            <span style="font-size:0.8rem; color:var(--neutral-500);">${formatDate(r.created_at)} • ${escapeHtml(r.work_type)}</span>
+                        </div>
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${r.id}','_blank')"><i class="fas fa-file-pdf"></i></button>
+                            <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${r.id})"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                `).join('')}
             </div>
         </div>
         `;
@@ -328,9 +289,18 @@ function renderArchivedFolders(reports) {
 
 window.toggleFolder = function(index) {
     const content = document.getElementById(`folder-${index}`);
+    const card = document.getElementById(`folder-card-${index}`);
     const arrow = document.getElementById(`arrow-${index}`);
-    if (content.style.display === 'block') { content.style.display = 'none'; arrow.style.transform = 'rotate(0deg)'; } 
-    else { content.style.display = 'block'; arrow.style.transform = 'rotate(180deg)'; }
+    
+    if (content.style.display === 'block') { 
+        content.style.display = 'none'; 
+        card.classList.remove('open');
+        arrow.style.transform = 'rotate(0deg)'; 
+    } else { 
+        content.style.display = 'block'; 
+        card.classList.add('open');
+        arrow.style.transform = 'rotate(180deg)'; 
+    }
 };
 
 // --- MODAL & WORKFLOW ---
@@ -353,20 +323,26 @@ async function openReportModal(reportId = null) {
             if (r.author_name) metaInfo.innerHTML = `<i class="fas fa-pen-nib"></i> Rédigé par <strong>${escapeHtml(r.author_name)}</strong> le ${formatDate(r.created_at)}`;
             else metaInfo.innerHTML = `<i class="fas fa-clock"></i> Créé le ${formatDate(r.created_at)}`;
             
-            pdfBtn.style.display = 'inline-block';
+            pdfBtn.style.display = 'inline-flex';
             pdfBtn.onclick = () => window.open(`/report-view.html?id=${r.id}`, '_blank');
             document.getElementById('report-modal-title').innerText = `Rapport ${r.report_number}`;
 
         } catch(e) { console.error(e); }
     } else {
         document.getElementById('report-modal-title').innerText = "Nouveau rapport";
-        metaInfo.innerHTML = "";
+        metaInfo.innerHTML = "Création d'un nouveau document";
         document.getElementById('report-id').value = '';
-        document.getElementById('current-status-badge').className = 'status-badge status-draft';
-        document.getElementById('current-status-badge').innerText = 'Brouillon';
+        
+        const badge = document.getElementById('current-status-badge');
+        badge.className = 'badge badge-secondary';
+        badge.innerText = 'Brouillon';
+        
         document.getElementById('validator-info').innerText = '';
         pdfBtn.style.display = 'none';
-        document.getElementById('workflow-buttons').innerHTML = `<button class="btn btn-primary" onclick="saveReport()">Enregistrer (Brouillon)</button>`;
+        
+        // Bouton Save uniquement
+        document.getElementById('workflow-buttons').innerHTML = `<button class="btn btn-primary" onclick="saveReport()"><i class="fas fa-save"></i> Enregistrer Brouillon</button>`;
+        
         addTechnicianRow(); addWorkRow();
     }
     modal.classList.add('active');
@@ -376,15 +352,18 @@ function renderWorkflowButtons(r) {
     const footer = document.getElementById('workflow-buttons');
     const statusLabel = document.getElementById('current-status-badge');
     const validInfo = document.getElementById('validator-info');
-    const stMap = { 'draft': 'status-draft', 'pending': 'status-pending', 'validated': 'status-validated', 'archived': 'status-archived' };
+    
+    const stMap = { 'draft': 'badge badge-secondary', 'pending': 'badge badge-warning', 'validated': 'badge badge-success', 'archived': 'badge badge-info' };
     const stName = { 'draft': 'Brouillon', 'pending': 'En attente', 'validated': 'Validé', 'archived': 'Archivé' };
     
-    statusLabel.className = `status-badge ${stMap[r.status]}`;
+    statusLabel.className = stMap[r.status];
     statusLabel.innerText = stName[r.status];
-    if(r.validator_name) validInfo.innerText = `Validé par : ${r.validator_name}`; else validInfo.innerText = '';
+    
+    if(r.validator_name) validInfo.innerHTML = `<i class="fas fa-check-double"></i> Validé par : <strong>${r.validator_name}</strong>`; 
+    else validInfo.innerText = '';
     
     if(r.status === 'draft' && r.rejection_reason) {
-        document.getElementById('rejection-msg-box').style.display = 'block';
+        document.getElementById('rejection-msg-box').style.display = 'flex';
         document.getElementById('rejection-reason-text').innerText = r.rejection_reason;
     } else {
         document.getElementById('rejection-msg-box').style.display = 'none';
@@ -396,16 +375,18 @@ function renderWorkflowButtons(r) {
     
     footer.innerHTML = '';
     const canEdit = (r.status === 'draft') || (r.status === 'pending' && isValidator);
-    if (canEdit) footer.innerHTML += `<button class="btn btn-secondary" onclick="saveReport()">Enregistrer modifications</button>`;
+    
+    // Si éditable, bouton "Enregistrer" standard
+    if (canEdit) footer.innerHTML += `<button class="btn btn-secondary" onclick="saveReport()"><i class="fas fa-save"></i> Enregistrer</button>`;
 
     if (r.status === 'draft') {
         footer.innerHTML += `<button class="btn btn-primary" onclick="changeStatus(${r.id}, 'pending')"><i class="fas fa-paper-plane"></i> Soumettre</button>`;
     } else if (r.status === 'pending') {
         if (isValidator) {
-            footer.innerHTML += `<button class="btn btn-danger" onclick="openRejectModal(${r.id})">Refuser</button><button class="btn btn-success" onclick="changeStatus(${r.id}, 'validated')">Valider</button>`;
-        } else footer.innerHTML += `<span style="color:#c2410c; align-self:center;">En attente de validation...</span>`;
+            footer.innerHTML += `<button class="btn btn-danger" onclick="openRejectModal(${r.id})">Refuser</button><button class="btn btn-success" onclick="changeStatus(${r.id}, 'validated')"><i class="fas fa-check"></i> Valider</button>`;
+        } else footer.innerHTML += `<span style="color:var(--color-warning); align-self:center; font-weight:600;"><i class="fas fa-clock"></i> En attente de validation...</span>`;
     } else if (r.status === 'validated') {
-        if (isSecretary) footer.innerHTML += `<button class="btn btn-dark" onclick="changeStatus(${r.id}, 'archived')"><i class="fas fa-archive"></i> Archiver</button>`;
+        if (isSecretary) footer.innerHTML += `<button class="btn btn-dark" style="background:var(--neutral-800); color:white;" onclick="changeStatus(${r.id}, 'archived')"><i class="fas fa-archive"></i> Archiver</button>`;
     }
 }
 
@@ -443,21 +424,27 @@ async function saveReport() {
     const data = getFormData();
     const method = reportId ? 'PUT' : 'POST';
     const url = reportId ? `/api/reports/${reportId}` : '/api/reports';
+    
+    // Petit feedback visuel
+    const btn = document.querySelector('#workflow-buttons button:first-child'); 
+    const originalText = btn ? btn.innerHTML : '';
+    if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ...';
+
     try {
         const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)});
         if(res.ok) { 
             const json = await res.json(); 
-            alert("Sauvegardé !"); 
+            // Notification sans alert() intrusif si possible, mais ici on garde simple
+            // alert("Sauvegardé !"); 
             updateBadges(); 
-            
-            // Recharger la liste TOUJOURS
             await loadReports();
 
-            if(!reportId && json.id) {
-                openReportModal(json.id); 
-            }
+            if(!reportId && json.id) openReportModal(json.id); 
+            else if (reportId) renderWorkflowButtons(json); // Rafraichir boutons si statut change (non-probable ici mais bon)
         } else { const err = await res.json(); alert('Erreur: ' + err.error); }
     } catch(e) { console.error(e); }
+    
+    if(btn) btn.innerHTML = originalText;
 }
 
 function closeReportModal() { 
@@ -525,12 +512,50 @@ async function checkAuth() { try { const res = await fetch('/api/me'); if(!res.o
 async function loadClients() { const res = await fetch('/api/clients?limit=1000'); const d = await res.json(); clients=d.clients; document.getElementById('client-select').innerHTML='<option value="">-- Client --</option>'+clients.map(c=>`<option value="${c.id}">${escapeHtml(c.cabinet_name)}</option>`).join(''); }
 function loadTechnicians() { fetch('/api/admin/users').then(r=>r.json()).then(d=>technicians=d); }
 function loadMaterials() { fetch('/api/admin/materials').then(r=>r.json()).then(d=>materials=d); }
-function addTechnicianRow(data=null) { const container = document.getElementById('technicians-list'); const div = document.createElement('div'); div.className = 'form-row'; div.style.cssText = 'display:flex; gap:15px; margin-bottom:15px; align-items:flex-end;'; div.innerHTML = `<div class="form-group" style="flex:1; margin-bottom:0;"><label>Intervenant</label><select class="technician-select"><option value="">--</option>${technicians.map(t => `<option value="${t.id}" ${data && data.technician_id == t.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}</select></div><div class="form-group" style="width:160px; margin-bottom:0;"><label>Date</label><input type="date" class="tech-date" value="${data ? data.work_date : new Date().toISOString().split('T')[0]}" /></div><div class="form-group" style="width:80px; margin-bottom:0;"><label>Norm.</label><input type="number" class="tech-hours-normal" step="0.5" value="${data ? data.hours_normal : 0}" /></div><div class="form-group" style="width:80px; margin-bottom:0;"><label>Sup.</label><input type="number" class="tech-hours-extra" step="0.5" value="${data ? data.hours_extra : 0}" /></div><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" style="height:46px; width:46px;"><i class="fas fa-times"></i></button>`; container.appendChild(div); }
-function addWorkRow(text='') { const container = document.getElementById('work-list'); const div = document.createElement('div'); div.className = 'form-row'; div.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:center;'; div.innerHTML = `<input type="text" class="work-line-input" value="${escapeHtml(text)}" placeholder="Description..." style="flex:1;" /><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" tabindex="-1"><i class="fas fa-times"></i></button>`; container.appendChild(div); }
-function addStkTestRow(data=null) { const container = document.getElementById('stk-tests-list'); const div = document.createElement('div'); div.className = 'form-row'; div.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:center; background:#f9fafb; padding:10px; border-radius:6px; border:1px solid #e5e7eb;'; const prefix="Test de sécurité électrique obligatoire i.O - "; let val = ''; if(data && data.test_name) val = data.test_name.replace(prefix, ''); div.innerHTML = `<div style="flex:1; display:flex; align-items:center; gap:10px;"><span style="font-size:0.85rem; font-weight:600; white-space:nowrap; color:var(--neutral-700);">${prefix}</span><input type="text" class="stk-input-name" value="${escapeHtml(val)}" placeholder="Désignation" required style="flex:1;" /></div><div style="width:120px; display:flex; align-items:center; gap:5px;"><input type="number" class="stk-price" step="0.01" value="${data ? data.price : 75.00}" style="text-align:right;" /><span style="font-size:0.8rem;">CHF</span></div><div style="width:80px; text-align:center;"><label style="font-size:0.85rem; cursor:pointer;"><input type="checkbox" class="stk-incl" ${data && data.included ? 'checked' : ''}> Incl.</label></div><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>`; container.appendChild(div); }
-function addMaterialRow(data=null) { const container = document.getElementById('materials-list'); const div = document.createElement('div'); div.className = 'form-row'; div.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:flex-end;'; const discountVal = data ? (data.discount || 0) : 0; const currentName = data ? (data.material_name || '') : ''; div.innerHTML = `<div class="form-group" style="width: 150px; margin-bottom:0;"><label>Catalogue</label><select class="material-select" style="font-size:0.9em;"><option value="">-- Choisir --</option>${materials.map(m => `<option value="${m.id}" data-name="${escapeHtml(m.name)}" data-price="${m.unit_price}" data-code="${m.product_code}" ${data && data.material_id == m.id ? 'selected' : ''}>${escapeHtml(m.name)}</option>`).join('')}</select></div><div class="form-group" style="flex:2; margin-bottom:0;"><label>Désignation (Modifiable)</label><input type="text" class="material-name-input" value="${escapeHtml(currentName)}" placeholder="Nom du produit..." /></div><div class="form-group" style="width:80px; margin-bottom:0;"><label>Code</label><input type="text" class="material-code" value="${data ? (data.product_code||'') : ''}" readonly style="background:#f3f4f6; font-size:0.9em;" /></div><div class="form-group" style="width:60px; margin-bottom:0;"><label>Qté</label><input type="number" class="material-qty" min="1" value="${data ? data.quantity : 1}" /></div><div class="form-group" style="width:80px; margin-bottom:0;"><label>Prix</label><input type="number" class="material-price" step="0.01" value="${data ? data.unit_price : 0}" /></div><div class="form-group" style="width:60px; margin-bottom:0;"><label>Rabais %</label><input type="number" class="material-discount" min="0" max="100" step="1" value="${discountVal}" placeholder="%" style="border-color: #ffa500;" /></div><div class="form-group" style="width:90px; margin-bottom:0;"><label>Total</label><input type="number" class="material-total" step="0.01" value="${data ? data.total_price : 0}" readonly style="background:#f3f4f6; font-weight:bold;" /></div><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();" style="height:46px; width:46px;"><i class="fas fa-times"></i></button>`; container.appendChild(div); const sel=div.querySelector('.material-select'), nameIn=div.querySelector('.material-name-input'), codeIn=div.querySelector('.material-code'), qtyIn=div.querySelector('.material-qty'), priceIn=div.querySelector('.material-price'), discountIn=div.querySelector('.material-discount'), totalIn=div.querySelector('.material-total'); const update=()=>{ const q=parseFloat(qtyIn.value)||0, p=parseFloat(priceIn.value)||0, d=parseFloat(discountIn.value)||0; totalIn.value=((q*p)*(1-(d/100))).toFixed(2); updateMaterialsTotal(); }; sel.addEventListener('change', function(){ const opt=this.options[this.selectedIndex]; if(opt.value){ priceIn.value=parseFloat(opt.dataset.price).toFixed(2); codeIn.value=opt.dataset.code||''; nameIn.value=opt.dataset.name||''; } update(); }); [qtyIn,priceIn,discountIn].forEach(e=>{e.addEventListener('change',update);e.addEventListener('input',update);}); }
+
+// GENERATEURS DE LIGNES (AVEC STYLE HARMONISÉ)
+function addTechnicianRow(data=null) { 
+    const container = document.getElementById('technicians-list'); 
+    const div = document.createElement('div'); div.className = 'form-row'; 
+    div.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:flex-end; background:#fff; padding:8px; border:1px solid var(--border-color); border-radius:6px;'; 
+    div.innerHTML = `<div class="form-group" style="flex:1; margin-bottom:0;"><label>Nom</label><select class="technician-select"><option value="">--</option>${technicians.map(t => `<option value="${t.id}" ${data && data.technician_id == t.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}</select></div><div class="form-group" style="width:140px; margin-bottom:0;"><label>Date</label><input type="date" class="tech-date" value="${data ? data.work_date : new Date().toISOString().split('T')[0]}" /></div><div class="form-group" style="width:70px; margin-bottom:0;"><label>Norm.</label><input type="number" class="tech-hours-normal" step="0.5" value="${data ? data.hours_normal : 0}" /></div><div class="form-group" style="width:70px; margin-bottom:0;"><label>Sup.</label><input type="number" class="tech-hours-extra" step="0.5" value="${data ? data.hours_extra : 0}" /></div><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" style="height:38px; width:38px;"><i class="fas fa-times"></i></button>`; 
+    container.appendChild(div); 
+}
+
+function addWorkRow(text='') { 
+    const container = document.getElementById('work-list'); 
+    const div = document.createElement('div'); div.className = 'form-row'; 
+    div.style.cssText = 'display:flex; gap:10px; margin-bottom:8px; align-items:center;'; 
+    div.innerHTML = `<input type="text" class="work-line-input" value="${escapeHtml(text)}" placeholder="Description du travail..." style="flex:1;" /><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" tabindex="-1"><i class="fas fa-times"></i></button>`; 
+    container.appendChild(div); 
+}
+
+function addStkTestRow(data=null) { 
+    const container = document.getElementById('stk-tests-list'); 
+    const div = document.createElement('div'); div.className = 'form-row'; 
+    div.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:center; background:#f9fafb; padding:10px; border-radius:6px; border:1px solid #e5e7eb;'; 
+    const prefix="Test de sécurité électrique obligatoire i.O - "; 
+    let val = ''; if(data && data.test_name) val = data.test_name.replace(prefix, ''); 
+    div.innerHTML = `<div style="flex:1; display:flex; align-items:center; gap:10px;"><span style="font-size:0.8rem; font-weight:600; white-space:nowrap; color:var(--neutral-600);">${prefix}</span><input type="text" class="stk-input-name" value="${escapeHtml(val)}" placeholder="Désignation appareil" required style="flex:1;" /></div><div style="width:120px; display:flex; align-items:center; gap:5px;"><input type="number" class="stk-price" step="0.01" value="${data ? data.price : 75.00}" style="text-align:right;" /><span style="font-size:0.8rem;">CHF</span></div><div style="width:80px; text-align:center;"><label style="font-size:0.8rem; cursor:pointer;"><input type="checkbox" class="stk-incl" ${data && data.included ? 'checked' : ''}> Incl.</label></div><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>`; 
+    container.appendChild(div); 
+}
+
+function addMaterialRow(data=null) { 
+    const container = document.getElementById('materials-list'); 
+    const div = document.createElement('div'); div.className = 'form-row'; 
+    div.style.cssText = 'display:flex; gap:8px; margin-bottom:10px; align-items:flex-end; background:#fff; padding:10px; border:1px solid var(--border-color); border-radius:6px; flex-wrap:wrap;'; 
+    const discountVal = data ? (data.discount || 0) : 0; 
+    const currentName = data ? (data.material_name || '') : ''; 
+    div.innerHTML = `<div class="form-group" style="width: 140px; margin-bottom:0;"><label>Catalogue</label><select class="material-select" style="font-size:0.85em;"><option value="">-- Choisir --</option>${materials.map(m => `<option value="${m.id}" data-name="${escapeHtml(m.name)}" data-price="${m.unit_price}" data-code="${m.product_code}" ${data && data.material_id == m.id ? 'selected' : ''}>${escapeHtml(m.name)}</option>`).join('')}</select></div><div class="form-group" style="flex:2; min-width:200px; margin-bottom:0;"><label>Désignation</label><input type="text" class="material-name-input" value="${escapeHtml(currentName)}" /></div><div class="form-group" style="width:80px; margin-bottom:0;"><label>Code</label><input type="text" class="material-code" value="${data ? (data.product_code||'') : ''}" readonly style="background:#f3f4f6; font-size:0.85em;" /></div><div class="form-group" style="width:50px; margin-bottom:0;"><label>Qté</label><input type="number" class="material-qty" min="1" value="${data ? data.quantity : 1}" /></div><div class="form-group" style="width:70px; margin-bottom:0;"><label>Prix</label><input type="number" class="material-price" step="0.01" value="${data ? data.unit_price : 0}" /></div><div class="form-group" style="width:50px; margin-bottom:0;"><label>Rab%</label><input type="number" class="material-discount" min="0" max="100" step="1" value="${discountVal}" /></div><div class="form-group" style="width:80px; margin-bottom:0;"><label>Total</label><input type="number" class="material-total" step="0.01" value="${data ? data.total_price : 0}" readonly style="background:#f3f4f6; font-weight:bold;" /></div><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();" style="height:38px; width:38px;"><i class="fas fa-times"></i></button>`; 
+    container.appendChild(div); 
+    const sel=div.querySelector('.material-select'), nameIn=div.querySelector('.material-name-input'), codeIn=div.querySelector('.material-code'), qtyIn=div.querySelector('.material-qty'), priceIn=div.querySelector('.material-price'), discountIn=div.querySelector('.material-discount'), totalIn=div.querySelector('.material-total'); 
+    const update=()=>{ const q=parseFloat(qtyIn.value)||0, p=parseFloat(priceIn.value)||0, d=parseFloat(discountIn.value)||0; totalIn.value=((q*p)*(1-(d/100))).toFixed(2); updateMaterialsTotal(); }; 
+    sel.addEventListener('change', function(){ const opt=this.options[this.selectedIndex]; if(opt.value){ priceIn.value=parseFloat(opt.dataset.price).toFixed(2); codeIn.value=opt.dataset.code||''; nameIn.value=opt.dataset.name||''; } update(); }); 
+    [qtyIn,priceIn,discountIn].forEach(e=>{e.addEventListener('change',update);e.addEventListener('input',update);}); 
+}
+
 function updateMaterialsTotal() { let total=0; document.querySelectorAll('.material-total').forEach(i => total += parseFloat(i.value)||0); document.getElementById('materials-total').innerText = total.toFixed(2); }
-async function loadClientEquipmentForReport(clientId) { try { const res=await fetch(`/api/clients/${clientId}/equipment`); const eqs=await res.json(); const container=document.getElementById('client-equipment-list'); if(eqs.length===0){container.innerHTML='<p style="color:#666;">Aucun équipement.</p>';return;} container.innerHTML=eqs.map(e=>{ let display=e.final_name||e.name; if(!display||display==='undefined') display=(e.final_brand||e.brand||'')+' '+(e.final_device_type||e.device_type||e.type||''); const serial=e.serial_number?`S/N:${escapeHtml(e.serial_number)}`:''; return `<div style="margin-bottom:8px; display:flex; align-items:center;"><input type="checkbox" class="eq-cb" id="rep-eq-${e.id}" value="${e.id}" data-txt="${escapeHtml(display+' '+serial).trim()}" style="width:18px; height:18px; margin-right:10px;"><label for="rep-eq-${e.id}" style="cursor:pointer; font-size:0.9rem;"><strong>${escapeHtml(display)}</strong> <span style="color:#666; font-size:0.8rem;">${serial}</span></label></div>`; }).join(''); container.querySelectorAll('.eq-cb').forEach(cb => { cb.addEventListener('change', updateInstallationText); }); } catch(e){console.error(e);} }
+async function loadClientEquipmentForReport(clientId) { try { const res=await fetch(`/api/clients/${clientId}/equipment`); const eqs=await res.json(); const container=document.getElementById('client-equipment-list'); if(eqs.length===0){container.innerHTML='<p style="color:#666;">Aucun équipement.</p>';return;} container.innerHTML=eqs.map(e=>{ let display=e.final_name||e.name; if(!display||display==='undefined') display=(e.final_brand||e.brand||'')+' '+(e.final_device_type||e.device_type||e.type||''); const serial=e.serial_number?`S/N:${escapeHtml(e.serial_number)}`:''; return `<div style="margin-bottom:8px; display:flex; align-items:center;"><input type="checkbox" class="eq-cb" id="rep-eq-${e.id}" value="${e.id}" data-txt="${escapeHtml(display+' '+serial).trim()}" style="width:16px; height:16px; margin-right:10px;"><label for="rep-eq-${e.id}" style="cursor:pointer; font-size:0.9rem;"><strong>${escapeHtml(display)}</strong> <span style="color:#666; font-size:0.8rem;">${serial}</span></label></div>`; }).join(''); container.querySelectorAll('.eq-cb').forEach(cb => { cb.addEventListener('change', updateInstallationText); }); } catch(e){console.error(e);} }
 function updateTravelCost(){ const sel=document.getElementById('travel-canton').value; const inp=document.getElementById('travel-costs'); let p=null; for(const[pr,cs] of Object.entries(TRAVEL_ZONES)){if(cs.includes(sel)){p=parseInt(pr);break;}} if(p){inp.value=p.toFixed(2);inp.readOnly=true;inp.style.backgroundColor="#e9ecef";}else{inp.readOnly=false;inp.style.backgroundColor="";} }
 function resetDynamicLists() { document.getElementById('technicians-list').innerHTML=''; document.getElementById('work-list').innerHTML=''; document.getElementById('stk-tests-list').innerHTML=''; document.getElementById('materials-list').innerHTML=''; document.getElementById('client-equipment-list').innerHTML=''; }
 function logout() { fetch('/api/logout',{method:'POST'}).then(()=>window.location='/login.html'); }
