@@ -72,9 +72,19 @@ router.get('/', requireAuth, (req, res) => {
     const countSql = `SELECT count(*) as count FROM reports r WHERE ${where.join(' AND ')}`;
 
     db.get(countSql, params, (err, countRow) => {
-        if (err) return res.status(500).json({ error: "Erreur DB" });
+        // --- MODIFICATION ICI : On ajoute console.error ---
+        if (err) {
+            console.error("ERREUR SQL (Count):", err.message); // <--- AFFICHER L'ERREUR
+            return res.status(500).json({ error: "Erreur DB" });
+        }
+        
         db.all(sql, [...params, limitVal, offset], (err, rows) => {
-            if (err) return res.status(500).json({ error: err.message });
+            // --- MODIFICATION ICI AUSSI ---
+            if (err) {
+                console.error("ERREUR SQL (List):", err.message); // <--- AFFICHER L'ERREUR
+                return res.status(500).json({ error: err.message });
+            }
+            
             res.json({ reports: rows, pagination: { page: parseInt(page), totalPages: Math.ceil(countRow.count / limitVal), totalItems: countRow.count } });
         });
     });

@@ -139,11 +139,37 @@ function initDatabase() {
         `CREATE TABLE IF NOT EXISTS materials (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, product_code TEXT NOT NULL, unit_price REAL NOT NULL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`
       );
 
-      // 15. Table reports
+      // 15. Table reports (VERSION CORRIGÉE)
       db.run(`
         CREATE TABLE IF NOT EXISTS reports (
-          id INTEGER PRIMARY KEY AUTOINCREMENT, report_number TEXT UNIQUE, client_id INTEGER NOT NULL, cabinet_name TEXT NOT NULL, address TEXT NOT NULL, postal_code TEXT, city TEXT NOT NULL, interlocutor TEXT, work_type TEXT NOT NULL, installation TEXT, work_accomplished TEXT, travel_location TEXT, travel_costs REAL DEFAULT 0, travel_included INTEGER DEFAULT 0, remarks TEXT, status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'completed', 'sent')), technician_signature_date TEXT, client_signature_date TEXT, created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE, FOREIGN KEY (created_by) REFERENCES users(id)
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          report_number TEXT UNIQUE,
+          client_id INTEGER NOT NULL,
+          author_id INTEGER,           -- Requis par votre code (remplace created_by)
+          validator_id INTEGER,        -- LA COLONNE QUI MANQUAIT !
+          cabinet_name TEXT NOT NULL,
+          address TEXT NOT NULL,
+          postal_code TEXT,
+          city TEXT NOT NULL,
+          interlocutor TEXT,
+          work_type TEXT NOT NULL,
+          installation TEXT,
+          work_accomplished TEXT,
+          travel_location TEXT,
+          travel_costs REAL DEFAULT 0,
+          travel_included INTEGER DEFAULT 0,
+          remarks TEXT,
+          status TEXT DEFAULT 'draft',
+          rejection_reason TEXT,
+          technician_signature_date TEXT,
+          client_signature_date TEXT,
+          validated_at TEXT,
+          archived_at TEXT,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+          FOREIGN KEY (author_id) REFERENCES users(id),
+          FOREIGN KEY (validator_id) REFERENCES users(id)
         )
       `);
 
@@ -206,5 +232,33 @@ function initDatabase() {
     });
   });
 }
+
+// --- RÉPARATION D'URGENCE ---
+      // Ce code vérifie si 'validator_id' manque et l'ajoute de force.
+      db.all("PRAGMA table_info(reports)", (err, columns) => {
+        if (!err) {
+          const names = columns.map((c) => c.name);
+          
+          // 1. Ajouter validator_id si manquant
+          if (!names.includes("validator_id")) {
+            console.log("MIGRATION: Ajout forcé de 'validator_id' dans reports");
+            db.run("ALTER TABLE reports ADD COLUMN validator_id INTEGER REFERENCES users(id)");
+          }
+
+          // 2. Ajouter author_id si manquant (souvent manquant aussi)
+          if (!names.includes("author_id")) {
+             console.log("MIGRATION: Ajout forcé de 'author_id' dans reports");
+             // Si vous aviez 'created_by', on peut le renommer, mais ajoutons simplement author_id pour l'instant
+             db.run("ALTER TABLE reports ADD COLUMN author_id INTEGER REFERENCES users(id)");
+          }
+
+          // 3. Ajouter status si manquant
+          if (!names.includes("status")) {
+             console.log("MIGRATION: Ajout forcé de 'status' dans reports");
+             db.run("ALTER TABLE reports ADD COLUMN status TEXT DEFAULT 'draft'");
+          }
+        }
+      });
+      // -----------------------------
 
 module.exports = { db, initDatabase };
