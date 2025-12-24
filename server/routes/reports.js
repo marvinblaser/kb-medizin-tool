@@ -22,33 +22,30 @@ const getUserRole = (userId) => {
 // --- STATISTIQUES ---
 router.get('/stats', requireAuth, (req, res) => {
     const sql = `SELECT status, COUNT(*) as count FROM reports GROUP BY status`;
-    
     db.all(sql, [], (err, rows) => {
         if (err) {
-            console.error("Erreur Stats Reports:", err);
+            console.error("Erreur Stats:", err.message);
             return res.status(500).json({ error: err.message });
         }
-
         const stats = { draft: 0, pending: 0, validated: 0, archived: 0 };
-
-        // Sécurité : On vérifie que rows existe et est un tableau
-        if (rows && Array.isArray(rows)) {
+        // Sécurité si rows est vide
+        if (rows) {
             rows.forEach(r => { 
-                if (stats[r.status] !== undefined) {
-                    stats[r.status] = r.count; 
-                }
+                // On gère le cas où status serait null
+                const s = r.status || 'draft';
+                if (stats[s] !== undefined) stats[s] = r.count; 
             });
         }
-        
         res.json(stats);
     });
 });
 
-// --- LISTE DES RAPPORTS ---
+// --- LISTE DES RAPPORTS (CORRIGÉE & SÉCURISÉE) ---
 router.get('/', requireAuth, (req, res) => {
     const { page = 1, limit = 25, search, type, status, client_id } = req.query;
-    const limitVal = client_id ? 200 : limit; 
+    const limitVal = client_id ? 200 : parseInt(limit); 
     const offset = (page - 1) * limitVal;
+    
     let where = ["1=1"];
     let params = [];
 
@@ -61,31 +58,42 @@ router.get('/', requireAuth, (req, res) => {
     if (status) { where.push("r.status = ?"); params.push(status); }
     if (client_id) { where.push("r.client_id = ?"); params.push(client_id); }
 
+    // VERSION SÉCURISÉE (Sans updated_at)
     const sql = `
         SELECT r.*, 
-        u.name as validator_name
+        COALESCE(u.name, 'Non défini') as validator_name,
+        COALESCE(a.name, 'Non défini') as author_name,
+        -- On utilise created_at comme secours car updated_at n'existe pas
+        COALESCE(r.archived_at, r.created_at) as archived_at_safe,
+        COALESCE(r.validated_at, r.created_at) as validated_at_safe
         FROM reports r 
         LEFT JOIN users u ON r.validator_id = u.id
+        LEFT JOIN users a ON r.author_id = a.id
         WHERE ${where.join(' AND ')} 
         ORDER BY r.created_at DESC LIMIT ? OFFSET ?`;
 
     const countSql = `SELECT count(*) as count FROM reports r WHERE ${where.join(' AND ')}`;
 
     db.get(countSql, params, (err, countRow) => {
-        // --- MODIFICATION ICI : On ajoute console.error ---
         if (err) {
-            console.error("ERREUR SQL (Count):", err.message); // <--- AFFICHER L'ERREUR
-            return res.status(500).json({ error: "Erreur DB" });
+            console.error("Erreur Count Reports:", err.message);
+            return res.status(500).json({ error: "Erreur DB Count" });
         }
         
         db.all(sql, [...params, limitVal, offset], (err, rows) => {
-            // --- MODIFICATION ICI AUSSI ---
             if (err) {
-                console.error("ERREUR SQL (List):", err.message); // <--- AFFICHER L'ERREUR
+                console.error("Erreur List Reports:", err.message);
                 return res.status(500).json({ error: err.message });
             }
             
-            res.json({ reports: rows, pagination: { page: parseInt(page), totalPages: Math.ceil(countRow.count / limitVal), totalItems: countRow.count } });
+            res.json({ 
+                reports: rows, 
+                pagination: { 
+                    page: parseInt(page), 
+                    totalPages: Math.ceil((countRow?.count || 0) / limitVal), 
+                    totalItems: countRow?.count || 0 
+                } 
+            });
         });
     });
 });
@@ -93,8 +101,11 @@ router.get('/', requireAuth, (req, res) => {
 // --- DÉTAIL D'UN RAPPORT ---
 router.get('/:id', requireAuth, (req, res) => {
     const id = req.params.id;
+    // Ici aussi on sécurise les noms
     const sql = `
-        SELECT r.*, u.name as validator_name, a.name as author_name 
+        SELECT r.*, 
+        COALESCE(u.name, '') as validator_name, 
+        COALESCE(a.name, '') as author_name 
         FROM reports r 
         LEFT JOIN users u ON r.validator_id = u.id 
         LEFT JOIN users a ON r.author_id = a.id
@@ -103,17 +114,27 @@ router.get('/:id', requireAuth, (req, res) => {
     db.get(sql, [id], async (err, report) => {
         if (err || !report) return res.status(404).json({ error: "Introuvable" });
 
-        const safeGet = (query) => new Promise(resolve => db.all(query, [id], (e, r) => resolve(e ? [] : r)));
-        const [techs, stks, mats, eqs] = await Promise.all([
-            safeGet("SELECT * FROM report_technicians WHERE report_id = ?"),
-            safeGet("SELECT * FROM report_stk_tests WHERE report_id = ?"),
-            safeGet("SELECT * FROM report_materials WHERE report_id = ?"),
-            safeGet("SELECT equipment_id FROM report_equipment WHERE report_id = ?")
-        ]);
+        try {
+            const safeGet = (query) => new Promise(resolve => db.all(query, [id], (e, r) => resolve(e ? [] : r)));
+            
+            const [techs, stks, mats, eqs] = await Promise.all([
+                safeGet("SELECT * FROM report_technicians WHERE report_id = ?"),
+                safeGet("SELECT * FROM report_stk_tests WHERE report_id = ?"),
+                safeGet("SELECT * FROM report_materials WHERE report_id = ?"),
+                safeGet("SELECT equipment_id FROM report_equipment WHERE report_id = ?")
+            ]);
 
-        report.technicians = techs; report.stk_tests = stks; report.materials = mats;
-        report.equipment_ids = eqs.map(e => e.equipment_id);
-        res.json(report);
+            report.technicians = techs; 
+            report.stk_tests = stks; 
+            report.materials = mats;
+            // On s'assure que equipment_ids est un tableau propre
+            report.equipment_ids = eqs.map(e => e.equipment_id).filter(id => id != null);
+            
+            res.json(report);
+        } catch (e) {
+            console.error("Erreur Detail Rapport:", e);
+            res.status(500).json({ error: "Erreur chargement détails" });
+        }
     });
 });
 
@@ -123,7 +144,6 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
     const userId = req.session.userId;
     const role = await getUserRole(userId);
     
-    // Vérifications Permissions
     if (status === 'validated' && !['admin', 'validator', 'sales_director'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
     if (status === 'draft' && reason && !['admin', 'validator', 'sales_director'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
     if (status === 'archived' && !['admin', 'secretary'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
@@ -144,10 +164,7 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
 
     db.run(sql, params, function(err) {
         if (err) return res.status(500).json({ error: err.message });
-        
-        // LOG CORRIGÉ ICI (utilise meta_json)
         logActivity(userId, 'update_status', 'report', req.params.id, { status, reason });
-        
         res.json({ success: true, status });
     });
 });
@@ -167,13 +184,17 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 const saveReportData = (req, res, reportId = null) => {
-    const { client_id, language, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, technicians, stk_tests, materials, equipment_ids } = req.body;
+    // On met des valeurs par défaut pour éviter les erreurs SQL sur les champs manquants
+    const { 
+        client_id, language = 'fr', work_type, status, cabinet_name, address, postal_code, city, interlocutor, 
+        installation, remarks, travel_costs = 0, travel_included = 0, travel_location, 
+        technician_signature_date, work_accomplished, technicians, stk_tests, materials, equipment_ids 
+    } = req.body;
     
     const currentStatus = reportId ? (status || 'draft') : 'draft';
     const userId = req.session.userId;
-    const langVal = language || 'fr'; 
 
-    const reportData = [client_id, langVal, work_type, currentStatus, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included?1:0, travel_location, technician_signature_date, work_accomplished];
+    const reportData = [client_id, language, work_type, currentStatus, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included?1:0, travel_location, technician_signature_date, work_accomplished];
     
     let runQuery = "";
     if (reportId) {
@@ -185,10 +206,12 @@ const saveReportData = (req, res, reportId = null) => {
     }
 
     db.run(runQuery, reportData, function(err) {
-        if (err) return res.status(500).json({ error: err.message });
+        if (err) {
+            console.error("Erreur Save Report:", err.message);
+            return res.status(500).json({ error: err.message });
+        }
         const finalId = reportId || this.lastID;
 
-        // LOG CORRIGÉ ICI (utilise meta_json)
         logActivity(userId, reportId ? 'update' : 'create', 'report', finalId, { cabinet_name, work_type });
 
         db.serialize(() => {
@@ -226,19 +249,12 @@ const saveReportData = (req, res, reportId = null) => {
 // --- SUPPRESSION ---
 router.delete('/:id', requireAuth, async (req, res) => {
     const id = req.params.id;
-    const role = await getUserRole(req.session.userId);
-    db.get("SELECT status FROM reports WHERE id = ?", [id], (err, row) => {
-        if(err || !row) return res.status(404).json({error: "Rapport introuvable"});
-        if (row.status !== 'draft' && role !== 'admin') return res.status(403).json({ error: "Sécurité : Seuls les brouillons peuvent être supprimés." });
-        
-        db.run("DELETE FROM reports WHERE id = ?", [id], function(err) {
-            if (err) return res.status(500).json({ error: err.message });
-            
-            // LOG CORRIGÉ ICI (utilise meta_json)
-            logActivity(req.session.userId, 'delete', 'report', id);
-            
-            res.json({ success: true });
-        });
+    // On supprime directement sans vérifier le statut "draft"
+    db.run("DELETE FROM reports WHERE id = ?", [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        // On log l'action
+        logActivity(req.session.userId, 'delete', 'report', id);
+        res.json({ success: true });
     });
 });
 

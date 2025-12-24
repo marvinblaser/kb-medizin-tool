@@ -227,36 +227,33 @@ async function loadReports() {
   const search = document.getElementById("global-search").value;
   const type = document.getElementById("filter-type").value;
 
+  // --- PARTIE 1 : GESTION DES ARCHIVES (Vue Dossiers) ---
   if (currentStatusFilter === "archived") {
     const container = document.getElementById("archives-container");
     container.innerHTML =
       '<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--neutral-400);"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Chargement des archives...</p></div>';
-   try {
+    
+    try {
         const res = await fetch(`/api/reports?page=${currentPage}&limit=25&search=${search}&type=${type}&status=${currentStatusFilter}`);
         
-        // 1. Si le serveur plante (500), on arrête tout ici pour éviter les crashs JS
-        if (!res.ok) {
-            console.error("Erreur API:", res.status);
-            return; 
-        }
+        if (!res.ok) return; // Stop si erreur serveur
 
         const data = await res.json();
         
-        // 2. On affiche les rapports
-        renderReports(data.reports || []); 
+        // CORRECTION MAJEURE ICI : 
+        // On appelle renderArchivedFolders() au lieu de renderReports()
+        renderArchivedFolders(data.reports || []); 
         
-        // 3. PROTECTION CRITIQUE POUR LA PAGINATION
-        // On vérifie que data.pagination existe AVANT de lire '.page'
-        if (data.pagination) {
-            updatePagination(data.pagination);
-        }
+        if (data.pagination) updatePagination(data.pagination);
         
     } catch(e) { 
-        console.error("Erreur JS:", e); 
+        console.error("Erreur JS:", e);
+        container.innerHTML = '<div class="text-center text-danger">Erreur de chargement.</div>';
     }
-    return;
+    return; // On quitte la fonction ici pour ne pas exécuter la partie standard
   }
 
+  // --- PARTIE 2 : GESTION STANDARD (Vue Tableau pour Brouillons, En attente, Validés) ---
   try {
     const res = await fetch(
       `/api/reports?page=${currentPage}&limit=25&search=${search}&type=${type}&status=${currentStatusFilter}`
@@ -304,8 +301,9 @@ function generateReportRow(r, badges, names) {
     installationText.length > 60
       ? installationText.substring(0, 60) + "..."
       : installationText;
-  const canDelete =
-    r.status === "draft" || (currentUser && currentUser.role === "admin");
+  
+  // MODIFICATION ICI : On force le bouton à s'afficher tout le temps
+  const canDelete = true; 
 
   return `
       <tr>
@@ -419,15 +417,14 @@ function renderArchivedFolders(reports) {
                         </div>
                         
                         <div class="archive-actions">
-                            <button class="btn-action-soft" onclick="window.open('/report-view.html?id=${
-                              r.id
-                            }','_blank')" title="Télécharger PDF">
+                            <button class="btn-action-soft" onclick="window.open('/report-view.html?id=${r.id}','_blank')" title="Télécharger PDF">
                                 <i class="fas fa-file-pdf"></i>
                             </button>
-                            <button class="btn-action-soft" onclick="openReportModal(${
-                              r.id
-                            })" title="Voir détails">
+                            <button class="btn-action-soft" onclick="openReportModal(${r.id})" title="Voir détails">
                                 <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn-action-soft text-danger" onclick="openDeleteModal(${r.id})" title="Supprimer définitivement">
+                                <i class="fas fa-trash"></i>
                             </button>
                         </div>
                     </div>

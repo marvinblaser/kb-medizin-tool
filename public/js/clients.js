@@ -33,6 +33,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('logout-btn')?.addEventListener('click', logout);
     document.getElementById('confirm-delete-btn')?.addEventListener('click', confirmDeleteClient);
     document.getElementById('btn-geo-search')?.addEventListener('click', searchCoordinates);
+    // Listener pour l'import Excel
+    document.getElementById('import-excel-input')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Petit indicateur visuel (optionnel mais sympa)
+        const btn = document.querySelector('button[title="Importer depuis Excel"]');
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...';
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('/api/clients/import', { method: 'POST', body: formData });
+            const result = await res.json();
+            
+            if (res.ok) {
+                alert(`Succès ! ${result.count || '?'} clients traités (actualisation en cours).`);
+                loadData(); // Recharge la liste des clients
+            } else {
+                alert("Erreur lors de l'import : " + (result.error || "Inconnue"));
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Erreur technique lors de l'envoi.");
+        } finally {
+            // On remet le bouton normal et on vide l'input pour permettre de réimporter le même fichier si besoin
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+            e.target.value = ''; 
+        }
+    });
 });
 
 async function checkAuth() {

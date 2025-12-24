@@ -254,7 +254,13 @@
             <h1><i class="fas fa-building"></i> Répertoire Clients</h1>
         </div>
         <div class="header-actions-group" style="display: flex; gap: 10px;">
-            <button class="btn btn-secondary" onclick="exportData()" title="Exporter">
+            <input type="file" id="import-excel-input" hidden accept=".xlsx, .xls" />
+            
+            <button class="btn btn-secondary" onclick="document.getElementById('import-excel-input').click()" title="Importer depuis Excel">
+                <i class="fas fa-file-import"></i> Importer
+            </button>
+
+            <button class="btn btn-secondary" onclick="exportData()" title="Exporter en CSV">
                 <i class="fas fa-file-export"></i> Exporter
             </button>
             <button class="btn btn-primary" onclick="openClientModal()">
