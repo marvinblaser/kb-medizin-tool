@@ -394,3 +394,14 @@ window.openClientModal = openClientModal;
 window.closeClientModal = closeClientModal;
 window.saveClient = saveClient;
 window.searchCoordinates = searchCoordinates;
+
+// Fonction appelée par le bouton "Exporter" dans le header
+function exportData() {
+    // On crée un lien temporaire pour déclencher le téléchargement
+    const link = document.createElement('a');
+    link.href = '/api/clients/export-excel';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}

@@ -16,10 +16,9 @@
     <link rel="stylesheet" href="/css/transitions.css" />
     
     <style>
-        /* --- STYLES SPÉCIFIQUES ADMIN (Harmonisation) --- */
+        /* --- STYLES SPÉCIFIQUES ADMIN --- */
         .admin-container-fluid { padding: 1.5rem 3rem; width: 100%; max-width: 1800px; margin: 0 auto; }
         
-        /* Barre d'outils unifiée (Style Clients) */
         .toolbar-clean-bar {
             background: white; border: 1px solid var(--border-color); border-radius: 8px;
             padding: 0 1.5rem; display: flex; align-items: center; height: 64px;
@@ -37,11 +36,9 @@
         .nav-text-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
         .nav-text-btn i { font-size: 1rem; }
 
-        /* Sections */
         .view-section { display: none; animation: fadeIn 0.3s ease-out; }
         .view-section.active { display: block; }
         
-        /* En-tête de section */
         .section-header { 
             display: flex; justify-content: space-between; align-items: center; 
             margin-bottom: 1.5rem; padding: 1rem 1.5rem; background: white;
@@ -51,7 +48,6 @@
         .section-info h3 { margin: 0; font-size: 1.1rem; color: var(--neutral-800); display: flex; align-items: center; gap: 10px; }
         .section-info p { margin: 4px 0 0 0; font-size: 0.85rem; color: var(--neutral-500); }
         
-        /* --- STYLE TABLEAU ERP (Importé de Clients) --- */
         .erp-table-wrapper { 
             background: white; border: 1px solid var(--border-color); border-radius: 8px; 
             overflow: hidden; box-shadow: var(--shadow-sm); 
@@ -71,7 +67,6 @@
         .erp-table tr:last-child td { border-bottom: none; }
         .erp-table tr:hover { background: var(--neutral-50); }
 
-        /* --- ACTIONS BUTTONS (Style Checklists/Clients) --- */
         .table-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; }
         
         .btn-icon-sm { 
@@ -88,14 +83,12 @@
         .btn-icon-danger { background: #fee2e2; color: #ef4444; }
         .btn-icon-danger:hover { background: #fecaca; color: #b91c1c; transform: translateY(-1px); }
 
-        /* Permissions Grid */
         .permissions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; max-height: 350px; overflow-y: auto; padding: 1rem; background: var(--neutral-50); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
         .perm-item { background: white; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-color-light); display: flex; align-items: center; gap: 0.75rem; transition: border-color 0.2s; }
         .perm-item:hover { border-color: var(--color-primary-light); }
         .perm-item label { cursor: pointer; font-size: 0.9rem; font-weight: 500; color: var(--neutral-700); user-select: none; }
         .perm-item input { width: 18px; height: 18px; accent-color: var(--color-primary); }
 
-        /* Filtres Logs */
         .log-filters { display: flex; gap: 5px; background: var(--neutral-100); padding: 4px; border-radius: 6px; }
         .log-filter-btn { padding: 6px 12px; border: none; background: transparent; border-radius: 4px; font-size: 0.85rem; font-weight: 500; color: var(--neutral-600); cursor: pointer; transition: all 0.2s; }
         .log-filter-btn.active { background: white; color: var(--color-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
@@ -217,12 +210,30 @@
 
             <div class="view-section" id="tab-materials">
               <div class="section-header">
-                  <div class="section-info"><h3>Pièces & Matériel</h3><p>Liste des consommables pour les rapports.</p></div>
-                  <button class="btn btn-primary" id="add-material-btn"><i class="fas fa-plus"></i> Ajouter matériel</button>
+                  <div class="section-info">
+                      <h3>Pièces & Matériel</h3>
+                      <p>Liste des consommables pour les rapports.</p>
+                  </div>
+                  
+                  <div style="display:flex; gap:10px;">
+                      <input type="file" id="import-material-input" accept=".csv, .xlsx" style="display:none;" />
+                      
+                      <button class="btn btn-icon-danger" id="delete-all-materials-btn" style="height: 38px; padding: 0 15px; font-weight: 500; font-size: 0.9rem;" title="Supprimer tout le matériel">
+                        <i class="fas fa-trash"></i> Tout vider
+                      </button>
+
+                      <button class="btn btn-secondary" onclick="document.getElementById('import-material-input').click()">
+                        <i class="fas fa-file-import"></i> Importer
+                      </button>
+                      
+                      <button class="btn btn-primary" id="add-material-btn">
+                        <i class="fas fa-plus"></i> Ajouter
+                      </button>
+                  </div>
               </div>
               <div class="erp-table-wrapper">
                 <table class="erp-table">
-                  <thead><tr><th>Nom</th><th>Code Produit</th><th>Prix (CHF)</th><th style="text-align:right">Actions</th></tr></thead>
+                  <thead><tr><th>Nom</th><th>Code</th><th>Prix</th><th style="text-align:right">Actions</th></tr></thead>
                   <tbody id="materials-tbody"><tr><td colspan="4" class="text-center">Chargement...</td></tr></tbody>
                 </table>
               </div>
@@ -246,7 +257,9 @@
               </div>
             </div>
 
-        </div> <div class="modal" id="user-modal">
+        </div> 
+        
+        <div class="modal" id="user-modal">
           <div class="modal-content">
             <div class="modal-header"><h2 id="user-modal-title"></h2><button class="modal-close" onclick="closeUserModal()">&times;</button></div>
             <div class="modal-body">

@@ -36,6 +36,75 @@ document.addEventListener('DOMContentLoaded', async () => {
   safeAddListener('add-material-btn', 'click', () => openMaterialModal());
   safeAddListener('cancel-material-btn', 'click', closeMaterialModal);
   safeAddListener('save-material-btn', 'click', saveMaterial);
+
+  // --- MATERIALS EVENTS ---
+  safeAddListener('add-material-btn', 'click', () => openMaterialModal());
+  safeAddListener('cancel-material-btn', 'click', closeMaterialModal);
+  safeAddListener('save-material-btn', 'click', saveMaterial);
+  
+  // NOUVEAU : Ecouteur pour le bouton "Tout vider"
+  safeAddListener('delete-all-materials-btn', 'click', async () => {
+      if(confirm("ATTENTION : Vous allez supprimer TOUTE la liste de matériel.\n\nVoulez-vous continuer ?")) {
+          try {
+              const res = await fetch('/api/admin/materials/all', { method: 'DELETE' });
+              const data = await res.json();
+              if (data.success) {
+                  showNotification('Liste vidée avec succès.', 'success');
+                  loadMaterials();
+              } else {
+                  showNotification('Erreur serveur.', 'error');
+              }
+          } catch (e) {
+              console.error(e);
+              showNotification('Erreur de connexion.', 'error');
+          }
+      }
+  });
+
+  // --- IMPORT MATERIALS ---
+  const matInput = document.getElementById('import-material-input');
+  if (matInput) {
+      matInput.addEventListener('change', async (e) => {
+          if (!e.target.files[0]) return;
+          
+          if(!confirm("Voulez-vous importer ce fichier CSV ? Cela ajoutera les produits à la liste existante.")) {
+              e.target.value = ''; // Reset
+              return;
+          }
+
+          const formData = new FormData();
+          formData.append('file', e.target.files[0]);
+
+          showNotification('Import en cours...', 'info');
+
+          try {
+              // CORRECTION ICI : L'URL doit correspondre à celle du serveur
+              const res = await fetch('/api/admin/materials/import', {
+                  method: 'POST',
+                  body: formData
+              });
+              
+              // On vérifie d'abord si la réponse est bien du JSON
+              const contentType = res.headers.get("content-type");
+              if (!contentType || !contentType.includes("application/json")) {
+                  throw new Error("Le serveur n'a pas renvoyé de JSON. Vérifiez la console serveur.");
+              }
+
+              const data = await res.json();
+
+              if (data.success) {
+                  showNotification(`Succès ! Import terminé.`, 'success'); // Message simplifié car count n'est pas toujours renvoyé immédiatement
+                  setTimeout(() => loadMaterials(), 1000); // Petit délai pour laisser la BDD finir
+              } else {
+                  showNotification(data.error || "Erreur lors de l'import", 'error');
+              }
+          } catch (err) {
+              console.error(err);
+              showNotification("Erreur technique (voir console)", 'error');
+          }
+          e.target.value = ''; // Reset pour pouvoir réimporter le même fichier si besoin
+      });
+  }
   
   // Close Modals
   document.querySelectorAll('.modal').forEach(m => {
@@ -350,7 +419,24 @@ async function openEquipmentModal(id=null) {
 async function saveEquipment() { const id=document.getElementById('equipment-id').value; const data={name:document.getElementById('equipment-name').value, brand:document.getElementById('equipment-brand').value, type:document.getElementById('equipment-type').value, device_type:document.getElementById('equipment-device-type').value}; await fetch(id?`/api/admin/equipment/${id}`:'/api/admin/equipment',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); closeEquipmentModal(); loadEquipment(); }
 async function deleteEquipment(id) { if(!confirm('Supprimer ?'))return; await fetch(`/api/admin/equipment/${id}`,{method:'DELETE'}); loadEquipment(); }
 
-async function loadMaterials() { const r=await fetch('/api/admin/materials'); const d=await r.json(); document.getElementById('materials-tbody').innerHTML=d.map(m=>`<tr><td><strong>${escapeHtml(m.name)}</strong></td><td><code>${escapeHtml(m.product_code)}</code></td><td>${m.unit_price} CHF</td><td style="text-align:right"><div class="table-actions"><button class="btn-icon-sm btn-icon-primary" onclick="openMaterialModal(${m.id})"><i class="fas fa-pen"></i></button><button class="btn-icon-sm btn-icon-danger" onclick="deleteMaterial(${m.id})"><i class="fas fa-trash"></i></button></div></td></tr>`).join(''); }
+async function loadMaterials() { 
+  const r = await fetch('/api/admin/materials'); 
+  const d = await r.json(); 
+  
+  document.getElementById('materials-tbody').innerHTML = d.map(m => `
+    <tr>
+      <td><strong>${escapeHtml(m.name)}</strong></td>
+      <td><code>${escapeHtml(m.product_code)}</code></td>
+      <td>${parseFloat(m.unit_price).toFixed(2)} CHF</td>
+      <td style="text-align:right">
+        <div class="table-actions">
+          <button class="btn-icon-sm btn-icon-primary" onclick="openMaterialModal(${m.id})"><i class="fas fa-pen"></i></button>
+          <button class="btn-icon-sm btn-icon-danger" onclick="deleteMaterial(${m.id})"><i class="fas fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>
+  `).join(''); 
+}
 async function openMaterialModal(id=null) { const form=document.getElementById('material-form'); form.reset(); document.getElementById('material-id').value=''; document.getElementById('material-modal-title').innerText='Ajouter Matériel'; if(id){ const r=await fetch('/api/admin/materials'); const d=await r.json(); const m=d.find(x=>x.id===id); if(m){ document.getElementById('material-id').value=m.id; document.getElementById('material-name').value=m.name; document.getElementById('material-code').value=m.product_code; document.getElementById('material-price').value=m.unit_price; document.getElementById('material-modal-title').innerText='Modifier'; }} document.getElementById('material-modal').classList.add('active'); }
 async function saveMaterial() { const id=document.getElementById('material-id').value; const data={name:document.getElementById('material-name').value, product_code:document.getElementById('material-code').value, unit_price:document.getElementById('material-price').value}; await fetch(id?`/api/admin/materials/${id}`:'/api/admin/materials',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); closeMaterialModal(); loadMaterials(); }
 async function deleteMaterial(id) { if(!confirm('Supprimer ?'))return; await fetch(`/api/admin/materials/${id}`,{method:'DELETE'}); loadMaterials(); }

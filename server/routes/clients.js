@@ -1,3 +1,5 @@
+// server/routes/clients.js
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -186,7 +188,6 @@ router.get('/', requireAuth, (req, res) => {
     let order = "cabinet_name ASC";
     if (sortBy) {
         const dir = sortOrder === 'desc' ? 'DESC' : 'ASC';
-        // Protection injection SQL simple
         const allowed = ['cabinet_name', 'city', 'appointment_at', 'created_at'];
         if (allowed.includes(sortBy)) order = `${sortBy} ${dir}`;
     }
@@ -266,7 +267,7 @@ router.delete('/:id', requireAuth, (req, res) => {
 // SOUS-ROUTES (Équipements & RDV)
 // ==========================================
 
-// GET EQUIPMENT
+// GET EQUIPMENT (Equipement d'un client spécifique)
 router.get('/:id/equipment', requireAuth, (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const sql = `
@@ -285,7 +286,7 @@ router.get('/:id/equipment', requireAuth, (req, res) => {
     });
 });
 
-// ADD EQUIPMENT
+// ADD EQUIPMENT (A un client)
 router.post('/:id/equipment', requireAuth, (req, res) => {
     const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval } = req.body;
     
@@ -305,7 +306,7 @@ router.post('/:id/equipment', requireAuth, (req, res) => {
     });
 });
 
-// UPDATE EQUIPMENT
+// UPDATE EQUIPMENT (D'un client)
 router.put('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
     const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval } = req.body;
     let nextDate = null;
@@ -321,7 +322,7 @@ router.put('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
     });
 });
 
-// DELETE EQUIPMENT
+// DELETE EQUIPMENT (D'un client uniquement - Pas du catalogue global)
 router.delete('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
     db.run("DELETE FROM client_equipment WHERE id=? AND client_id=?", [req.params.eqId, req.params.clientId], function(err) {
         if (err) return res.status(500).json({ error: err.message });
@@ -385,6 +386,73 @@ router.post('/:id/appointments', requireAuth, (req, res) => {
   });
 });
 
+// ==========================================
+// EXPORT EXCEL (Client spécifique ou liste)
+// ==========================================
+router.get('/export-excel', requireAuth, (req, res) => {
+    const sql = `
+        SELECT 
+            c.id, c.cabinet_name, c.contact_name, c.activity, c.address, c.postal_code, c.city, c.canton, c.phone, c.email,
+            ce.serial_number, ce.installed_at, ce.last_maintenance_date,
+            ec.name as equip_name, ec.brand as equip_brand, ec.model as equip_model
+        FROM clients c
+        LEFT JOIN client_equipment ce ON c.id = ce.client_id
+        LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+        ORDER BY c.cabinet_name
+    `;
 
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            console.error("Erreur export:", err);
+            return res.status(500).send("Erreur serveur");
+        }
+
+        const clientsMap = {};
+
+        rows.forEach(row => {
+            if (!clientsMap[row.id]) {
+                clientsMap[row.id] = {
+                    "Cabinet": row.cabinet_name,
+                    "Contact": row.contact_name,
+                    "Secteur": row.activity,
+                    "Adresse": row.address,
+                    "NPA": row.postal_code,
+                    "Ville": row.city,
+                    "Canton": row.canton,
+                    "Téléphone": row.phone,
+                    "Email": row.email,
+                    "Parc Machines": [] 
+                };
+            }
+            if (row.equip_name) {
+                const machineStr = `• ${row.equip_brand} ${row.equip_name} (${row.equip_model || '-'}) [SN:${row.serial_number || '?'}]`;
+                clientsMap[row.id]["Parc Machines"].push(machineStr);
+            }
+        });
+
+        const exportData = Object.values(clientsMap).map(c => ({
+            ...c,
+            "Parc Machines": c["Parc Machines"].join('\n')
+        }));
+
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.json_to_sheet(exportData);
+
+        ws['!cols'] = [
+            { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 30 }, 
+            { wch: 10 }, { wch: 20 }, { wch: 8 }, { wch: 15 }, 
+            { wch: 25 }, { wch: 60 }
+        ];
+
+        xlsx.utils.book_append_sheet(wb, ws, "Liste Clients");
+
+        const fileName = `Export_Clients_${new Date().toISOString().split('T')[0]}.xlsx`;
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    });
+});
 
 module.exports = router;
