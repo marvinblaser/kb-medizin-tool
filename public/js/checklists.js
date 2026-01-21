@@ -1,5 +1,9 @@
 // public/js/checklists.js
 
+// ... (Styles CSS et Variables globales identiques) ...
+// Pour gagner de la place, je ne recolle pas le CSS ici car il n'a pas changé.
+// Assurez-vous de garder la constante `checklistStyles` du début du fichier original.
+
 // --- INJECTION CSS (STYLE TOOLBAR + CARTE PROPRE) ---
 const checklistStyles = `
 /* Conteneur */
@@ -499,8 +503,14 @@ async function saveChecklist() {
   if(!data.name) { showNotification('Nom requis', 'error'); btn.innerHTML = 'Enregistrer'; btn.disabled = false; return; }
   try {
     const res = await fetch(id ? `/api/checklists/${id}` : '/api/checklists', { method: id ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
-    if(res.ok) { closeChecklistModal(); loadChecklists(); showNotification('Enregistré !', 'success'); } 
-    else showNotification('Erreur serveur', 'error');
+    
+    // CORRECTION ICI : Gestion du retour serveur
+    if(res.ok) { 
+        closeChecklistModal(); loadChecklists(); showNotification('Enregistré !', 'success'); 
+    } else {
+        const err = await res.json();
+        showNotification(err.error || 'Erreur serveur', 'error');
+    }
   } catch { showNotification('Erreur réseau', 'error'); } 
   finally { btn.innerHTML = 'Enregistrer'; btn.disabled = false; }
 }
@@ -511,8 +521,13 @@ async function confirmDelete() {
   if(!checklistToDelete) return;
   try {
     const res = await fetch(`/api/checklists/${checklistToDelete}`, { method: 'DELETE' });
-    if(res.ok) { showNotification('Supprimé', 'success'); loadChecklists(); closeDeleteModal(); }
-  } catch { showNotification('Erreur', 'error'); }
+    if(res.ok) { 
+        showNotification('Supprimé', 'success'); loadChecklists(); closeDeleteModal(); 
+    } else {
+        const err = await res.json();
+        showNotification(err.error || 'Erreur', 'error');
+    }
+  } catch { showNotification('Erreur réseau', 'error'); }
 }
 
 function showNotification(msg, type='info') {

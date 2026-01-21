@@ -36,11 +36,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   safeAddListener('add-material-btn', 'click', () => openMaterialModal());
   safeAddListener('cancel-material-btn', 'click', closeMaterialModal);
   safeAddListener('save-material-btn', 'click', saveMaterial);
-
-  // --- MATERIALS EVENTS ---
-  safeAddListener('add-material-btn', 'click', () => openMaterialModal());
-  safeAddListener('cancel-material-btn', 'click', closeMaterialModal);
-  safeAddListener('save-material-btn', 'click', saveMaterial);
   
   // NOUVEAU : Ecouteur pour le bouton "Tout vider"
   safeAddListener('delete-all-materials-btn', 'click', async () => {
@@ -52,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                   showNotification('Liste vidée avec succès.', 'success');
                   loadMaterials();
               } else {
-                  showNotification('Erreur serveur.', 'error');
+                  showNotification(data.error || 'Erreur serveur.', 'error');
               }
           } catch (e) {
               console.error(e);
@@ -68,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (!e.target.files[0]) return;
           
           if(!confirm("Voulez-vous importer ce fichier CSV ? Cela ajoutera les produits à la liste existante.")) {
-              e.target.value = ''; // Reset
+              e.target.value = ''; 
               return;
           }
 
@@ -78,23 +73,21 @@ document.addEventListener('DOMContentLoaded', async () => {
           showNotification('Import en cours...', 'info');
 
           try {
-              // CORRECTION ICI : L'URL doit correspondre à celle du serveur
               const res = await fetch('/api/admin/materials/import', {
                   method: 'POST',
                   body: formData
               });
               
-              // On vérifie d'abord si la réponse est bien du JSON
               const contentType = res.headers.get("content-type");
               if (!contentType || !contentType.includes("application/json")) {
-                  throw new Error("Le serveur n'a pas renvoyé de JSON. Vérifiez la console serveur.");
+                  throw new Error("Le serveur n'a pas renvoyé de JSON.");
               }
 
               const data = await res.json();
 
               if (data.success) {
-                  showNotification(`Succès ! Import terminé.`, 'success'); // Message simplifié car count n'est pas toujours renvoyé immédiatement
-                  setTimeout(() => loadMaterials(), 1000); // Petit délai pour laisser la BDD finir
+                  showNotification(`Succès ! Import terminé.`, 'success');
+                  setTimeout(() => loadMaterials(), 1000); 
               } else {
                   showNotification(data.error || "Erreur lors de l'import", 'error');
               }
@@ -102,11 +95,10 @@ document.addEventListener('DOMContentLoaded', async () => {
               console.error(err);
               showNotification("Erreur technique (voir console)", 'error');
           }
-          e.target.value = ''; // Reset pour pouvoir réimporter le même fichier si besoin
+          e.target.value = ''; 
       });
   }
   
-  // Close Modals
   document.querySelectorAll('.modal').forEach(m => {
     m.addEventListener('click', e => { if(e.target === m) m.classList.remove('active'); });
   });
@@ -169,11 +161,8 @@ function setupTabs() {
   const btns = document.querySelectorAll('#admin-tabs .nav-text-btn');
   btns.forEach(btn => {
     btn.addEventListener('click', () => {
-        // MAJ active state boutons
         btns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-
-        // MAJ content
         document.querySelectorAll('.view-section').forEach(c => c.classList.remove('active'));
         const targetId = `tab-${btn.dataset.tab}`;
         const target = document.getElementById(targetId);
@@ -255,8 +244,8 @@ async function saveRole() {
     const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, permissions }) });
 
     if(res.ok) { showNotification('Rôle enregistré', 'success'); closeRoleModal(); loadRoles(); } 
-    else { const err = await res.json(); showNotification(err.error, 'error'); }
-  } catch(e) { console.error(e); }
+    else { const err = await res.json(); showNotification(err.error || 'Erreur lors de l\'enregistrement', 'error'); }
+  } catch(e) { console.error(e); showNotification('Erreur réseau', 'error'); }
 }
 
 async function deleteRole(slug) {
@@ -264,6 +253,7 @@ async function deleteRole(slug) {
   try {
     const res = await fetch(`/api/admin/roles/${slug}`, { method: 'DELETE' });
     if(res.ok) { loadRoles(); showNotification('Supprimé', 'success'); }
+    else { const err = await res.json(); showNotification(err.error || 'Erreur suppression', 'error'); }
   } catch(e) { console.error(e); }
 }
 
@@ -388,6 +378,7 @@ async function deleteUser(id) {
   if(!confirm('Supprimer ?')) return;
   const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
   if(res.ok) { showNotification('Supprimé', 'success'); loadUsers(); }
+  else { const err = await res.json(); showNotification(err.error || 'Erreur suppression', 'error'); }
 }
 
 async function confirmResetPassword() {
@@ -396,19 +387,20 @@ async function confirmResetPassword() {
   if(password.length < 6) return showNotification('Trop court', 'warning');
   const res = await fetch(`/api/admin/users/${id}/reset-password`, { method: 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password}) });
   if(res.ok) { showNotification('Réinitialisé', 'success'); closeResetModal(); }
+  else { const err = await res.json(); showNotification(err.error || 'Erreur', 'error'); }
 }
 function openResetModal(id) { document.getElementById('reset-user-id').value = id; document.getElementById('new-password').value = ''; document.getElementById('reset-password-modal').classList.add('active'); }
 
 // ========== SECTORS, DEVICES, EQUIPMENT, MATERIALS ==========
 async function loadSectors() { const r=await fetch('/api/admin/sectors'); const d=await r.json(); document.getElementById('sectors-tbody').innerHTML=d.map(s=>`<tr><td><strong>${escapeHtml(s.name)}</strong></td><td>${s.slug}</td><td>${formatDate(s.created_at)}</td><td style="text-align:right"><button class="btn-icon-sm btn-icon-danger" onclick="deleteSector(${s.id})"><i class="fas fa-trash"></i></button></td></tr>`).join(''); updateSelectOptions('equipment-type', d); }
 function openSectorModal() { document.getElementById('sector-name').value=''; document.getElementById('sector-modal').classList.add('active'); }
-async function saveSector() { const name=document.getElementById('sector-name').value; if(!name)return; await fetch('/api/admin/sectors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})}); closeSectorModal(); loadSectors(); }
-async function deleteSector(id) { if(!confirm('Supprimer ?'))return; await fetch(`/api/admin/sectors/${id}`,{method:'DELETE'}); loadSectors(); }
+async function saveSector() { const name=document.getElementById('sector-name').value; if(!name)return; const res = await fetch('/api/admin/sectors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})}); if(res.ok){closeSectorModal(); loadSectors();showNotification('Enregistré','success');}else{const e=await res.json();showNotification(e.error||'Erreur','error');} }
+async function deleteSector(id) { if(!confirm('Supprimer ?'))return; const res=await fetch(`/api/admin/sectors/${id}`,{method:'DELETE'}); if(res.ok){loadSectors();showNotification('Supprimé','success');}else{const e=await res.json();showNotification(e.error||'Erreur','error');} }
 
 async function loadDeviceTypes() { const r=await fetch('/api/admin/device-types'); const d=await r.json(); document.getElementById('device-types-tbody').innerHTML=d.map(t=>`<tr><td><strong>${escapeHtml(t.name)}</strong></td><td style="text-align:right"><button class="btn-icon-sm btn-icon-danger" onclick="deleteDeviceType(${t.id})"><i class="fas fa-trash"></i></button></td></tr>`).join(''); updateSelectOptions('equipment-device-type', d); }
 function openDeviceTypeModal() { document.getElementById('device-type-name').value=''; document.getElementById('device-type-modal').classList.add('active'); }
-async function saveDeviceType() { const name=document.getElementById('device-type-name').value; if(!name)return; await fetch('/api/admin/device-types',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})}); closeDeviceTypeModal(); loadDeviceTypes(); }
-async function deleteDeviceType(id) { if(!confirm('Supprimer ?'))return; await fetch(`/api/admin/device-types/${id}`,{method:'DELETE'}); loadDeviceTypes(); }
+async function saveDeviceType() { const name=document.getElementById('device-type-name').value; if(!name)return; const res = await fetch('/api/admin/device-types',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})}); if(res.ok){closeDeviceTypeModal(); loadDeviceTypes();showNotification('Enregistré','success');}else{const e=await res.json();showNotification(e.error||'Erreur','error');} }
+async function deleteDeviceType(id) { if(!confirm('Supprimer ?'))return; const res = await fetch(`/api/admin/device-types/${id}`,{method:'DELETE'}); if(res.ok){loadDeviceTypes();showNotification('Supprimé','success');}else{const e=await res.json();showNotification(e.error||'Erreur','error');} }
 
 async function loadEquipment() { const r=await fetch('/api/admin/equipment'); const d=await r.json(); document.getElementById('equipment-tbody').innerHTML=d.map(e=>`<tr><td><strong>${escapeHtml(e.name)}</strong></td><td>${escapeHtml(e.brand)}</td><td>${escapeHtml(e.device_type||'-')}</td><td><span class="badge badge-secondary">${escapeHtml(e.type)}</span></td><td style="text-align:right"><div class="table-actions"><button class="btn-icon-sm btn-icon-primary" onclick="openEquipmentModal(${e.id})"><i class="fas fa-pen"></i></button><button class="btn-icon-sm btn-icon-danger" onclick="deleteEquipment(${e.id})"><i class="fas fa-trash"></i></button></div></td></tr>`).join(''); }
 async function openEquipmentModal(id=null) { 
@@ -416,8 +408,8 @@ async function openEquipmentModal(id=null) {
   if(id){ const r=await fetch('/api/admin/equipment'); const d=await r.json(); const e=d.find(x=>x.id===id); if(e){ document.getElementById('equipment-id').value=e.id; document.getElementById('equipment-name').value=e.name; document.getElementById('equipment-brand').value=e.brand; document.getElementById('equipment-type').value=e.type; document.getElementById('equipment-device-type').value=e.device_type||''; document.getElementById('equipment-modal-title').innerText='Modifier'; }}
   document.getElementById('equipment-modal').classList.add('active'); 
 }
-async function saveEquipment() { const id=document.getElementById('equipment-id').value; const data={name:document.getElementById('equipment-name').value, brand:document.getElementById('equipment-brand').value, type:document.getElementById('equipment-type').value, device_type:document.getElementById('equipment-device-type').value}; await fetch(id?`/api/admin/equipment/${id}`:'/api/admin/equipment',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); closeEquipmentModal(); loadEquipment(); }
-async function deleteEquipment(id) { if(!confirm('Supprimer ?'))return; await fetch(`/api/admin/equipment/${id}`,{method:'DELETE'}); loadEquipment(); }
+async function saveEquipment() { const id=document.getElementById('equipment-id').value; const data={name:document.getElementById('equipment-name').value, brand:document.getElementById('equipment-brand').value, type:document.getElementById('equipment-type').value, device_type:document.getElementById('equipment-device-type').value}; const res=await fetch(id?`/api/admin/equipment/${id}`:'/api/admin/equipment',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); if(res.ok){closeEquipmentModal(); loadEquipment();showNotification('Enregistré','success');}else{const e=await res.json();showNotification(e.error||'Erreur','error');} }
+async function deleteEquipment(id) { if(!confirm('Supprimer ?'))return; const res=await fetch(`/api/admin/equipment/${id}`,{method:'DELETE'}); if(res.ok){loadEquipment();showNotification('Supprimé','success');}else{const e=await res.json();showNotification(e.error||'Erreur','error');} }
 
 async function loadMaterials() { 
   const r = await fetch('/api/admin/materials'); 
@@ -438,8 +430,8 @@ async function loadMaterials() {
   `).join(''); 
 }
 async function openMaterialModal(id=null) { const form=document.getElementById('material-form'); form.reset(); document.getElementById('material-id').value=''; document.getElementById('material-modal-title').innerText='Ajouter Matériel'; if(id){ const r=await fetch('/api/admin/materials'); const d=await r.json(); const m=d.find(x=>x.id===id); if(m){ document.getElementById('material-id').value=m.id; document.getElementById('material-name').value=m.name; document.getElementById('material-code').value=m.product_code; document.getElementById('material-price').value=m.unit_price; document.getElementById('material-modal-title').innerText='Modifier'; }} document.getElementById('material-modal').classList.add('active'); }
-async function saveMaterial() { const id=document.getElementById('material-id').value; const data={name:document.getElementById('material-name').value, product_code:document.getElementById('material-code').value, unit_price:document.getElementById('material-price').value}; await fetch(id?`/api/admin/materials/${id}`:'/api/admin/materials',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); closeMaterialModal(); loadMaterials(); }
-async function deleteMaterial(id) { if(!confirm('Supprimer ?'))return; await fetch(`/api/admin/materials/${id}`,{method:'DELETE'}); loadMaterials(); }
+async function saveMaterial() { const id=document.getElementById('material-id').value; const data={name:document.getElementById('material-name').value, product_code:document.getElementById('material-code').value, unit_price:document.getElementById('material-price').value}; const res=await fetch(id?`/api/admin/materials/${id}`:'/api/admin/materials',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); if(res.ok){closeMaterialModal(); loadMaterials();showNotification('Enregistré','success');}else{const e=await res.json();showNotification(e.error||'Erreur','error');} }
+async function deleteMaterial(id) { if(!confirm('Supprimer ?'))return; const res=await fetch(`/api/admin/materials/${id}`,{method:'DELETE'}); if(res.ok){loadMaterials();showNotification('Supprimé','success');}else{const e=await res.json();showNotification(e.error||'Erreur','error');} }
 
 function updateSelectOptions(eid, items) { const s=document.getElementById(eid); if(s) s.innerHTML='<option value="">--</option>'+items.map(i=>`<option value="${escapeHtml(i.name)}">${escapeHtml(i.name)}</option>`).join(''); }
 function formatDate(s) { return s?new Date(s).toLocaleDateString('fr-CH'):'-'; }

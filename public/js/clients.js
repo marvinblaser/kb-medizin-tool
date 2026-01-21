@@ -38,7 +38,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Petit indicateur visuel (optionnel mais sympa)
         const btn = document.querySelector('button[title="Importer depuis Excel"]');
         const originalContent = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...';
@@ -52,16 +51,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await res.json();
             
             if (res.ok) {
-                alert(`Succès ! ${result.count || '?'} clients traités (actualisation en cours).`);
-                loadData(); // Recharge la liste des clients
+                showNotification(`Succès ! ${result.count || '?'} clients traités.`, 'success');
+                loadData(); // Recharge la liste
             } else {
-                alert("Erreur lors de l'import : " + (result.error || "Inconnue"));
+                showNotification("Erreur lors de l'import : " + (result.error || "Inconnue"), 'error');
             }
         } catch (err) {
             console.error(err);
-            alert("Erreur technique lors de l'envoi.");
+            showNotification("Erreur technique lors de l'envoi.", 'error');
         } finally {
-            // On remet le bouton normal et on vide l'input pour permettre de réimporter le même fichier si besoin
             btn.innerHTML = originalContent;
             btn.disabled = false;
             e.target.value = ''; 
@@ -77,11 +75,9 @@ async function loadCatalog() { try { const r = await fetch('/api/admin/equipment
 
 function switchView(view) {
     currentView = view;
-    // Mise à jour des boutons
     document.getElementById('tab-directory').classList.toggle('active', view === 'directory');
     document.getElementById('tab-planning').classList.toggle('active', view === 'planning');
     
-    // Mise à jour des contenus
     document.getElementById('view-directory').classList.toggle('active', view === 'directory');
     document.getElementById('view-planning').classList.toggle('active', view === 'planning');
     
@@ -172,7 +168,6 @@ function switchSheetTab(tab) {
     document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-pane').forEach(c => c.classList.remove('active'));
     
-    // Sélection par ID pour être plus robuste
     const btn = document.getElementById(`btn-tab-${tab}`);
     if(btn) btn.classList.add('active');
     
@@ -226,14 +221,11 @@ async function loadClientHistory(id) {
             const tagClass = isReport ? 'tag-report' : 'tag-rdv';
             const tagName = isReport ? (h.report_number || 'Rapport') : 'RDV';
             
-            // CORRECTION: L'API renvoie le champ 'machines' (voir server/routes/clients.js)
             const machineName = h.machines || h.installation || h.equipment_name || null;
             
-            // On affiche le badge seulement si une machine est trouvée
             const machineHtml = machineName ? 
                 `<div class="timeline-machine"><i class="fas fa-server"></i> ${escapeHtml(machineName)}</div>` : '';
 
-            // Formatage date
             const dateObj = new Date(h.appointment_date);
             const dateStr = dateObj.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
             
@@ -327,9 +319,15 @@ async function saveClient() {
     };
     const method = id ? 'PUT' : 'POST';
     const url = id ? `/api/clients/${id}` : '/api/clients';
-    try { const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-        if(res.ok) { closeClientModal(); loadData(); if(id && id == currentClientId) openClientDetails(id); } else alert("Erreur");
-    } catch {}
+    try { 
+        const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        if(res.ok) { 
+            closeClientModal(); loadData(); if(id && id == currentClientId) openClientDetails(id); showNotification('Client enregistré', 'success'); 
+        } else {
+            const err = await res.json();
+            showNotification(err.error || 'Erreur lors de l\'enregistrement', 'error');
+        }
+    } catch { showNotification('Erreur réseau', 'error'); }
 }
 
 function openEquipFormModal(eq = null) {
@@ -360,24 +358,59 @@ async function saveEquipment() {
     };
     const method = id ? 'PUT' : 'POST';
     const url = id ? `/api/clients/${currentClientId}/equipment/${id}` : `/api/clients/${currentClientId}/equipment`;
-    try { const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-        if(res.ok) { closeEquipModal(); loadClientEquipment(currentClientId); loadData(); } else alert("Erreur");
-    } catch(e) { console.error(e); }
+    try { 
+        const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        if(res.ok) { 
+            closeEquipModal(); loadClientEquipment(currentClientId); loadData(); showNotification('Équipement enregistré', 'success'); 
+        } else {
+            const err = await res.json();
+            showNotification(err.error || 'Erreur lors de l\'enregistrement', 'error');
+        }
+    } catch(e) { console.error(e); showNotification('Erreur réseau', 'error'); }
 }
 
 async function deleteEquipment(clientId, eqId) {
     if(!confirm("Supprimer la machine ?")) return;
-    try { await fetch(`/api/clients/${clientId}/equipment/${eqId}`, { method: 'DELETE' }); loadClientEquipment(clientId); loadData(); } catch {}
+    try { 
+        const res = await fetch(`/api/clients/${clientId}/equipment/${eqId}`, { method: 'DELETE' }); 
+        if(res.ok) {
+            loadClientEquipment(clientId); loadData(); showNotification('Machine supprimée', 'success'); 
+        } else {
+            const err = await res.json();
+            showNotification(err.error || 'Erreur lors de la suppression', 'error');
+        }
+    } catch { showNotification('Erreur réseau', 'error'); }
 }
 
 function openDeleteModal(id) { clientIdToDelete = id; document.getElementById('delete-modal').classList.add('active'); }
 function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('active'); clientIdToDelete = null; }
 async function confirmDeleteClient() {
     if(!clientIdToDelete) return;
-    try { const res = await fetch(`/api/clients/${clientIdToDelete}`, { method: 'DELETE' }); if(res.ok) { closeDeleteModal(); if(document.getElementById('client-details-modal').classList.contains('active')) closeClientDetailsModal(); loadData(); } } catch {}
+    try { 
+        const res = await fetch(`/api/clients/${clientIdToDelete}`, { method: 'DELETE' }); 
+        if(res.ok) { 
+            closeDeleteModal(); if(document.getElementById('client-details-modal').classList.contains('active')) closeClientDetailsModal(); loadData(); showNotification('Client supprimé', 'success'); 
+        } else {
+            const err = await res.json();
+            showNotification(err.error || 'Erreur suppression', 'error');
+        }
+    } catch { showNotification('Erreur réseau', 'error'); }
 }
 
-// --- UTILS ---
+// --- UTILS & NOTIFICATIONS ---
+function showNotification(message, type = 'info') {
+  let container = document.getElementById('notification-container');
+  if (!container) {
+    const div = document.createElement('div'); div.id = 'notification-container'; div.className = 'notification-container';
+    document.body.appendChild(div); container = div;
+  }
+  const n = document.createElement('div'); n.className = `notification notification-${type}`;
+  n.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i> <span>${message}</span>`;
+  container.appendChild(n);
+  setTimeout(() => n.classList.add('show'), 10);
+  setTimeout(() => { n.classList.remove('show'); setTimeout(() => n.remove(), 300); }, 3000);
+}
+
 function debounce(f,w){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>f.apply(this,a),w);};}
 function escapeHtml(t){if(!t)return '';return t.toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 function formatDate(s){return s?new Date(s).toLocaleDateString('fr-CH'):'-';}
@@ -388,16 +421,14 @@ function updatePagination(p){
 }
 function changePage(delta) { currentPage += delta; loadData(); }
 function resetFilters() { currentFilters = { search:'', canton:'', sector:'' }; document.getElementById('global-search').value=''; document.getElementById('filter-canton').value=''; document.getElementById('filter-sector').value=''; loadData(); }
-function exportData() { alert("Fonction d'export CSV à implémenter."); }
+function exportData() { showNotification("Fonction d'export CSV à implémenter.", "info"); }
 
 window.openClientModal = openClientModal;
 window.closeClientModal = closeClientModal;
 window.saveClient = saveClient;
 window.searchCoordinates = searchCoordinates;
 
-// Fonction appelée par le bouton "Exporter" dans le header
 function exportData() {
-    // On crée un lien temporaire pour déclencher le téléchargement
     const link = document.createElement('a');
     link.href = '/api/clients/export-excel';
     link.target = '_blank';
