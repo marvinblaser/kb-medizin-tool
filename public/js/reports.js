@@ -59,7 +59,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   document
     .getElementById("add-report-btn")
     .addEventListener("click", () => openReportModal());
-  // Pas de bouton save global dans la page, seulement dans la modale
   document
     .getElementById("travel-canton")
     .addEventListener("change", updateTravelCost);
@@ -236,12 +235,9 @@ async function loadReports() {
     try {
         const res = await fetch(`/api/reports?page=${currentPage}&limit=25&search=${search}&type=${type}&status=${currentStatusFilter}`);
         
-        if (!res.ok) return; // Stop si erreur serveur
+        if (!res.ok) return;
 
         const data = await res.json();
-        
-        // CORRECTION MAJEURE ICI : 
-        // On appelle renderArchivedFolders() au lieu de renderReports()
         renderArchivedFolders(data.reports || []); 
         
         if (data.pagination) updatePagination(data.pagination);
@@ -250,10 +246,10 @@ async function loadReports() {
         console.error("Erreur JS:", e);
         container.innerHTML = '<div class="text-center text-danger">Erreur de chargement.</div>';
     }
-    return; // On quitte la fonction ici pour ne pas exécuter la partie standard
+    return;
   }
 
-  // --- PARTIE 2 : GESTION STANDARD (Vue Tableau pour Brouillons, En attente, Validés) ---
+  // --- PARTIE 2 : GESTION STANDARD ---
   try {
     const res = await fetch(
       `/api/reports?page=${currentPage}&limit=25&search=${search}&type=${type}&status=${currentStatusFilter}`
@@ -270,8 +266,6 @@ async function loadReports() {
 function renderReports(reports) {
   const tbody = document.getElementById("reports-tbody");
 
-  // --- MODIFICATION ICI : Vérification robuste ---
-  // On vérifie si reports existe ET si c'est un tableau ET s'il n'est pas vide
   if (!reports || !Array.isArray(reports) || reports.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="text-center" style="padding:2rem; color:var(--neutral-500);">Aucun rapport trouvé.</td></tr>`;
     return;
@@ -302,7 +296,6 @@ function generateReportRow(r, badges, names) {
       ? installationText.substring(0, 60) + "..."
       : installationText;
   
-  // MODIFICATION ICI : On force le bouton à s'afficher tout le temps
   const canDelete = true; 
 
   return `
@@ -336,8 +329,6 @@ function generateReportRow(r, badges, names) {
         </td>
       </tr>`;
 }
-
-// Remplacez renderArchivedFolders et toggleFolder par ceci :
 
 function renderArchivedFolders(reports) {
   const container = document.getElementById("archives-container");
@@ -513,7 +504,6 @@ async function openReportModal(reportId = null) {
     document.getElementById("validator-info").innerText = "";
     pdfBtn.style.display = "none";
 
-    // Bouton Save uniquement
     document.getElementById(
       "workflow-buttons"
     ).innerHTML = `<button class="btn btn-primary" onclick="saveReport()"><i class="fas fa-save"></i> Enregistrer Brouillon</button>`;
@@ -558,14 +548,14 @@ function renderWorkflowButtons(r) {
   }
 
   const role = currentUser.role;
-  const isValidator = ["admin", "validator", "sales_director"].includes(role);
+  // --- CORRECTION ICI : Ajout de 'verifier' en plus de 'verificateur' ---
+  const isValidator = ["admin", "validator", "verificateur", "verifier", "sales_director"].includes(role);
   const isSecretary = ["admin", "secretary"].includes(role);
 
   footer.innerHTML = "";
   const canEdit =
     r.status === "draft" || (r.status === "pending" && isValidator);
 
-  // Si éditable, bouton "Enregistrer" standard
   if (canEdit)
     footer.innerHTML += `<button class="btn btn-secondary" onclick="saveReport()"><i class="fas fa-save"></i> Enregistrer</button>`;
 
@@ -661,7 +651,6 @@ async function saveReport() {
   const method = reportId ? "PUT" : "POST";
   const url = reportId ? `/api/reports/${reportId}` : "/api/reports";
 
-  // Petit feedback visuel
   const btn = document.querySelector("#workflow-buttons button:first-child");
   const originalText = btn ? btn.innerHTML : "";
   if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ...';
@@ -674,13 +663,11 @@ async function saveReport() {
     });
     if (res.ok) {
       const json = await res.json();
-      // Notification sans alert() intrusif si possible, mais ici on garde simple
-      // alert("Sauvegardé !");
       updateBadges();
       await loadReports();
 
       if (!reportId && json.id) openReportModal(json.id);
-      else if (reportId) renderWorkflowButtons(json); // Rafraichir boutons si statut change (non-probable ici mais bon)
+      else if (reportId) renderWorkflowButtons(json);
     } else {
       const err = await res.json();
       alert("Erreur: " + err.error);

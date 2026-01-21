@@ -6,130 +6,42 @@ let allClients = [];
 let currentFilter = 'all';
 let currentUser = null;
 
-// Coordonnées (inchangées)
+// Coordonnées
 const cityCoords = { 'Aarau': [47.3919, 8.0458], 'Baden': [47.4724, 8.3064], 'Bern': [46.9480, 7.4474], 'Biel': [47.1372, 7.2459], 'Basel': [47.5596, 7.5886], 'Biel-Benken': [47.5056, 7.5533], 'Fribourg': [46.8036, 7.1517], 'Genève': [46.2044, 6.1432], 'Lausanne': [46.5197, 6.6323], 'Zürich': [47.3769, 8.5417], 'Winterthur': [47.5000, 8.7500], 'Neuchâtel': [46.9900, 6.9298] };
 const cantonCoords = { AG: [47.4, 8.15], AI: [47.32, 9.42], AR: [47.37, 9.3], BE: [46.95, 7.45], BL: [47.48, 7.73], BS: [47.56, 7.59], FR: [46.8, 7.15], GE: [46.2, 6.15], GL: [47.04, 9.07], GR: [46.85, 9.53], JU: [47.35, 7.15], LU: [47.05, 8.3], NE: [47.0, 6.93], NW: [46.93, 8.38], OW: [46.88, 8.25], SG: [47.42, 9.37], SH: [47.7, 8.63], SO: [47.3, 7.53], SZ: [47.02, 8.65], TG: [47.55, 9.0], TI: [46.33, 8.8], UR: [46.88, 8.63], VD: [46.57, 6.65], VS: [46.23, 7.36], ZG: [47.17, 8.52], ZH: [47.37, 8.54] };
 
 let widgetSettings = { appointments: true, contacts: true, 'maintenance-month': true, warranty: true, map: true };
 
-// --- STYLES INJECTÉS (CORRIGÉS) ---
+// --- STYLES INJECTÉS ---
 const customDashboardStyles = `
-  /* 1. Espacement Global */
-  .stats-grid, 
-  .widgets-grid, 
-  .checklists-grid, 
-  .table-controls {
-      margin-left: 3rem !important;
-      margin-right: 3rem !important;
-      width: auto !important;
-  }
-  
-  /* Espace spécifique entre le Header et les Stats */
+  .stats-grid, .widgets-grid, .checklists-grid, .table-controls { margin-left: 3rem !important; margin-right: 3rem !important; width: auto !important; }
   .stats-grid { margin-top: 4rem !important; }
-
-  /* 2. Widget Carte : Cadre parfait et espacement externe */
-  .map-wrapper-fixed {
-      margin: 2rem 3rem !important; /* Espacement externe (Haut/Bas Gauche/Droite) */
-      width: auto !important;
-      background: white !important;
-      border: 1px solid var(--border-color) !important;
-      border-radius: var(--radius-lg) !important;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-      overflow: hidden !important;
-      display: flex !important;
-      flex-direction: column !important;
-      padding: 0 !important; /* ZÉRO PADDING pour coller la carte aux bords */
-  }
-
-  /* La barre de filtres en haut de la carte */
-  .map-filters {
-      padding: 1rem 1.5rem !important;
-      margin: 0 !important;
-      border-bottom: 1px solid var(--border-color) !important;
-      background: #fff !important;
-      display: flex !important;
-      flex-wrap: wrap !important;
-      gap: 10px !important;
-      width: 100% !important;
-      box-sizing: border-box !important;
-  }
-
-  /* La carte elle-même */
-  #map {
-      width: 100% !important;
-      height: 600px !important; /* Hauteur forcée */
-      margin: 0 !important;
-      border: none !important;
-      flex-grow: 1 !important;
-  }
-  
-  /* 3. Style Boutons Filtres */
-  .map-filter-btn {
-      border-radius: 50px !important;
-      padding: 0.5rem 1.25rem !important;
-      font-weight: 600 !important;
-      font-size: 0.85rem !important;
-      border: 1px solid #e2e8f0 !important;
-      background: white !important;
-      color: #64748b !important;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      gap: 6px !important;
-  }
-
-  .map-filter-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
-      color: #1e293b !important;
-  }
-
-  .map-filter-btn.active {
-      border-color: transparent !important;
-      color: white !important;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
-  }
-
-  /* Couleurs Filtres Actifs */
+  .map-wrapper-fixed { margin: 2rem 3rem !important; width: auto !important; background: white !important; border: 1px solid var(--border-color) !important; border-radius: var(--radius-lg) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; padding: 0 !important; }
+  .map-filters { padding: 1rem 1.5rem !important; margin: 0 !important; border-bottom: 1px solid var(--border-color) !important; background: #fff !important; display: flex !important; flex-wrap: wrap !important; gap: 10px !important; width: 100% !important; box-sizing: border-box !important; }
+  #map { width: 100% !important; height: 600px !important; margin: 0 !important; border: none !important; flex-grow: 1 !important; }
+  .map-filter-btn { border-radius: 50px !important; padding: 0.5rem 1.25rem !important; font-weight: 600 !important; font-size: 0.85rem !important; border: 1px solid #e2e8f0 !important; background: white !important; color: #64748b !important; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important; box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important; display: inline-flex !important; align-items: center !important; gap: 6px !important; }
+  .map-filter-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important; color: #1e293b !important; }
+  .map-filter-btn.active { border-color: transparent !important; color: white !important; box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important; }
   button[data-filter="all"].active, .map-filters button:nth-child(1).active { background-color: var(--color-primary) !important; }
   button[data-filter="up_to_date"].active, .map-filters button:nth-child(2).active { background-color: var(--color-success) !important; }
   button[data-filter="warning"].active, .map-filters button:nth-child(3).active { background-color: var(--color-warning) !important; }
   button[data-filter="expired"].active, .map-filters button:nth-child(4).active { background-color: var(--color-danger) !important; }
-
-  /* 4. Stats Cards (Renforcées) */
-  .stat-card {
-      border-left-width: 6px !important;
-      border-left-style: solid !important;
-      position: relative; overflow: hidden;
-      transition: transform 0.2s ease;
-  }
+  .stat-card { border-left-width: 6px !important; border-left-style: solid !important; position: relative; overflow: hidden; transition: transform 0.2s ease; }
   .stat-card:hover { transform: translateY(-3px); }
-  
   .stat-card.danger { border-left-color: var(--color-danger); }
   .stat-card.danger .value { color: var(--color-danger); font-weight: 800; }
   .stat-card.danger::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(220, 38, 38, 0.05) 0%, transparent 100%); pointer-events: none; }
-
   .stat-card.warning { border-left-color: var(--color-warning); }
   .stat-card.warning .value { color: #d97706; font-weight: 800; }
   .stat-card.warning::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(245, 158, 11, 0.05) 0%, transparent 100%); pointer-events: none; }
-
   .stat-card.success { border-left-color: var(--color-success); }
   .stat-card.success .value { color: var(--color-success); font-weight: 800; }
   .stat-card.success::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(22, 163, 74, 0.05) 0%, transparent 100%); pointer-events: none; }
-
   .stat-card.info { border-left-color: var(--color-primary); }
   .stat-card.info .value { color: var(--color-primary); font-weight: 800; }
   .stat-card.info::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(2, 132, 199, 0.05) 0%, transparent 100%); pointer-events: none; }
-
-  /* Correction Croix Leaflet */
-  .leaflet-popup-close-button {
-      color: white !important; font-size: 24px !important; font-weight: bold !important;
-      top: 10px !important; right: 10px !important; text-shadow: 0 1px 2px rgba(0,0,0,0.3); opacity: 1 !important;
-  }
+  .leaflet-popup-close-button { color: white !important; font-size: 24px !important; font-weight: bold !important; top: 10px !important; right: 10px !important; text-shadow: 0 1px 2px rgba(0,0,0,0.3); opacity: 1 !important; }
   .leaflet-popup-close-button:hover { color: #e0e0e0 !important; }
-
-  /* Modal Style */
   .widget-selector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
   .widget-selector-card { background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
   .widget-selector-card:hover { border-color: var(--color-primary-light, #e0f2fe); transform: translateY(-3px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
@@ -146,14 +58,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   styleSheet.innerText = customDashboardStyles;
   document.head.appendChild(styleSheet);
 
-  // LOGIQUE D'APPLICATION DU STYLE WRAPPER CARTE
   const mapElement = document.getElementById('map');
   if (mapElement) {
       const mapContainer = mapElement.parentElement;
-      if(mapContainer) {
-          // On applique la classe pour cibler le conteneur
-          mapContainer.classList.add('map-wrapper-fixed');
-      }
+      if(mapContainer) mapContainer.classList.add('map-wrapper-fixed');
   }
 
   await checkAuth();
@@ -172,9 +80,15 @@ async function checkAuth() {
     const data = await response.json();
     currentUser = data.user;
     
+    let roleDisplay = 'Technicien';
+    if(data.user.role === 'admin') roleDisplay = 'Administrateur';
+    else if(data.user.role === 'validator') roleDisplay = 'Validateur';
+    else if(data.user.role === 'verifier' || data.user.role === 'verificateur') roleDisplay = 'Vérificateur';
+    else if(data.user.role === 'secretary') roleDisplay = 'Secrétariat';
+    
     document.getElementById('user-info').innerHTML = `
       <div class="user-avatar">${data.user.name.charAt(0)}</div>
-      <div class="user-details"><strong>${data.user.name}</strong><span>${data.user.role === 'admin' ? 'Administrateur' : (data.user.role === 'validator' ? 'Validateur' : 'Technicien')}</span></div>
+      <div class="user-details"><strong>${data.user.name}</strong><span>${roleDisplay}</span></div>
     `;
     if (data.user.role === 'admin') document.getElementById('admin-link').classList.remove('hidden');
   } catch { window.location.href = '/login.html'; }
@@ -256,33 +170,51 @@ async function loadDashboard() {
   ]);
 }
 
+// --- GESTION UNIFIÉE DES NOTIFICATIONS (ROUGE) ---
 async function loadPendingReportsWidget() {
     try {
         const res = await fetch('/api/reports/stats');
         const stats = await res.json();
+        
         const pendingCount = stats.pending || 0;
+        const validatedCount = stats.validated || 0;
+        const role = currentUser?.role;
 
+        // 1. CALCUL DU TOTAL POUR LA SIDEBAR
         const sidebarLink = document.querySelector('a[href="/reports.html"]');
         if (sidebarLink) {
             const oldBadge = sidebarLink.querySelector('.sidebar-badge');
             if (oldBadge) oldBadge.remove();
 
-            if (pendingCount > 0) {
+            let badgeCount = 0;
+            const canValidate = ['admin', 'validator', 'sales_director', 'verifier', 'verificateur'].includes(role);
+            const canArchive = ['admin', 'secretary'].includes(role);
+
+            if (canValidate) badgeCount += pendingCount;
+            if (canArchive) badgeCount += validatedCount;
+
+            if (badgeCount > 0) {
                 const badge = document.createElement('span');
                 badge.className = 'sidebar-badge';
                 badge.style.cssText = 'background:#ef4444; color:white; font-size:0.75rem; padding:2px 6px; border-radius:10px; margin-left:auto; font-weight:bold;';
-                badge.textContent = pendingCount;
+                badge.textContent = badgeCount;
                 sidebarLink.appendChild(badge);
                 sidebarLink.style.display = 'flex';
                 sidebarLink.style.alignItems = 'center';
             }
         }
 
-        const existingWidget = document.getElementById('widget-validation');
-        if (existingWidget) existingWidget.remove();
+        // 2. WIDGETS DASHBOARD
+        const grid = document.querySelector('.widgets-grid');
+        if (!grid) return;
 
-        const canValidate = ['admin', 'validator', 'sales_director'].includes(currentUser?.role);
+        document.getElementById('widget-validation')?.remove();
+        document.getElementById('widget-archiving')?.remove();
 
+        const canValidate = ['admin', 'validator', 'sales_director', 'verifier', 'verificateur'].includes(role);
+        const canArchive = ['admin', 'secretary'].includes(role);
+
+        // A. WIDGET VALIDATION
         if (canValidate && pendingCount > 0) {
             const r = await fetch('/api/reports?status=pending&limit=5');
             const data = await r.json();
@@ -305,9 +237,35 @@ async function loadPendingReportsWidget() {
                     ${pendingCount > 5 ? `<div style="text-align:center; padding-top:10px;"><a href="/reports.html?status=pending" style="color:#ef4444; font-weight:bold;">Voir tout (${pendingCount})</a></div>` : ''}
                 </div>
             </div>`;
-            const grid = document.querySelector('.widgets-grid');
-            if(grid) grid.insertAdjacentHTML('afterbegin', widgetHtml);
+            grid.insertAdjacentHTML('afterbegin', widgetHtml);
         }
+
+        // B. WIDGET ARCHIVAGE (Avec header Rouge clair pour signaler l'action comme demandé)
+        if (canArchive && validatedCount > 0) {
+            const r = await fetch('/api/reports?status=validated&limit=5');
+            const data = await r.json();
+            
+            const widgetHtml = `
+            <div class="widget" id="widget-archiving" style="border: 2px solid #ef4444;">
+                <div class="widget-header" style="background: #fee2e2;">
+                    <h2 style="color: #991b1b;"><i class="fas fa-archive"></i> Rapports à archiver (${validatedCount})</h2>
+                </div>
+                <div class="widget-content">
+                    ${data.reports.map(rep => `
+                        <div class="widget-item" style="cursor:pointer;" onclick="window.location.href='/reports.html?status=validated'">
+                            <div style="display:flex; justify-content:space-between;">
+                                <strong>${escapeHtml(rep.cabinet_name)}</strong>
+                                <span class="badge badge-success">Validé</span>
+                            </div>
+                            <small>${escapeHtml(rep.work_type)} • Validé par ${escapeHtml(rep.validator_name)}</small>
+                        </div>
+                    `).join('')}
+                    ${validatedCount > 5 ? `<div style="text-align:center; padding-top:10px;"><a href="/reports.html?status=validated" style="color:#b91c1c; font-weight:bold;">Voir tout (${validatedCount})</a></div>` : ''}
+                </div>
+            </div>`;
+            grid.insertAdjacentHTML('afterbegin', widgetHtml);
+        }
+
     } catch (e) { console.error("Err widget reports:", e); }
 }
 
@@ -319,7 +277,6 @@ async function loadWarrantyExpiring(){try{const t=new Date().toISOString().split
 async function loadClientsMap(){try{const r=await fetch('/api/dashboard/clients-map');const clients=await r.json();allClients=await Promise.all(clients.map(async(c)=>{try{const er=await fetch(`/api/clients/${c.id}/equipment`);const eq=await er.json();return{...c,equipment:eq};}catch{return{...c,equipment:[]};}}));updateMapMarkers();}catch{}}
 function getCoordinatesForClient(client){if(client.latitude&&client.longitude){return[client.latitude,client.longitude];}if(cityCoords[client.city.trim()])return cityCoords[client.city.trim()];const base=cantonCoords[client.canton]||[46.8,8.2];return[base[0]+(Math.random()-0.5)*0.05,base[1]+(Math.random()-0.5)*0.05];}
 
-// --- POPUP CARTE ---
 function updateMapMarkers(){
     if(!map)return;
     markers.forEach(m=>map.removeLayer(m));
@@ -335,8 +292,7 @@ function updateMapMarkers(){
         const badgeText=client.status==='expired'?'Expiré':client.status==='warning'?'Bientôt':'À jour';
         const badgeIcon=client.status==='expired'?'fa-times-circle':client.status==='warning'?'fa-exclamation-triangle':'fa-check-circle';
         
-        // --- LOGIQUE DE COULEUR DU POPUP ---
-        let headerBg = 'var(--color-primary, #005691)'; // Défaut
+        let headerBg = 'var(--color-primary, #005691)'; 
         if(client.status === 'expired') headerBg = 'var(--color-danger, #dc2626)';
         else if(client.status === 'warning') headerBg = 'var(--color-warning, #f59e0b)';
         else if(client.status === 'ok' || client.status === 'up_to_date') headerBg = 'var(--color-success, #16a34a)';

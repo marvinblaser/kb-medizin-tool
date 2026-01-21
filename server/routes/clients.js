@@ -22,20 +22,12 @@ const cleanCanton = (val) => {
 // --- HELPER : Formatage Téléphone (Support +41) ---
 const formatSwissPhone = (val) => {
     if (!val) return '';
-    
-    // 1. On convertit en texte et on enlève espaces, points, tirets, parenthèses
     let str = String(val).replace(/[\s.\-()]/g, '');
-
-    // 2. Gestion international (+41 ou 0041) -> 0
     if (str.startsWith('+41')) str = '0' + str.substring(3);
     else if (str.startsWith('0041')) str = '0' + str.substring(4);
-
-    // 3. Formatage joli (0XX XXX XX XX) si c'est un numéro suisse standard (10 chiffres)
     if (/^0\d{9}$/.test(str)) {
         return str.replace(/(\d{3})(\d{3})(\d{2})(\d{2})/, '$1 $2 $3 $4');
     }
-
-    // Si ça ne ressemble pas à un numéro suisse standard, on rend le numéro nettoyé tel quel
     return str;
 };
 
@@ -48,7 +40,7 @@ const logActivity = (userId, action, entity, entityId, meta = {}) => {
 };
 
 // ==========================================
-// ROUTE IMPORT EXCEL (Blindée)
+// 1. ROUTE IMPORT EXCEL
 // ==========================================
 router.post('/import', requireAuth, upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: "Aucun fichier fourni" });
@@ -61,7 +53,6 @@ router.post('/import', requireAuth, upload.single('file'), (req, res) => {
         if (!data || data.length === 0) return res.json({ success: true, count: 0 });
 
         db.serialize(() => {
-            // Activité forcée à 'Autre' comme demandé
             const stmt = db.prepare(`
                 INSERT INTO clients (
                     cabinet_name, contact_name, address, postal_code, city, canton, email, phone, activity, created_at
@@ -69,26 +60,16 @@ router.post('/import', requireAuth, upload.single('file'), (req, res) => {
             `);
 
             data.forEach(row => {
-                // Lecture flexible des colonnes (Gestion des vides)
-                // Si 'Nom' est vide, on met 'Cabinet Sans Nom' pour éviter une erreur SQL
                 const cabinet = row['Nom'] || row['Cabinet'] || row['Nom Cabinet'] || 'Cabinet Sans Nom';
-                
-                // Champs facultatifs : si vide, reste vide
                 const contact = row['Contact'] || row['Nom Contact'] || '';
                 const address = row['Adresse'] || row['Rue'] || '';
                 const cp = row['NPA'] || row['CP'] || row['Code Postal'] || '';
-                
-                // Ville obligatoire : fallback si vide
                 const city = row['Ville'] || row['City'] || 'Ville Inconnue';
-                
                 const email = row['Email'] || row['Mail'] || '';
-
-                // Nettoyage intelligent
                 const canton = cleanCanton(row['Canton'] || row['Ct'] || row['Dpt']);
                 const phone = formatSwissPhone(row['Téléphone'] || row['Tel'] || row['Phone']);
 
                 stmt.run(cabinet, contact, address, cp, city, canton, email, phone, (err) => {
-                    // On logue juste l'erreur dans la console serveur sans planter tout le processus
                     if (err) console.error(`[Import] Échec ligne "${cabinet}":`, err.message);
                 });
             });
@@ -103,7 +84,131 @@ router.post('/import', requireAuth, upload.single('file'), (req, res) => {
 });
 
 // ==========================================
-// PLANNING (Code existant inchangé)
+// 2. EXPORTS
+// ==========================================
+
+// EXPORT SIMPLE
+router.get('/export', requireAuth, (req, res) => {
+    const sql = `
+        SELECT 
+            c.id, c.cabinet_name, c.contact_name, c.address, c.postal_code, c.city, c.canton, c.phone, c.email, c.activity,
+            ce.serial_number, ce.installed_at, ce.last_maintenance_date, ce.next_maintenance_date,
+            ec.name as equip_name, ec.brand as equip_brand, ec.model as equip_model
+        FROM clients c
+        LEFT JOIN client_equipment ce ON c.id = ce.client_id
+        LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+        ORDER BY c.cabinet_name
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).send("Erreur serveur lors de l'export");
+
+        const clientsMap = {};
+
+        rows.forEach(row => {
+            if (!clientsMap[row.id]) {
+                clientsMap[row.id] = {
+                    "Cabinet": row.cabinet_name,
+                    "Contact": row.contact_name,
+                    "Activité": row.activity,
+                    "Adresse": row.address,
+                    "NPA": row.postal_code,
+                    "Ville": row.city,
+                    "Canton": row.canton,
+                    "Téléphone": row.phone,
+                    "Email": row.email,
+                    "Machines": [] 
+                };
+            }
+            if (row.equip_name) {
+                // Ajout de la date d'expiration (next_maintenance_date)
+                const dateExp = row.next_maintenance_date ? ` | Exp: ${row.next_maintenance_date}` : '';
+                const machineInfo = `${row.equip_brand} ${row.equip_name} (${row.equip_model || '-'}) [SN:${row.serial_number || '?'}${dateExp}]`;
+                clientsMap[row.id].Machines.push(machineInfo);
+            }
+        });
+
+        const exportData = Object.values(clientsMap).map(c => ({
+            ...c,
+            "Machines": c.Machines.join(' \n ')
+        }));
+
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.json_to_sheet(exportData);
+        ws['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 10 }, { wch: 20 }, { wch: 5 }, { wch: 15 }, { wch: 25 }, { wch: 80 }];
+
+        xlsx.utils.book_append_sheet(wb, ws, "Clients");
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        const fileName = `Export_Clients_${new Date().toISOString().split('T')[0]}.xlsx`;
+        
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    });
+});
+
+// EXPORT EXCEL COMPLET (Celui utilisé par le bouton Admin)
+router.get('/export-excel', requireAuth, (req, res) => {
+    const sql = `
+        SELECT 
+            c.id, c.cabinet_name, c.contact_name, c.activity, c.address, c.postal_code, c.city, c.canton, c.phone, c.email,
+            ce.serial_number, ce.installed_at, ce.last_maintenance_date, ce.next_maintenance_date,
+            ec.name as equip_name, ec.brand as equip_brand, ec.model as equip_model
+        FROM clients c
+        LEFT JOIN client_equipment ce ON c.id = ce.client_id
+        LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+        ORDER BY c.cabinet_name
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).send("Erreur serveur");
+
+        const clientsMap = {};
+
+        rows.forEach(row => {
+            if (!clientsMap[row.id]) {
+                clientsMap[row.id] = {
+                    "Cabinet": row.cabinet_name,
+                    "Contact": row.contact_name,
+                    "Secteur": row.activity,
+                    "Adresse": row.address,
+                    "NPA": row.postal_code,
+                    "Ville": row.city,
+                    "Canton": row.canton,
+                    "Téléphone": row.phone,
+                    "Email": row.email,
+                    "Parc Machines": [] 
+                };
+            }
+            if (row.equip_name) {
+                // Ajout de la date d'expiration ici aussi
+                const dateExp = row.next_maintenance_date ? ` - Exp: ${row.next_maintenance_date}` : '';
+                const machineStr = `• ${row.equip_brand} ${row.equip_name} (${row.equip_model || '-'}) [SN:${row.serial_number || '?'}]${dateExp}`;
+                clientsMap[row.id]["Parc Machines"].push(machineStr);
+            }
+        });
+
+        const exportData = Object.values(clientsMap).map(c => ({
+            ...c,
+            "Parc Machines": c["Parc Machines"].join('\n')
+        }));
+
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.json_to_sheet(exportData);
+        ws['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 10 }, { wch: 20 }, { wch: 8 }, { wch: 15 }, { wch: 25 }, { wch: 80 }];
+
+        xlsx.utils.book_append_sheet(wb, ws, "Liste Clients");
+        const fileName = `Export_Clients_${new Date().toISOString().split('T')[0]}.xlsx`;
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    });
+});
+
+// ==========================================
+// 3. PLANNING
 // ==========================================
 router.get('/planning', requireAuth, (req, res) => {
     const { 
@@ -123,18 +228,16 @@ router.get('/planning', requireAuth, (req, res) => {
     if (canton) { where.push("c.canton = ?"); params.push(canton); }
     if (category) { where.push("c.activity = ?"); params.push(category); }
     
-    // Filtres Avancés
     if (brand) { where.push("ec.brand LIKE ?"); params.push(`%${brand}%`); }
     if (model) { where.push("ec.model LIKE ?"); params.push(`%${model}%`); }
     if (serial) { where.push("ce.serial_number LIKE ?"); params.push(`%${serial}%`); }
 
-    // Statut (Basé sur la date)
     const today = new Date().toISOString().split('T')[0];
     if (status === 'expired') { where.push("ce.next_maintenance_date < ?"); params.push(today); }
     else if (status === 'warning') { where.push("ce.next_maintenance_date BETWEEN ? AND date(?, '+30 days')"); params.push(today, today); }
     else if (status === 'ok') { where.push("ce.next_maintenance_date > date(?, '+30 days')"); params.push(today); }
 
-    let orderBy = "ce.next_maintenance_date ASC"; // Par défaut : urgence
+    let orderBy = "ce.next_maintenance_date ASC";
     if (sortBy) {
         const order = sortOrder === 'desc' ? 'DESC' : 'ASC';
         const map = {
@@ -168,7 +271,7 @@ router.get('/planning', requireAuth, (req, res) => {
 });
 
 // ==========================================
-// LISTE DES CLIENTS (Code existant inchangé)
+// 4. LISTE DES CLIENTS
 // ==========================================
 router.get('/', requireAuth, (req, res) => {
     const { page = 1, limit = 25, search, canton, category, sortBy, sortOrder } = req.query;
@@ -222,7 +325,7 @@ router.get('/', requireAuth, (req, res) => {
 });
 
 // ==========================================
-// CRUD CLIENTS (Code existant inchangé)
+// 5. CRUD CLIENTS
 // ==========================================
 
 router.get('/:id', requireAuth, (req, res) => {
@@ -264,10 +367,10 @@ router.delete('/:id', requireAuth, (req, res) => {
 });
 
 // ==========================================
-// SOUS-ROUTES (Équipements & RDV)
+// 6. SOUS-ROUTES (Équipements & RDV)
 // ==========================================
 
-// GET EQUIPMENT (Equipement d'un client spécifique)
+// GET EQUIPMENT
 router.get('/:id/equipment', requireAuth, (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const sql = `
@@ -286,18 +389,15 @@ router.get('/:id/equipment', requireAuth, (req, res) => {
     });
 });
 
-// ADD EQUIPMENT (A un client)
+// ADD EQUIPMENT
 router.post('/:id/equipment', requireAuth, (req, res) => {
     const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval } = req.body;
-    
-    // Calcul de la prochaine date
     let nextDate = null;
     if (last_maintenance_date && maintenance_interval) {
         const d = new Date(last_maintenance_date);
         d.setFullYear(d.getFullYear() + parseInt(maintenance_interval));
         nextDate = d.toISOString().split('T')[0];
     }
-
     const sql = `INSERT INTO client_equipment (client_id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, next_maintenance_date) VALUES (?,?,?,?,?,?,?)`;
     db.run(sql, [req.params.id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, nextDate], function(err) {
         if (err) return res.status(500).json({ error: err.message });
@@ -306,7 +406,7 @@ router.post('/:id/equipment', requireAuth, (req, res) => {
     });
 });
 
-// UPDATE EQUIPMENT (D'un client)
+// UPDATE EQUIPMENT
 router.put('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
     const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval } = req.body;
     let nextDate = null;
@@ -322,7 +422,7 @@ router.put('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
     });
 });
 
-// DELETE EQUIPMENT (D'un client uniquement - Pas du catalogue global)
+// DELETE EQUIPMENT
 router.delete('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
     db.run("DELETE FROM client_equipment WHERE id=? AND client_id=?", [req.params.eqId, req.params.clientId], function(err) {
         if (err) return res.status(500).json({ error: err.message });
@@ -330,40 +430,16 @@ router.delete('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
     });
 });
 
-// GET HISTORY (Fusion Reports + RDV Manuels)
+// GET HISTORY
 router.get('/:id/appointments', requireAuth, (req, res) => {
   const sql = `
-    SELECT 
-        'report' as source_type,
-        r.id as report_id, 
-        r.report_number, 
-        r.technician_signature_date as appointment_date, 
-        r.work_accomplished as task_description,
-        NULL as equipment_name,
-        (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ') 
-         FROM report_equipment re 
-         JOIN equipment_catalog ec ON re.equipment_id = ec.id 
-         WHERE re.report_id = r.id) as machines
-    FROM reports r 
-    WHERE r.client_id = ? AND r.status IN ('validated', 'archived')
-
+    SELECT 'report' as source_type, r.id as report_id, r.report_number, r.technician_signature_date as appointment_date, r.work_accomplished as task_description, NULL as equipment_name,
+    (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ') FROM report_equipment re JOIN equipment_catalog ec ON re.equipment_id = ec.id WHERE re.report_id = r.id) as machines
+    FROM reports r WHERE r.client_id = ? AND r.status IN ('validated', 'archived')
     UNION ALL
-
-    SELECT 
-        'appointment' as source_type,
-        ah.id as report_id,
-        NULL as report_number,
-        ah.appointment_date,
-        ah.task_description,
-        NULL as equipment_name,
-        (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ')
-         FROM appointment_equipment ae
-         JOIN client_equipment ce ON ae.equipment_id = ce.id
-         JOIN equipment_catalog ec ON ce.equipment_id = ec.id
-         WHERE ae.appointment_id = ah.id) as machines
-    FROM appointments_history ah
-    WHERE ah.client_id = ?
-
+    SELECT 'appointment' as source_type, ah.id as report_id, NULL as report_number, ah.appointment_date, ah.task_description, NULL as equipment_name,
+    (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ') FROM appointment_equipment ae JOIN client_equipment ce ON ae.equipment_id = ce.id JOIN equipment_catalog ec ON ce.equipment_id = ec.id WHERE ae.appointment_id = ah.id) as machines
+    FROM appointments_history ah WHERE ah.client_id = ?
     ORDER BY appointment_date DESC
   `;
   db.all(sql, [req.params.id, req.params.id], (err, rows) => {
@@ -384,75 +460,6 @@ router.post('/:id/appointments', requireAuth, (req, res) => {
         res.json({ id: appId });
     });
   });
-});
-
-// ==========================================
-// EXPORT EXCEL (Client spécifique ou liste)
-// ==========================================
-router.get('/export-excel', requireAuth, (req, res) => {
-    const sql = `
-        SELECT 
-            c.id, c.cabinet_name, c.contact_name, c.activity, c.address, c.postal_code, c.city, c.canton, c.phone, c.email,
-            ce.serial_number, ce.installed_at, ce.last_maintenance_date,
-            ec.name as equip_name, ec.brand as equip_brand, ec.model as equip_model
-        FROM clients c
-        LEFT JOIN client_equipment ce ON c.id = ce.client_id
-        LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
-        ORDER BY c.cabinet_name
-    `;
-
-    db.all(sql, [], (err, rows) => {
-        if (err) {
-            console.error("Erreur export:", err);
-            return res.status(500).send("Erreur serveur");
-        }
-
-        const clientsMap = {};
-
-        rows.forEach(row => {
-            if (!clientsMap[row.id]) {
-                clientsMap[row.id] = {
-                    "Cabinet": row.cabinet_name,
-                    "Contact": row.contact_name,
-                    "Secteur": row.activity,
-                    "Adresse": row.address,
-                    "NPA": row.postal_code,
-                    "Ville": row.city,
-                    "Canton": row.canton,
-                    "Téléphone": row.phone,
-                    "Email": row.email,
-                    "Parc Machines": [] 
-                };
-            }
-            if (row.equip_name) {
-                const machineStr = `• ${row.equip_brand} ${row.equip_name} (${row.equip_model || '-'}) [SN:${row.serial_number || '?'}]`;
-                clientsMap[row.id]["Parc Machines"].push(machineStr);
-            }
-        });
-
-        const exportData = Object.values(clientsMap).map(c => ({
-            ...c,
-            "Parc Machines": c["Parc Machines"].join('\n')
-        }));
-
-        const wb = xlsx.utils.book_new();
-        const ws = xlsx.utils.json_to_sheet(exportData);
-
-        ws['!cols'] = [
-            { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 30 }, 
-            { wch: 10 }, { wch: 20 }, { wch: 8 }, { wch: 15 }, 
-            { wch: 25 }, { wch: 60 }
-        ];
-
-        xlsx.utils.book_append_sheet(wb, ws, "Liste Clients");
-
-        const fileName = `Export_Clients_${new Date().toISOString().split('T')[0]}.xlsx`;
-        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.send(buffer);
-    });
 });
 
 module.exports = router;

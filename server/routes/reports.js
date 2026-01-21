@@ -28,10 +28,8 @@ router.get('/stats', requireAuth, (req, res) => {
             return res.status(500).json({ error: err.message });
         }
         const stats = { draft: 0, pending: 0, validated: 0, archived: 0 };
-        // Sécurité si rows est vide
         if (rows) {
             rows.forEach(r => { 
-                // On gère le cas où status serait null
                 const s = r.status || 'draft';
                 if (stats[s] !== undefined) stats[s] = r.count; 
             });
@@ -40,7 +38,7 @@ router.get('/stats', requireAuth, (req, res) => {
     });
 });
 
-// --- LISTE DES RAPPORTS (CORRIGÉE & SÉCURISÉE) ---
+// --- LISTE DES RAPPORTS ---
 router.get('/', requireAuth, (req, res) => {
     const { page = 1, limit = 25, search, type, status, client_id } = req.query;
     const limitVal = client_id ? 200 : parseInt(limit); 
@@ -58,12 +56,10 @@ router.get('/', requireAuth, (req, res) => {
     if (status) { where.push("r.status = ?"); params.push(status); }
     if (client_id) { where.push("r.client_id = ?"); params.push(client_id); }
 
-    // VERSION SÉCURISÉE (Sans updated_at)
     const sql = `
         SELECT r.*, 
         COALESCE(u.name, 'Non défini') as validator_name,
         COALESCE(a.name, 'Non défini') as author_name,
-        -- On utilise created_at comme secours car updated_at n'existe pas
         COALESCE(r.archived_at, r.created_at) as archived_at_safe,
         COALESCE(r.validated_at, r.created_at) as validated_at_safe
         FROM reports r 
@@ -75,16 +71,10 @@ router.get('/', requireAuth, (req, res) => {
     const countSql = `SELECT count(*) as count FROM reports r WHERE ${where.join(' AND ')}`;
 
     db.get(countSql, params, (err, countRow) => {
-        if (err) {
-            console.error("Erreur Count Reports:", err.message);
-            return res.status(500).json({ error: "Erreur DB Count" });
-        }
+        if (err) return res.status(500).json({ error: "Erreur DB Count" });
         
         db.all(sql, [...params, limitVal, offset], (err, rows) => {
-            if (err) {
-                console.error("Erreur List Reports:", err.message);
-                return res.status(500).json({ error: err.message });
-            }
+            if (err) return res.status(500).json({ error: err.message });
             
             res.json({ 
                 reports: rows, 
@@ -101,7 +91,6 @@ router.get('/', requireAuth, (req, res) => {
 // --- DÉTAIL D'UN RAPPORT ---
 router.get('/:id', requireAuth, (req, res) => {
     const id = req.params.id;
-    // Ici aussi on sécurise les noms
     const sql = `
         SELECT r.*, 
         COALESCE(u.name, '') as validator_name, 
@@ -127,7 +116,6 @@ router.get('/:id', requireAuth, (req, res) => {
             report.technicians = techs; 
             report.stk_tests = stks; 
             report.materials = mats;
-            // On s'assure que equipment_ids est un tableau propre
             report.equipment_ids = eqs.map(e => e.equipment_id).filter(id => id != null);
             
             res.json(report);
@@ -138,15 +126,19 @@ router.get('/:id', requireAuth, (req, res) => {
     });
 });
 
-// --- CHANGEMENT DE STATUT ---
+// --- CHANGEMENT DE STATUT (Validation Permissions) ---
 router.patch('/:id/status', requireAuth, async (req, res) => {
     const { status, reason } = req.body;
     const userId = req.session.userId;
     const role = await getUserRole(userId);
     
-    if (status === 'validated' && !['admin', 'validator', 'sales_director'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
-    if (status === 'draft' && reason && !['admin', 'validator', 'sales_director'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
-    if (status === 'archived' && !['admin', 'secretary'].includes(role)) return res.status(403).json({ error: "Permission refusée." });
+    // --- CORRECTION ICI : Ajout de 'verifier' en plus de 'verificateur' ---
+    const validators = ['admin', 'validator', 'verificateur', 'verifier', 'sales_director'];
+    const archivers = ['admin', 'secretary'];
+
+    if (status === 'validated' && !validators.includes(role)) return res.status(403).json({ error: "Permission refusée." });
+    if (status === 'draft' && reason && !validators.includes(role)) return res.status(403).json({ error: "Permission refusée." });
+    if (status === 'archived' && !archivers.includes(role)) return res.status(403).json({ error: "Permission refusée." });
 
     let sql = "UPDATE reports SET status = ?";
     let params = [status];
@@ -184,7 +176,6 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 const saveReportData = (req, res, reportId = null) => {
-    // On met des valeurs par défaut pour éviter les erreurs SQL sur les champs manquants
     const { 
         client_id, language = 'fr', work_type, status, cabinet_name, address, postal_code, city, interlocutor, 
         installation, remarks, travel_costs = 0, travel_included = 0, travel_location, 
@@ -232,11 +223,26 @@ const saveReportData = (req, res, reportId = null) => {
                 materials.forEach(m => stmt.run(finalId, m.material_id, m.material_name, m.product_code, m.quantity, m.unit_price, m.discount||0, m.total_price)); 
                 stmt.finalize(); 
             }
+            
             if (equipment_ids && equipment_ids.length) { 
-                const stmt = db.prepare("INSERT INTO report_equipment (report_id, equipment_id) VALUES (?,?)"); 
-                equipment_ids.forEach(eid => stmt.run(finalId, eid)); 
+                const stmt = db.prepare(`
+                    INSERT INTO report_equipment (report_id, equipment_id, equipment_info) 
+                    VALUES (
+                        ?, 
+                        ?, 
+                        COALESCE(
+                            (SELECT ec.brand || ' ' || ec.name || ' [SN:' || COALESCE(ce.serial_number, '?') || ']' 
+                             FROM client_equipment ce 
+                             JOIN equipment_catalog ec ON ce.equipment_id = ec.id 
+                             WHERE ce.id = ?), 
+                            'Machine Inconnue'
+                        )
+                    )
+                `); 
+                equipment_ids.forEach(eid => stmt.run(finalId, eid, eid)); 
                 stmt.finalize(); 
             }
+
             if (!reportId) { 
                 const reportNumber = `${new Date().getFullYear()}-${String(finalId).padStart(4, '0')}`; 
                 db.run("UPDATE reports SET report_number = ? WHERE id = ?", [reportNumber, finalId]); 
@@ -249,10 +255,8 @@ const saveReportData = (req, res, reportId = null) => {
 // --- SUPPRESSION ---
 router.delete('/:id', requireAuth, async (req, res) => {
     const id = req.params.id;
-    // On supprime directement sans vérifier le statut "draft"
     db.run("DELETE FROM reports WHERE id = ?", [id], function(err) {
         if (err) return res.status(500).json({ error: err.message });
-        // On log l'action
         logActivity(req.session.userId, 'delete', 'report', id);
         res.json({ success: true });
     });
