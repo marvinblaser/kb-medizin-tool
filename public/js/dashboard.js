@@ -305,9 +305,10 @@ function updateMapMarkers(){
             return`<span class="badge badge-success" style="font-size:10px!important;padding:2px 6px;">OK</span>`;
         };
         
+        // MODIFICATION : Ajout de max-height et overflow-y pour le scroll
         const eqHtml = client.equipment && client.equipment.length > 0
-            ? `<div class="map-equipment-section" style="margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
-                 <strong style="font-size:0.8rem; text-transform:uppercase; color:#64748b; display:block; margin-bottom:8px;">Équipements (${client.equipment.length})</strong>
+            ? `<div class="map-equipment-section" style="margin-top:10px; border-top:1px solid #eee; padding-top:10px; max-height: 200px; overflow-y: auto; padding-right: 5px;">
+                 <strong style="font-size:0.8rem; text-transform:uppercase; color:#64748b; display:block; margin-bottom:8px; position: sticky; top: 0; background: white; z-index: 1;">Équipements (${client.equipment.length})</strong>
                  ${client.equipment.map(e => `
                     <div class="map-equipment-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed #f1f5f9;">
                         <div style="font-size:0.85rem; line-height:1.2;">
