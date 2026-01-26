@@ -19,6 +19,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadCatalog();
     loadData();
 
+    // --- NOUVEAU : GESTION OUVERTURE DIRECTE DEPUIS DASHBOARD ---
+    // On regarde s'il y a un paramètre "?open=123" dans l'URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const clientToOpen = urlParams.get('open');
+
+    if (clientToOpen) {
+        // On attend 500ms que la page soit prête visuellement, puis on ouvre la fiche
+        setTimeout(() => {
+            openClientDetails(clientToOpen);
+        }, 500);
+
+        // On nettoie l'URL pour ne pas rouvrir la fiche si on rafraichit la page (F5)
+        window.history.replaceState({}, document.title, "/clients.html");
+    }
+    // -------------------------------------------------------------
+    
     // Listeners
     document.getElementById('global-search')?.addEventListener('input', debounce(e => { currentFilters.search = e.target.value; currentPage = 1; loadData(); }, 300));
     document.getElementById('filter-canton')?.addEventListener('change', e => { currentFilters.canton = e.target.value; currentPage = 1; loadData(); });
