@@ -6,7 +6,8 @@ const { db } = require('../config/database');
 
 // LOGIN
 router.post('/login', (req, res) => {
-    const { email, password } = req.body;
+    // 1. On récupère aussi 'remember' ici
+    const { email, password, remember } = req.body;
 
     db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -16,7 +17,6 @@ router.post('/login', (req, res) => {
 
         const match = await bcrypt.compare(password, user.password_hash);
         if (!match) {
-            // Log de l'échec (Optionnel, attention à ne pas spammer la DB)
             return res.status(401).json({ error: "Email ou mot de passe incorrect" });
         }
 
@@ -25,18 +25,24 @@ router.post('/login', (req, res) => {
         req.session.role = user.role;
         req.session.name = user.name;
 
-        // 1. Mise à jour de last_login_at
+        // --- CORRECTION "SE SOUVENIR DE MOI" ---
+        if (remember) {
+            // Si coché : 30 jours (en millisecondes)
+            req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
+        } else {
+            // Sinon : 24 heures (remise à zéro de la config par défaut)
+            req.session.cookie.maxAge = 24 * 60 * 60 * 1000;
+        }
+        // ---------------------------------------
+
+        // Mise à jour last_login
         db.run("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?", [user.id]);
 
-        // 2. Log d'activité (Compatible avec la nouvelle structure)
+        // Log d'activité
         const meta = JSON.stringify({ ip: req.ip, agent: req.headers['user-agent'] });
         db.run(`INSERT INTO activity_logs (user_id, action, entity, entity_id, details, meta_json) 
                 VALUES (?, 'LOGIN', 'Auth', ?, 'Connexion réussie', ?)`, 
-                [user.id, user.id, meta], 
-                (logErr) => {
-                    if (logErr) console.error("Log Error:", logErr.message);
-                }
-        );
+                [user.id, user.id, meta]);
 
         res.json({ 
             success: true, 
