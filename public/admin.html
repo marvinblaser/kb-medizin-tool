@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link rel="stylesheet" href="/css/transitions.css" />
     <link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
+    <link href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css" rel="stylesheet">
     
     <style>
         /* --- STYLES SPÉCIFIQUES ADMIN --- */
@@ -329,6 +330,7 @@
         <div class="modal" id="reset-password-modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h2>Réinitialiser MDP</h2><button class="modal-close" onclick="closeResetModal()">&times;</button></div><div class="modal-body"><input type="hidden" id="reset-user-id" /><div class="form-group"><label>Nouveau MDP</label><input type="password" id="new-password" required /></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeResetModal()">Annuler</button><button class="btn btn-primary" id="confirm-reset-btn">Valider</button></div></div></div>
 
         <div id="notification-container" class="notification-container"></div>
+        <script type="module" src="/js/init-selects.js"></script>
         <script src="/js/admin.js"></script>
         <script src="/js/page-transitions.js"></script>
       </main>
