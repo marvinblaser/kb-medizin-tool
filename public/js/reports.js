@@ -687,10 +687,18 @@ function closeReportModal() {
 function getFormData() {
   const tCity = document.getElementById("travel-city").value.trim();
   const tCanton = document.getElementById("travel-canton").value;
+
+  // Récupération des types
+  const selectedTypes = Array.from(document.getElementById("report-type").selectedOptions).map(opt => opt.value);
+  const workTypeString = selectedTypes.join(', ');
+
   const data = {
-    client_id: document.getElementById("client-select").value,
+    // 1. CLIENT : On s'assure que c'est un nombre entier ou null
+    client_id: parseInt(document.getElementById("client-select").value) || null,
+    
     language: document.getElementById("report-language").value,
-    work_type: document.getElementById("report-type").value,
+    work_type: workTypeString || "", 
+    
     cabinet_name: document.getElementById("cabinet-name").value,
     address: document.getElementById("address").value,
     postal_code: document.getElementById("postal-code").value,
@@ -698,33 +706,40 @@ function getFormData() {
     interlocutor: document.getElementById("interlocutor").value,
     installation: document.getElementById("installation-text").value,
     remarks: document.getElementById("remarks").value,
-    travel_costs:
-      parseFloat(document.getElementById("travel-costs").value) || 0,
+    travel_costs: parseFloat(document.getElementById("travel-costs").value) || 0,
     travel_included: document.getElementById("travel-incl").checked,
     travel_location: tCanton ? `${tCity} (${tCanton})` : tCity,
-    technician_signature_date: document.getElementById("tech-signature-date")
-      .value,
+    technician_signature_date: document.getElementById("tech-signature-date").value,
     work_accomplished: Array.from(document.querySelectorAll(".work-line-input"))
       .map((i) => i.value.trim())
       .filter((v) => v)
       .join("\n"),
-    equipment_ids: Array.from(document.querySelectorAll(".eq-cb:checked")).map(
-      (cb) => cb.value
-    ),
+    
+    // 2. ÉQUIPEMENT : On convertit tout en nombres entiers
+    equipment_ids: Array.from(document.querySelectorAll(".eq-cb:checked"))
+        .map((cb) => parseInt(cb.value)) // Force le nombre
+        .filter(id => !isNaN(id)),       // Retire les erreurs éventuelles
   };
+
+  // 3. TECHNICIENS : On nettoie et on convertit
   data.technicians = Array.from(
     document.querySelectorAll("#technicians-list .form-row")
   )
-    .map((r) => ({
-      // CORRECTION : Si vide, on met null
-      technician_id: r.querySelector(".technician-select").value || null,
-      technician_name: r.querySelector(".technician-select").selectedOptions[0]?.text,
-      work_date: r.querySelector(".tech-date").value,
-      hours_normal: parseFloat(r.querySelector(".tech-hours-normal").value) || 0,
-      hours_extra: parseFloat(r.querySelector(".tech-hours-extra").value) || 0,
-    }))
-    // On garde seulement si on a un ID technicien (sécurité)
-    .filter((t) => t.technician_id);
+    .map((r) => {
+        const rawId = r.querySelector(".technician-select").value;
+        const techId = parseInt(rawId);
+        
+        return {
+            technician_id: isNaN(techId) ? null : techId,
+            technician_name: r.querySelector(".technician-select").selectedOptions[0]?.text,
+            work_date: r.querySelector(".tech-date").value,
+            hours_normal: parseFloat(r.querySelector(".tech-hours-normal").value) || 0,
+            hours_extra: parseFloat(r.querySelector(".tech-hours-extra").value) || 0,
+        };
+    })
+    // On supprime la ligne si l'ID du technicien n'est pas valide
+    .filter((t) => t.technician_id !== null && t.technician_id !== 0);
+
   const prefixSTK = "Test de sécurité électrique obligatoire i.O - ";
   data.stk_tests = Array.from(
     document.querySelectorAll("#stk-tests-list .form-row")
@@ -739,28 +754,44 @@ function getFormData() {
       };
     })
     .filter((t) => t);
+
+  // 4. MATÉRIEL : Idem, sécurité sur les IDs
   data.materials = Array.from(
     document.querySelectorAll("#materials-list .form-row")
   )
-    .map((r) => ({
-      // CORRECTION : Si vide, on met null (important pour la Foreign Key)
-      material_id: r.querySelector(".material-select").value || null,
-      
-      material_name: r.querySelector(".material-name-input").value,
-      product_code: r.querySelector(".material-code").value,
-      quantity: parseFloat(r.querySelector(".material-qty").value) || 1,
-      unit_price: parseFloat(r.querySelector(".material-price").value) || 0,
-      discount: parseFloat(r.querySelector(".material-discount").value) || 0,
-      total_price: parseFloat(r.querySelector(".material-total").value) || 0,
-    }))
-    // On garde si on a au moins un nom
-    .filter((m) => m.material_name);
+    .map((r) => {
+        const rawMatId = r.querySelector(".material-select").value;
+        const matId = parseInt(rawMatId);
+
+        return {
+            material_id: isNaN(matId) ? null : matId,
+            material_name: r.querySelector(".material-name-input").value,
+            product_code: r.querySelector(".material-code").value,
+            quantity: parseFloat(r.querySelector(".material-qty").value) || 1,
+            unit_price: parseFloat(r.querySelector(".material-price").value) || 0,
+            discount: parseFloat(r.querySelector(".material-discount").value) || 0,
+            total_price: parseFloat(r.querySelector(".material-total").value) || 0,
+        };
+    })
+    .filter((m) => m.material_id !== null || m.material_name !== "");
+
   return data;
 }
 
 async function fillReportForm(report) {
   document.getElementById("report-id").value = report.id;
-  document.getElementById("report-type").value = report.work_type;
+  
+  // --- MODIFICATION : Cocher les multiples cases ---
+  const typeString = report.work_type || "";
+  const typesArray = typeString.split(', '); // On sépare la chaîne par virgule
+  const typeSelect = document.getElementById("report-type");
+  
+  // On parcourt chaque option pour voir si elle doit être cochée
+  Array.from(typeSelect.options).forEach(opt => {
+      opt.selected = typesArray.includes(opt.value);
+  });
+  // ------------------------------------------------
+
   document.getElementById("report-language").value = report.language || "fr";
   document.getElementById("client-select").value = report.client_id || "";
   document.getElementById("cabinet-name").value = report.cabinet_name;
@@ -768,9 +799,9 @@ async function fillReportForm(report) {
   document.getElementById("postal-code").value = report.postal_code || "";
   document.getElementById("city").value = report.city;
   document.getElementById("interlocutor").value = report.interlocutor || "";
-  document.getElementById("installation-text").value =
-    report.installation || "";
+  document.getElementById("installation-text").value = report.installation || "";
   document.getElementById("remarks").value = report.remarks || "";
+  
   if (report.travel_location) {
     const match = report.travel_location.match(/^(.*)\s\(([A-Z]{2})\)$/);
     if (match) {
@@ -781,33 +812,35 @@ async function fillReportForm(report) {
     }
   }
   updateTravelCost();
+  
   if (report.travel_costs)
     document.getElementById("travel-costs").value = report.travel_costs;
-  document.getElementById("travel-incl").checked =
-    report.travel_included || false;
+  document.getElementById("travel-incl").checked = report.travel_included || false;
+  
   if (report.technician_signature_date)
-    document.getElementById("tech-signature-date").value =
-      report.technician_signature_date.split("T")[0];
+    document.getElementById("tech-signature-date").value = report.technician_signature_date.split("T")[0];
+  
   if (report.client_id) await loadClientEquipmentForReport(report.client_id);
+  
   if (report.equipment_ids)
     report.equipment_ids.forEach((id) => {
       const cb = document.getElementById(`rep-eq-${id}`);
       if (cb) cb.checked = true;
     });
+    
   if (report.technicians)
     report.technicians.forEach((t) => addTechnicianRow(t));
   if (report.stk_tests) report.stk_tests.forEach((t) => addStkTestRow(t));
   if (report.materials) report.materials.forEach((m) => addMaterialRow(m));
+  
   if (report.work_accomplished)
     report.work_accomplished.split("\n").forEach((line) => addWorkRow(line));
   else addWorkRow();
+  
   updateMaterialsTotal();
-  const typeText = report.work_type
-    ? "Rapport de " + report.work_type
-    : "Rapport";
-  document.getElementById(
-    "report-modal-title"
-  ).innerHTML = `<i class="fas fa-file-alt"></i> ${typeText} <span style="font-size:0.8em; opacity:0.7;">(${report.report_number})</span>`;
+  
+  // On met à jour le titre avec la nouvelle logique
+  updateReportTitleHeader();
 }
 
 // Utilitaires de base
@@ -1068,10 +1101,27 @@ function updateReportTitleHeader() {
   const typeSelect = document.getElementById("report-type");
   const titleElement = document.getElementById("report-modal-title");
   const reportId = document.getElementById("report-id").value;
+  
+  // --- MODIFICATION : Gestion du titre dynamique multiple ---
+  const selectedOptions = Array.from(typeSelect.selectedOptions);
   let typeText = "Rapport";
-  if (typeSelect.selectedIndex > 0)
-    typeText =
-      "Rapport de " + typeSelect.options[typeSelect.selectedIndex].text;
+
+  if (selectedOptions.length === 1) {
+      // Un seul choix
+      typeText = "Rapport de " + selectedOptions[0].text;
+  } else if (selectedOptions.length > 1) {
+      // Plusieurs choix
+      if (selectedOptions.length > 2) {
+           // Si plus de 2, on résume pour ne pas casser l'affichage
+           typeText = `Rapport (${selectedOptions.length} types de travaux)`;
+      } else {
+           // Sinon on affiche "Maintenance + Réparation"
+           const names = selectedOptions.map(o => o.text).join(' + ');
+           typeText = "Rapport de " + names;
+      }
+  }
+  // ---------------------------------------------------------
+
   if (reportId) {
     const currentTitle = titleElement.innerText;
     const match = currentTitle.match(/\d{4}-\d{4}/);

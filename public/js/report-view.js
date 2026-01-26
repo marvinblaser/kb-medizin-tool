@@ -19,14 +19,14 @@ const TRANSLATIONS = {
         section_work: "Travaux réalisés :",
         section_material: "Matériel utilisé :",
         travel_costs: "Frais de déplacement :",
-        travel_included: "Incl.", // ou Inclus
-        total_excl_vat: "Exkl. MWST", // Souvent laissé en DE/EN ou FR/DE mélangé, mais on peut traduire : "Hors TVA"
+        travel_included: "Incl.", 
+        total_excl_vat: "Exkl. MWST", 
         comments: "Commentaires :",
         sig_tech: "Signature de l'intervenant :",
         sig_client: "Signature du client :",
         date: "Date :",
         
-        // Types de travaux (Titres)
+        // Types de travaux (Titres Singles)
         "Mise en marche": "Rapport de<br>Mise en marche",
         "Réparation": "Rapport de<br>Réparation",
         "Réparation / Garantie": "Rapport de<br>Réparation / Garantie",
@@ -61,7 +61,6 @@ const TRANSLATIONS = {
         sig_client: "Unterschrift Kunde:",
         date: "Datum:",
 
-        // Types de travaux (Mapping FR DB -> DE Titres)
         "Mise en marche": "Inbetriebnahme-<br>Protokoll",
         "Réparation": "Reparatur-<br>Bericht",
         "Réparation / Garantie": "Reparatur / Garantie-<br>Bericht",
@@ -74,7 +73,6 @@ const TRANSLATIONS = {
     }
 };
 
-// Mapping des libellés des checkboxes pour l'affichage en Allemand
 const CHECKBOX_LABELS_DE = {
     "Mise en marche": "Inbetriebnahme",
     "Réparation": "Reparatur",
@@ -87,54 +85,85 @@ const CHECKBOX_LABELS_DE = {
     "Re-validation": "Revalidierung"
 };
 
-let currentLanguage = 'fr'; // Par défaut
-let currentWorkType = null;
+let currentLanguage = 'fr'; 
+let currentWorkType = "";
 
 document.addEventListener('DOMContentLoaded', async () => {
     const params = new URLSearchParams(window.location.search);
     if(params.get('id')) await loadReport(params.get('id'));
 });
 
-// --- GESTION CLICK CHECKBOX ---
-function toggleCb(element, workTypeFr) {
+// --- GESTION CLICK CHECKBOX (MULTI-COMPATIBLE) ---
+function toggleCb(element) {
     const box = element.querySelector('.cb-box');
-    const isChecking = !box.classList.contains('checked');
     box.classList.toggle('checked');
 
-    if (isChecking && workTypeFr) {
-        currentWorkType = workTypeFr;
-        updateTitle(workTypeFr);
-    }
+    // On scanne toutes les cases cochées pour reconstruire la liste
+    const allCheckedIds = Array.from(document.querySelectorAll('.cb-box.checked'))
+                               .map(el => el.id.replace('cb-', ''));
+    
+    // On met à jour la variable globale (ex: "Maintenance, Réparation")
+    currentWorkType = allCheckedIds.join(', ');
+    
+    // On met à jour le titre
+    updateTitleFromList(allCheckedIds);
 }
 
-function updateTitle(workTypeFr) {
+function updateTitleFromList(typesList) {
     const titleEl = document.getElementById('report-title');
     if (!titleEl) return;
-
-    // On récupère la traduction correspondante à la langue actuelle
     const dict = TRANSLATIONS[currentLanguage];
-    
-    if (dict[workTypeFr]) {
-        titleEl.innerHTML = dict[workTypeFr];
-    } else {
-        // Fallback si pas de traduction exacte
-        titleEl.innerHTML = (currentLanguage === 'de' ? 'Bericht: ' : 'Rapport : ') + workTypeFr;
+
+    // Cas 1 : Aucun choix
+    if (typesList.length === 0) {
+        titleEl.innerHTML = dict.title_main; // Titre par défaut
+        return;
     }
+
+    // Cas 2 : Un seul choix (On utilise la belle traduction officielle)
+    if (typesList.length === 1) {
+        const singleType = typesList[0];
+        if (dict[singleType]) {
+            titleEl.innerHTML = dict[singleType];
+            return;
+        }
+    }
+
+    // Cas 3 : Choix multiples (On génère un titre combiné)
+    const prefix = currentLanguage === 'de' ? 'Bericht: ' : 'Rapport : ';
+    // On essaie de traduire chaque terme si possible pour l'affichage (optionnel, ici on garde le FR technique)
+    titleEl.innerHTML = prefix + typesList.join(' + ');
 }
 
-// --- FONCTION PRINCIPALE DE CHARGEMENT ---
+
+// --- CHARGEMENT DU RAPPORT ---
 async function loadReport(id) {
     try {
         const res = await fetch(`/api/reports/${id}`);
         const data = await res.json();
 
-        // 1. Détection de la langue (si pas définie en base, on reste sur 'fr')
+        // 1. Langue
         currentLanguage = data.language || 'fr';
         applyLanguage(currentLanguage);
 
         // 2. Initialisation Données
-        currentWorkType = data.work_type;
-        if (data.work_type) updateTitle(data.work_type);
+        currentWorkType = data.work_type || "";
+        
+        // --- FIX : GESTION DES CASES À COCHER MULTIPLES ---
+        if(data.work_type) {
+            // On sépare par la virgule : "Type A, Type B" -> ["Type A", "Type B"]
+            const types = data.work_type.split(',').map(s => s.trim());
+            
+            // On coche chaque case correspondante
+            types.forEach(type => {
+                const el = document.getElementById(`cb-${type}`);
+                if(el) el.classList.add('checked');
+            });
+            
+            // On met à jour le titre en fonction de cette liste
+            updateTitleFromList(types);
+        }
+        // --------------------------------------------------
 
         setText('cabinet-name', data.cabinet_name);
         setText('client-address', data.address);
@@ -148,13 +177,6 @@ async function loadReport(id) {
         setText('date-end', dateStr);
         if(data.technician_signature_date) setText('sig-date-tech', formatDate(data.technician_signature_date));
         if(data.technicians?.[0]) setText('sig-tech', getInitials(data.technicians[0].technician_name));
-
-        // 3. Checkbox active
-        if(data.work_type) {
-            // L'ID HTML reste basé sur le nom français (clé DB), ex: id="cb-Mise en marche"
-            const el = document.getElementById(`cb-${data.work_type}`);
-            if(el) el.classList.add('checked');
-        }
 
         // 4. Traduction des labels des checkboxes (Seulement si DE)
         if (currentLanguage === 'de') {
@@ -186,7 +208,7 @@ async function loadReport(id) {
         grid.innerHTML = '';
         grid.innerHTML += emptyRowWithLines();
 
-        // Travaux (Traduction de l'en-tête de section)
+        // Travaux
         grid.innerHTML += sectionHeaderRow(TRANSLATIONS[currentLanguage].section_work);
         const lines = (data.work_accomplished||'').split('\n');
         while(lines.length < 3) lines.push(''); 
@@ -201,7 +223,7 @@ async function loadReport(id) {
             });
         }
 
-        // Matériel (Traduction en-tête)
+        // Matériel
         grid.innerHTML += emptyRowWithLines();
         grid.innerHTML += sectionHeaderRow(TRANSLATIONS[currentLanguage].section_material);
         
@@ -218,7 +240,7 @@ async function loadReport(id) {
              grid.innerHTML += fullRow('', '', '', '', '');
         }
 
-        // Frais (Traduction libellés)
+        // Frais
         grid.innerHTML += emptyRowWithLines();
         let travelDisplay = fmt(data.travel_costs);
         if(data.travel_included) travelDisplay = TRANSLATIONS[currentLanguage].travel_included;
@@ -242,29 +264,25 @@ async function loadReport(id) {
     } catch(e) { console.error(e); }
 }
 
-// --- FONCTION D'APPLICATION DES TEXTES FIXES ---
 function applyLanguage(lang) {
     const t = TRANSLATIONS[lang];
     if(!t) return;
-
-    // On cherche tous les éléments avec data-t="cle_de_traduction"
     document.querySelectorAll('[data-t]').forEach(el => {
         const key = el.getAttribute('data-t');
-        if(t[key]) el.innerHTML = t[key]; // innerHTML pour gérer les <br>
+        if(t[key]) el.innerHTML = t[key];
     });
 }
 
-// --- SAUVEGARDE ---
+// --- SAUVEGARDE (Si modifications manuelles sur le PDF) ---
 async function saveReport() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
     if(!id) return alert("Erreur ID");
 
     const updatedData = {
-        work_type: currentWorkType,
+        work_type: currentWorkType, // Envoie la chaîne combinée
         installation: document.getElementById('installation').innerText,
         remarks: document.getElementById('remarks').innerText,
-        // On ne change pas la langue ici pour l'instant, elle est fixée à la création
     };
 
     try {
@@ -278,7 +296,7 @@ async function saveReport() {
     } catch (e) { console.error(e); }
 }
 
-// --- HELPERS (inchangés) ---
+// --- HELPERS ---
 function fullRow(qty, code, desc, price, total) { return `<tr><td class="txt-center">${qty||''}</td><td class="txt-center">${code||''}</td><td>${desc||''}</td><td class="col-price col-align-right">${price||''}</td><td class="col-total col-align-right">${total||''}</td></tr>`; }
 function textOnlyRow(text) { return `<tr><td colspan="3" style="border-right:1px solid #000;">${text||''}</td><td style="border-right:1px solid #000;"></td><td></td></tr>`; }
 function mergedDataRow(text, price, total) { return `<tr><td colspan="3" style="border-right:1px solid #000;">${text||''}</td><td class="col-price col-align-right" style="border-right:1px solid #000;">${price||''}</td><td class="col-total col-align-right">${total||''}</td></tr>`; }

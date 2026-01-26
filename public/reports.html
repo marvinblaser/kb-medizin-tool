@@ -314,17 +314,16 @@
 
               <div class="form-group" style="flex: 2;">
                 <label>Type de travaux *</label>
-                <select id="report-type" required>
-                  <option value="">-- Sélectionner --</option>
-                  <option value="Mise en marche">Mise en marche</option>
-                  <option value="Service d'entretien">Service d'entretien</option>
-                  <option value="Montage">Montage</option>
-                  <option value="Réparation">Réparation</option>
-                  <option value="Contrôle">Contrôle</option>
-                  <option value="Instruction">Instruction</option>
-                  <option value="Réparation / Garantie">Réparation / Garantie</option>
-                  <option value="Première validation">Première validation</option>
-                  <option value="Re-validation">Re-validation</option>
+                <select id="report-type" multiple required data-placeholder="Sélectionner les travaux...">
+                    <option value="Mise en marche">Mise en marche</option>
+                    <option value="Service d'entretien">Service d'entretien</option>
+                    <option value="Montage">Montage</option>
+                    <option value="Réparation">Réparation</option>
+                    <option value="Contrôle">Contrôle</option>
+                    <option value="Instruction">Instruction</option>
+                    <option value="Réparation / Garantie">Réparation / Garantie</option>
+                    <option value="Première validation">Première validation</option>
+                    <option value="Re-validation">Re-validation</option>
                 </select>
               </div>
             </div>
@@ -444,6 +443,6 @@
 
   <div id="notification-container" class="notification-container"></div>
   <script type="module" src="/js/init-selects.js"></script>
-  <script src="/js/reports.js"></script>
+  <script src="/js/reports.js?v=999"></script>
 </body>
 </html>
