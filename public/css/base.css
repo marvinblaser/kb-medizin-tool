@@ -64,3 +64,24 @@ small { font-size: var(--font-size-xs); }
 ::-webkit-scrollbar-thumb:hover { background-color: var(--neutral-400); }
 
 ::selection { background: var(--color-primary-light); color: var(--color-primary-hover); }
+
+/* --- CORRECTIF SLIM SELECT SCROLL --- */
+
+/* Force la liste à avoir une taille max et une barre de défilement */
+.ss-content .ss-list {
+    max-height: 250px !important; /* Limite la hauteur */
+    overflow-y: auto !important; /* Force le scroll vertical */
+}
+
+/* S'assure que le contenu est bien visible (noir sur blanc) */
+.ss-content .ss-list .ss-option {
+    color: #333 !important;
+    background-color: #fff;
+    padding: 8px 10px;
+}
+
+/* Petit bonus : Surligner l'option sous la souris */
+.ss-content .ss-list .ss-option:hover,
+.ss-content .ss-list .ss-option.ss-highlighted {
+    background-color: #f0f0f0 !important;
+}
