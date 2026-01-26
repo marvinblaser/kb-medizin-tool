@@ -3,6 +3,7 @@
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const SQLiteStore = require('connect-sqlite3')(session);
 const { initDatabase } = require('./config/database');
 
 const authRoutes = require('./routes/auth');
@@ -22,13 +23,17 @@ app.use(express.urlencoded({ extended: true }));
 // Session
 app.use(
   session({
+    store: new SQLiteStore({
+      db: 'sessions.db',
+      dir: './' // Stocke le fichier à la racine du projet
+    }),
     secret: 'kb-medizin-secret-key-change-in-production',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // true en HTTPS
+      secure: false, // Laissez false car Nginx gère le SSL
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000 // 24h par défaut
+      maxAge: 24 * 60 * 60 * 1000 // Défaut 24h (sera écrasé par le login)
     }
   })
 );
@@ -47,8 +52,13 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/reports', reportsRoutes);
 
-// Rediriger / vers login
+// Redirection intelligente
 app.get('/', (req, res) => {
+  // Si l'utilisateur a une session active, on l'envoie direct au tableau de bord
+  if (req.session.userId) {
+    return res.redirect('/dashboard.html');
+  }
+  // Sinon, on l'envoie se connecter
   res.redirect('/login.html');
 });
 

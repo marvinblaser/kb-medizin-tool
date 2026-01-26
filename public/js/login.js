@@ -1,6 +1,16 @@
 // public/js/login.js
 
 document.addEventListener('DOMContentLoaded', () => {
+  // --- NOUVEAU : Vérification auto-login ---
+  // On demande au serveur "Suis-je déjà connecté ?"
+  fetch('/api/me')
+    .then(response => {
+      if (response.ok) {
+        // Si oui, on redirige immédiatement vers le dashboard
+        window.location.href = '/dashboard.html';
+      }
+    })
+    .catch(err => console.log("Non connecté"));
   const form = document.getElementById('login-form');
   const errorMessage = document.getElementById('error-message');
   const errorText = document.getElementById('error-text');

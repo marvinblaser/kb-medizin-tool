@@ -1,5 +1,6 @@
 node_modules/
 database.db
+sessions.db
 .env
 npm-debug.log
 .DS_Store
