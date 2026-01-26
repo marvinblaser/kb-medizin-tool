@@ -373,6 +373,7 @@ router.delete('/:id', requireAuth, (req, res) => {
 // GET EQUIPMENT
 router.get('/:id/equipment', requireAuth, (req, res) => {
     const today = new Date().toISOString().split('T')[0];
+    // On sélectionne ce.* donc la colonne 'location' sera incluse automatiquement
     const sql = `
         SELECT ce.*, ec.name, ec.brand, ec.model, ec.type,
         (ec.name || ' ' || COALESCE(ec.model, '')) as final_name,
@@ -381,42 +382,52 @@ router.get('/:id/equipment', requireAuth, (req, res) => {
         FROM client_equipment ce
         JOIN equipment_catalog ec ON ce.equipment_id = ec.id
         WHERE ce.client_id = ?
-        ORDER BY ce.next_maintenance_date ASC
-    `;
+        ORDER BY ce.location ASC, ce.next_maintenance_date ASC
+    `; // J'ai ajouté un tri par location pour que ce soit propre
     db.all(sql, [req.params.id], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
 });
 
-// ADD EQUIPMENT
+// ADD EQUIPMENT (POST)
 router.post('/:id/equipment', requireAuth, (req, res) => {
-    const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval } = req.body;
+    // MODIFICATION : Ajout de 'location'
+    const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, location } = req.body;
+    
     let nextDate = null;
     if (last_maintenance_date && maintenance_interval) {
         const d = new Date(last_maintenance_date);
         d.setFullYear(d.getFullYear() + parseInt(maintenance_interval));
         nextDate = d.toISOString().split('T')[0];
     }
-    const sql = `INSERT INTO client_equipment (client_id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, next_maintenance_date) VALUES (?,?,?,?,?,?,?)`;
-    db.run(sql, [req.params.id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, nextDate], function(err) {
+    
+    // MODIFICATION SQL : Ajout de la colonne et du paramètre
+    const sql = `INSERT INTO client_equipment (client_id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, next_maintenance_date, location) VALUES (?,?,?,?,?,?,?,?)`;
+    
+    db.run(sql, [req.params.id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, nextDate, location], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         logActivity(req.session.userId, 'add_equipment', 'client', req.params.id, { equipment_id });
         res.json({ id: this.lastID });
     });
 });
 
-// UPDATE EQUIPMENT
+// UPDATE EQUIPMENT (PUT)
 router.put('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
-    const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval } = req.body;
+    // MODIFICATION : Ajout de 'location'
+    const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, location } = req.body;
+    
     let nextDate = null;
     if (last_maintenance_date && maintenance_interval) {
         const d = new Date(last_maintenance_date);
         d.setFullYear(d.getFullYear() + parseInt(maintenance_interval));
         nextDate = d.toISOString().split('T')[0];
     }
-    const sql = `UPDATE client_equipment SET equipment_id=?, serial_number=?, installed_at=?, last_maintenance_date=?, maintenance_interval=?, next_maintenance_date=? WHERE id=? AND client_id=?`;
-    db.run(sql, [equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, nextDate, req.params.eqId, req.params.clientId], function(err) {
+    
+    // MODIFICATION SQL : Ajout de location=?
+    const sql = `UPDATE client_equipment SET equipment_id=?, serial_number=?, installed_at=?, last_maintenance_date=?, maintenance_interval=?, next_maintenance_date=?, location=? WHERE id=? AND client_id=?`;
+    
+    db.run(sql, [equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, nextDate, location, req.params.eqId, req.params.clientId], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });

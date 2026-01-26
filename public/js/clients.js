@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.history.replaceState({}, document.title, "/clients.html");
     }
     // -------------------------------------------------------------
-    
+
     // Listeners
     document.getElementById('global-search')?.addEventListener('input', debounce(e => { currentFilters.search = e.target.value; currentPage = 1; loadData(); }, 300));
     document.getElementById('filter-canton')?.addEventListener('change', e => { currentFilters.canton = e.target.value; currentPage = 1; loadData(); });
@@ -190,29 +190,77 @@ function switchSheetTab(tab) {
     document.getElementById(`tab-${tab}`).classList.add('active');
 }
 
+// 3. Affichage (Groupement par dossiers)
 async function loadClientEquipment(id) {
     const div = document.getElementById('sheet-equipment-list');
     div.innerHTML = '<p style="color:var(--neutral-500);">Chargement...</p>';
-    const res = await fetch(`/api/clients/${id}/equipment`);
-    const list = await res.json();
-    document.getElementById('count-eq').textContent = list.length;
-    div.innerHTML = list.map(eq => {
-        let color = 'var(--color-success)', text = 'OK';
-        if(eq.days_remaining < 0) { color = 'var(--color-danger)'; text = 'Expiré'; }
-        else if(eq.days_remaining < 30) { color = 'var(--color-warning)'; text = 'Bientôt'; }
-        
-        return `<div class="eq-card-pro" style="border-left-color:${color}">
-            <div class="eq-info">
-                <h4 class="eq-title">${escapeHtml(eq.final_name)}</h4>
-                <p class="eq-sub">${escapeHtml(eq.final_brand)} • S/N: <code style="background:var(--neutral-100); padding:1px 4px; border-radius:4px;">${escapeHtml(eq.serial_number||'-')}</code></p>
-                <span class="eq-date" style="color:${color}">${text} : ${formatDate(eq.next_maintenance_date)}</span>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:4px;">
-                <button class="btn-icon-sm btn-icon-secondary" onclick="openEquipFormModal(${JSON.stringify(eq).replace(/"/g, '&quot;')})" title="Modifier"><i class="fas fa-pen"></i></button>
-                <button class="btn-icon-sm btn-icon-danger" onclick="deleteEquipment(${id}, ${eq.id})" title="Supprimer"><i class="fas fa-trash"></i></button>
-            </div>
-        </div>`;
-    }).join('');
+    div.classList.remove('cards-grid'); // On retire la grille globale pour gérer les sous-grilles
+
+    try {
+        const res = await fetch(`/api/clients/${id}/equipment`);
+        const list = await res.json();
+        document.getElementById('count-eq').textContent = list.length;
+
+        if (list.length === 0) {
+            div.innerHTML = '<p>Aucun équipement.</p>';
+            return;
+        }
+
+        // REGROUPEMENT
+        const groups = {};
+        list.forEach(eq => {
+            const loc = eq.location && eq.location.trim() !== "" ? eq.location : "Général";
+            if (!groups[loc]) groups[loc] = [];
+            groups[loc].push(eq);
+        });
+
+        // GENERATION HTML
+        let fullHtml = "";
+        const sortedKeys = Object.keys(groups).sort();
+
+        sortedKeys.forEach(groupName => {
+            const items = groups[groupName];
+            
+            // Titre du dossier
+            fullHtml += `
+                <div style="width:100%; margin-top:1.5rem; margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:2px solid var(--neutral-100); display:flex; align-items:center; gap:10px;">
+                    <i class="fas fa-folder-open" style="color:var(--color-primary);"></i>
+                    <h4 style="margin:0; font-size:1rem; color:var(--neutral-700); text-transform:uppercase;">${escapeHtml(groupName)} <span style="font-size:0.8em; opacity:0.6; margin-left:5px;">(${items.length})</span></h4>
+                </div>
+                <div class="cards-grid" style="margin-bottom:1rem;">
+            `;
+
+            // Liste des machines du dossier
+            items.forEach(eq => {
+                let color = 'var(--color-success)', text = 'OK';
+                if(eq.days_remaining < 0) { color = 'var(--color-danger)'; text = 'Expiré'; }
+                else if(eq.days_remaining < 30) { color = 'var(--color-warning)'; text = 'Bientôt'; }
+                
+                const jsonEq = JSON.stringify(eq).replace(/"/g, '&quot;');
+
+                fullHtml += `
+                <div class="eq-card-pro" style="border-left-color:${color}">
+                    <div class="eq-info">
+                        <h4 class="eq-title">${escapeHtml(eq.final_name)}</h4>
+                        <p class="eq-sub">${escapeHtml(eq.final_brand)} • S/N: <code style="background:var(--neutral-100); padding:1px 4px; border-radius:4px;">${escapeHtml(eq.serial_number||'-')}</code></p>
+                        <span class="eq-date" style="color:${color}">${text} : ${formatDate(eq.next_maintenance_date)}</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <button class="btn-icon-sm btn-icon-secondary" onclick="openEquipFormModal(${jsonEq})" title="Modifier"><i class="fas fa-pen"></i></button>
+                        <button class="btn-icon-sm btn-icon-danger" onclick="deleteEquipment(${id}, ${eq.id})" title="Supprimer"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>`;
+            });
+
+            fullHtml += `</div>`;
+        });
+
+        div.innerHTML = fullHtml;
+
+    } catch (e) {
+        console.error(e);
+        div.innerHTML = '<p style="color:red">Erreur de chargement.</p>';
+    }
 }
 
 async function loadClientHistory(id) {
@@ -350,11 +398,15 @@ function openEquipFormModal(eq = null) {
     const modal = document.getElementById('equipment-form-modal');
     document.getElementById('equip-form').reset();
     document.getElementById('equip-id').value = '';
+    
     const select = document.getElementById('equip-select');
     select.innerHTML = '<option value="">-- Sélectionner --</option>' + catalog.map(c => `<option value="${c.id}">${c.name} (${c.brand})</option>`).join('');
+    
     if(eq) {
         document.getElementById('equip-id').value = eq.id;
         select.value = eq.equipment_id;
+        // NOUVEAU : Remplir l'emplacement
+        document.getElementById('equip-location').value = eq.location || '';
         document.getElementById('equip-serial').value = eq.serial_number;
         document.getElementById('equip-install').value = eq.installed_at;
         document.getElementById('equip-last').value = eq.last_maintenance_date;
@@ -362,25 +414,37 @@ function openEquipFormModal(eq = null) {
     }
     modal.classList.add('active');
 }
+
 function closeEquipModal() { document.getElementById('equipment-form-modal').classList.remove('active'); }
 
+// 2. Sauvegarde (Envoi vers le serveur)
 async function saveEquipment() {
     if(!currentClientId) return;
     const id = document.getElementById('equip-id').value;
+    
     const data = {
-        equipment_id: document.getElementById('equip-select').value, serial_number: document.getElementById('equip-serial').value,
-        installed_at: document.getElementById('equip-install').value, last_maintenance_date: document.getElementById('equip-last').value,
+        equipment_id: document.getElementById('equip-select').value,
+        // NOUVEAU : Récupérer la valeur de l'emplacement
+        location: document.getElementById('equip-location').value.trim(),
+        serial_number: document.getElementById('equip-serial').value,
+        installed_at: document.getElementById('equip-install').value,
+        last_maintenance_date: document.getElementById('equip-last').value,
         maintenance_interval: document.getElementById('equip-interval').value
     };
+    
     const method = id ? 'PUT' : 'POST';
     const url = id ? `/api/clients/${currentClientId}/equipment/${id}` : `/api/clients/${currentClientId}/equipment`;
+    
     try { 
         const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
         if(res.ok) { 
-            closeEquipModal(); loadClientEquipment(currentClientId); loadData(); showNotification('Équipement enregistré', 'success'); 
+            closeEquipModal(); 
+            loadClientEquipment(currentClientId); 
+            loadData(); 
+            showNotification('Équipement enregistré', 'success'); 
         } else {
             const err = await res.json();
-            showNotification(err.error || 'Erreur lors de l\'enregistrement', 'error');
+            showNotification(err.error || 'Erreur', 'error');
         }
     } catch(e) { console.error(e); showNotification('Erreur réseau', 'error'); }
 }
