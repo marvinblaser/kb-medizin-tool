@@ -716,14 +716,14 @@ function getFormData() {
     document.querySelectorAll("#technicians-list .form-row")
   )
     .map((r) => ({
-      technician_id: r.querySelector(".technician-select").value,
-      technician_name:
-        r.querySelector(".technician-select").selectedOptions[0]?.text,
+      // CORRECTION : Si vide, on met null
+      technician_id: r.querySelector(".technician-select").value || null,
+      technician_name: r.querySelector(".technician-select").selectedOptions[0]?.text,
       work_date: r.querySelector(".tech-date").value,
-      hours_normal:
-        parseFloat(r.querySelector(".tech-hours-normal").value) || 0,
+      hours_normal: parseFloat(r.querySelector(".tech-hours-normal").value) || 0,
       hours_extra: parseFloat(r.querySelector(".tech-hours-extra").value) || 0,
     }))
+    // On garde seulement si on a un ID technicien (sécurité)
     .filter((t) => t.technician_id);
   const prefixSTK = "Test de sécurité électrique obligatoire i.O - ";
   data.stk_tests = Array.from(
@@ -743,7 +743,9 @@ function getFormData() {
     document.querySelectorAll("#materials-list .form-row")
   )
     .map((r) => ({
-      material_id: r.querySelector(".material-select").value,
+      // CORRECTION : Si vide, on met null (important pour la Foreign Key)
+      material_id: r.querySelector(".material-select").value || null,
+      
       material_name: r.querySelector(".material-name-input").value,
       product_code: r.querySelector(".material-code").value,
       quantity: parseFloat(r.querySelector(".material-qty").value) || 1,
@@ -751,6 +753,7 @@ function getFormData() {
       discount: parseFloat(r.querySelector(".material-discount").value) || 0,
       total_price: parseFloat(r.querySelector(".material-total").value) || 0,
     }))
+    // On garde si on a au moins un nom
     .filter((m) => m.material_name);
   return data;
 }
@@ -911,18 +914,18 @@ function addMaterialRow(data = null) {
     "display:flex; gap:8px; margin-bottom:10px; align-items:flex-end; background:#fff; padding:10px; border:1px solid var(--border-color); border-radius:6px; flex-wrap:wrap;";
   const discountVal = data ? data.discount || 0 : 0;
   const currentName = data ? data.material_name || "" : "";
-  div.innerHTML = `<div class="form-group" style="width: 140px; margin-bottom:0;"><label>Catalogue</label><select class="material-select" style="font-size:0.85em;"><option value="">-- Choisir --</option>${materials
-    .map(
-      (m) =>
-        `<option value="${m.id}" data-name="${escapeHtml(
-          m.name
-        )}" data-price="${m.unit_price}" data-code="${m.product_code}" ${
-          data && data.material_id == m.id ? "selected" : ""
-        }>${escapeHtml(m.name)}</option>`
-    )
-    .join(
-      ""
-    )}</select></div><div class="form-group" style="flex:2; min-width:200px; margin-bottom:0;"><label>Désignation</label><input type="text" class="material-name-input" value="${escapeHtml(
+  div.innerHTML = `<div class="form-group" style="width: 140px; margin-bottom:0;"><label>Catalogue</label><select class="material-select" style="font-size:0.85em;"><option value="">-- Choisir --</option>${materials.map(m => {
+    // 1. On crée une étiquette combinée pour que la recherche trouve le CODE ou le NOM
+    const label = m.product_code ? `${m.product_code} - ${m.name}` : m.name;
+
+    return `<option value="${m.id}" 
+        data-name="${escapeHtml(m.name)}" 
+        data-price="${m.unit_price}" 
+        data-code="${m.product_code}" 
+        ${data && data.material_id == m.id ? "selected" : ""}>
+        ${escapeHtml(label)}
+    </option>`;
+}).join("")}</select></div><div class="form-group" style="flex:2; min-width:200px; margin-bottom:0;"><label>Désignation</label><input type="text" class="material-name-input" value="${escapeHtml(
     currentName
   )}" /></div><div class="form-group" style="width:80px; margin-bottom:0;"><label>Code</label><input type="text" class="material-code" value="${
     data ? data.product_code || "" : ""
