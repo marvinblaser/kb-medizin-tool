@@ -305,13 +305,25 @@ router.get('/planning', requireAuth, (req, res) => {
         let result = Array.from(clientsMap.values());
 
         if (status === 'expired') {
+            // Uniquement ceux qui ont au moins une machine expirée (Niveau 2)
             result = result.filter(c => c.worst_status_score === 2);
         } else if (status === 'warning') {
-            result = result.filter(c => c.worst_status_score >= 1);
+            // STRICTEMENT ceux qui sont en warning (Niveau 1)
+            // On exclut ceux qui sont déjà rouges (niveau 2) car ils apparaissent déjà dans le filtre "Expiré"
+            result = result.filter(c => c.worst_status_score === 1);
+        } else if (status === 'ok') {
+            // STRICTEMENT ceux qui n'ont aucun problème (Niveau 0)
+            result = result.filter(c => c.worst_status_score === 0);
         }
 
         // Tri final : Les plus urgents en haut
-        result.sort((a, b) => b.worst_status_score - a.worst_status_score || a.earliest_date.localeCompare(b.earliest_date));
+        // (D'abord par score d'urgence, puis par date la plus proche)
+        result.sort((a, b) => {
+            if (b.worst_status_score !== a.worst_status_score) {
+                return b.worst_status_score - a.worst_status_score;
+            }
+            return a.earliest_date.localeCompare(b.earliest_date);
+        });
 
         res.json({ data: result }); 
     });

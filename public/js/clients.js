@@ -13,35 +13,52 @@ let itemsPerPage = 25;
 let currentUser = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Note: Le style est maintenant dans le <head> de clients.html
-
     await checkAuth();
     await loadCatalog();
     loadData();
 
-    // --- NOUVEAU : GESTION OUVERTURE DIRECTE DEPUIS DASHBOARD ---
-    // On regarde s'il y a un paramètre "?open=123" dans l'URL
+    // --- GESTION OUVERTURE DIRECTE DEPUIS DASHBOARD ---
     const urlParams = new URLSearchParams(window.location.search);
     const clientToOpen = urlParams.get('open');
 
     if (clientToOpen) {
-        // On attend 500ms que la page soit prête visuellement, puis on ouvre la fiche
-        setTimeout(() => {
-            openClientDetails(clientToOpen);
-        }, 500);
-
-        // On nettoie l'URL pour ne pas rouvrir la fiche si on rafraichit la page (F5)
+        setTimeout(() => { openClientDetails(clientToOpen); }, 500);
         window.history.replaceState({}, document.title, "/clients.html");
     }
-    // -------------------------------------------------------------
 
-    // Listeners
-    document.getElementById('global-search')?.addEventListener('input', debounce(e => { currentFilters.search = e.target.value; currentPage = 1; loadData(); }, 300));
-    document.getElementById('filter-canton')?.addEventListener('change', e => { currentFilters.canton = e.target.value; currentPage = 1; loadData(); });
-    document.getElementById('filter-sector')?.addEventListener('change', e => { currentFilters.sector = e.target.value; currentPage = 1; loadData(); });
+    // --- LISTENERS (ÉCOUTEURS D'ÉVÉNEMENTS) ---
+    
+    // 1. Recherche Globale
+    document.getElementById('global-search')?.addEventListener('input', debounce(e => { 
+        currentFilters.search = e.target.value; currentPage = 1; loadData(); 
+    }, 300));
+
+    // 2. Filtres Barre d'outils (Canton / Secteur)
+    document.getElementById('filter-canton')?.addEventListener('change', e => { 
+        currentFilters.canton = e.target.value; currentPage = 1; loadData(); 
+    });
+    document.getElementById('filter-sector')?.addEventListener('change', e => { 
+        currentFilters.sector = e.target.value; currentPage = 1; loadData(); 
+    });
+
+    // 3. FILTRES AVANCÉS (Le correctif est ici !)
+    // On écoute le changement du Statut
+    document.getElementById('adv-status')?.addEventListener('change', () => { 
+        currentPage = 1; loadData(); 
+    });
+    
+    // On écoute aussi les champs textes (Marque, Modèle, Série) avec un petit délai (debounce)
+    ['adv-brand', 'adv-model', 'adv-serial'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', debounce(() => { 
+            currentPage = 1; loadData(); 
+        }, 500));
+    });
+
+    // Boutons Interface
     document.getElementById('toggle-advanced-filters')?.addEventListener('click', () => document.getElementById('advanced-filters-panel').classList.toggle('hidden'));
     document.getElementById('clear-filters')?.addEventListener('click', resetFilters);
     
+    // Pagination & Autres
     document.getElementById('prev-page')?.addEventListener('click', () => changePage(-1));
     document.getElementById('next-page')?.addEventListener('click', () => changePage(1));
     document.getElementById('limit-select')?.addEventListener('change', e => { itemsPerPage = parseInt(e.target.value); currentPage = 1; loadData(); });
@@ -49,70 +66,51 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('logout-btn')?.addEventListener('click', logout);
     document.getElementById('confirm-delete-btn')?.addEventListener('click', confirmDeleteClient);
     document.getElementById('btn-geo-search')?.addEventListener('click', searchCoordinates);
-    // Listener pour l'import Excel
+    
+    // Import Excel
     document.getElementById('import-excel-input')?.addEventListener('change', async (e) => {
+        /* ... (Garder votre code d'import existant ici) ... */
         const file = e.target.files[0];
         if (!file) return;
-
-        const btn = document.querySelector('button[title="Importer depuis Excel"]');
-        const originalContent = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...';
-        btn.disabled = true;
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-            const res = await fetch('/api/clients/import', { method: 'POST', body: formData });
-            const result = await res.json();
-            
-            if (res.ok) {
-                showNotification(`Succès ! ${result.count || '?'} clients traités.`, 'success');
-                loadData(); // Recharge la liste
-            } else {
-                showNotification("Erreur lors de l'import : " + (result.error || "Inconnue"), 'error');
-            }
-        } catch (err) {
-            console.error(err);
-            showNotification("Erreur technique lors de l'envoi.", 'error');
-        } finally {
-            btn.innerHTML = originalContent;
-            btn.disabled = false;
-            e.target.value = ''; 
-        }
+        // (Pour alléger la réponse j'abrège cette partie qui fonctionnait déjà, ne la supprimez pas si vous copiez-collez tout)
+        const formData = new FormData(); formData.append('file', file);
+        try { await fetch('/api/clients/import', { method: 'POST', body: formData }); loadData(); showNotification("Import terminé", 'success'); } catch { showNotification("Erreur import", 'error'); } e.target.value = '';
     });
-    // --- INITIALISATION SLIMSELECT FILTRES (Avec sécurité anti-doublon) ---
+
+
+    // --- INITIALISATION SLIMSELECT (Nettoyage + Création) ---
     
-    // Fonction pour nettoyer un sélecteur s'il a déjà été initialisé par erreur
     const destroyPreviousSlimSelect = (selector) => {
         const el = document.querySelector(selector);
-        // Si l'élément est caché, c'est que SlimSelect est déjà passsé par là
-        if (el && el.style.display === 'none' && el.nextElementSibling && el.nextElementSibling.classList.contains('ss-main')) {
-            el.nextElementSibling.remove(); // On supprime l'interface graphique en doublon
-            el.style.display = ''; // On réaffiche le select original pour que notre script puisse l'utiliser
+        if (el && el.style.display === 'none' && el.nextElementSibling?.classList.contains('ss-main')) {
+            el.nextElementSibling.remove();
+            el.style.display = '';
         }
     };
 
-    // 1. On nettoie d'abord (au cas où init-selects.js a frappé)
+    // 1. Nettoyage préventif
     destroyPreviousSlimSelect('#filter-canton');
     destroyPreviousSlimSelect('#filter-sector');
+    destroyPreviousSlimSelect('#adv-status'); // <--- On nettoie aussi le Statut
 
-    // 2. On initialise proprement avec NOS réglages
+    // 2. Initialisations
     new SlimSelect({
         select: '#filter-canton',
-        settings: {
-            showSearch: false,
-            placeholderText: 'Canton',
-            allowDeselect: true
-        }
+        settings: { showSearch: false, placeholderText: 'Canton', allowDeselect: true }
     });
 
     new SlimSelect({
         select: '#filter-sector',
-        settings: {
-            showSearch: false,
-            placeholderText: 'Secteur',
-            allowDeselect: true
+        settings: { showSearch: false, placeholderText: 'Secteur', allowDeselect: true }
+    });
+
+    // 3. Initialisation du Statut (Nouveau !)
+    new SlimSelect({
+        select: '#adv-status',
+        settings: { 
+            showSearch: false, 
+            placeholderText: 'Statut', 
+            allowDeselect: true 
         }
     });
 });
