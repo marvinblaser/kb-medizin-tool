@@ -208,18 +208,19 @@ router.get('/export-excel', requireAuth, (req, res) => {
 });
 
 // ==========================================
-// 3. PLANNING
+// 3. PLANNING (Refondu : Groupement par Client)
 // ==========================================
 router.get('/planning', requireAuth, (req, res) => {
     const { 
         search, status, canton, category, 
-        brand, model, serial, year, device,
-        sortBy, sortOrder 
+        brand, model 
     } = req.query; 
     
+    // 1. On récupère TOUTES les machines qui ont une date de maintenance
     let where = ["ce.next_maintenance_date IS NOT NULL"];
     let params = [];
 
+    // Filtres SQL de base
     if (search) {
         where.push(`(c.cabinet_name LIKE ? OR c.city LIKE ? OR ec.brand LIKE ? OR ec.model LIKE ?)`);
         const s = `%${search}%`;
@@ -227,46 +228,92 @@ router.get('/planning', requireAuth, (req, res) => {
     }
     if (canton) { where.push("c.canton = ?"); params.push(canton); }
     if (category) { where.push("c.activity = ?"); params.push(category); }
-    
     if (brand) { where.push("ec.brand LIKE ?"); params.push(`%${brand}%`); }
     if (model) { where.push("ec.model LIKE ?"); params.push(`%${model}%`); }
-    if (serial) { where.push("ce.serial_number LIKE ?"); params.push(`%${serial}%`); }
 
-    const today = new Date().toISOString().split('T')[0];
-    if (status === 'expired') { where.push("ce.next_maintenance_date < ?"); params.push(today); }
-    else if (status === 'warning') { where.push("ce.next_maintenance_date BETWEEN ? AND date(?, '+30 days')"); params.push(today, today); }
-    else if (status === 'ok') { where.push("ce.next_maintenance_date > date(?, '+30 days')"); params.push(today); }
-
-    let orderBy = "ce.next_maintenance_date ASC";
-    if (sortBy) {
-        const order = sortOrder === 'desc' ? 'DESC' : 'ASC';
-        const map = {
-            'status': 'ce.next_maintenance_date',
-            'cabinet_name': 'c.cabinet_name',
-            'city': 'c.city',
-            'catalog_name': 'ec.name',
-            'last_maintenance_date': 'ce.last_maintenance_date',
-            'next_maintenance_date': 'ce.next_maintenance_date'
-        };
-        if (map[sortBy]) orderBy = `${map[sortBy]} ${order}`;
-    }
-
+    // Note : On ne filtre pas le statut (expired/ok) en SQL strict ici pour avoir une vue d'ensemble,
+    // mais on le fera lors du groupement ou via l'interface.
+    // Cependant, pour la performance, on peut exclure ceux qui sont dans le futur lointain si aucun statut n'est demandé.
+    
     const sql = `
         SELECT 
-            ce.id, ce.next_maintenance_date, ce.last_maintenance_date, ce.serial_number,
-            c.id as client_id, c.cabinet_name, c.city, c.canton,
-            ec.name as catalog_name, ec.brand, ec.model, ec.type, ec.device_type,
+            ce.id as equipment_id, ce.next_maintenance_date, ce.last_maintenance_date, ce.serial_number, ce.location,
+            c.id as client_id, c.cabinet_name, c.city, c.address, c.canton, c.phone,
+            ec.name as catalog_name, ec.brand, ec.model, ec.type,
             (julianday(ce.next_maintenance_date) - julianday('now')) as days_remaining
         FROM client_equipment ce
         JOIN clients c ON ce.client_id = c.id
         JOIN equipment_catalog ec ON ce.equipment_id = ec.id
         WHERE ${where.join(' AND ')}
-        ORDER BY ${orderBy}
+        ORDER BY c.canton ASC, c.city ASC, ce.next_maintenance_date ASC
     `;
 
     db.all(sql, params, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ data: rows }); 
+
+        // 2. LOGIQUE D'AGRÉGATION (Transformation des données)
+        const clientsMap = new Map();
+
+        rows.forEach(row => {
+            if (!clientsMap.has(row.client_id)) {
+                clientsMap.set(row.client_id, {
+                    client_id: row.client_id,
+                    cabinet_name: row.cabinet_name,
+                    city: row.city,
+                    canton: row.canton,
+                    address: row.address,
+                    phone: row.phone,
+                    machines: [],
+                    worst_status_score: 0, // Pour le tri : 2=Expired, 1=Warning, 0=OK
+                    earliest_date: row.next_maintenance_date // La date la plus urgente
+                });
+            }
+
+            const client = clientsMap.get(row.client_id);
+            
+            // Calcul du statut de la machine
+            let machineStatus = 'ok';
+            if (row.days_remaining < 0) machineStatus = 'expired';
+            else if (row.days_remaining <= 60) machineStatus = 'warning'; // 60 jours avant
+
+            // Mise à jour du score du client (on prend le pire cas)
+            let score = 0;
+            if (machineStatus === 'expired') score = 2;
+            else if (machineStatus === 'warning') score = 1;
+
+            if (score > client.worst_status_score) {
+                client.worst_status_score = score;
+            }
+            if (row.next_maintenance_date < client.earliest_date) {
+                client.earliest_date = row.next_maintenance_date;
+            }
+
+            // Ajout de la machine
+            client.machines.push({
+                id: row.equipment_id,
+                name: `${row.brand} ${row.catalog_name}`,
+                model: row.model,
+                serial: row.serial_number,
+                location: row.location,
+                next_date: row.next_maintenance_date,
+                status: machineStatus,
+                days: Math.round(row.days_remaining)
+            });
+        });
+
+        // 3. Filtrage final selon le statut demandé par le front
+        let result = Array.from(clientsMap.values());
+
+        if (status === 'expired') {
+            result = result.filter(c => c.worst_status_score === 2);
+        } else if (status === 'warning') {
+            result = result.filter(c => c.worst_status_score >= 1);
+        }
+
+        // Tri final : Les plus urgents en haut
+        result.sort((a, b) => b.worst_status_score - a.worst_status_score || a.earliest_date.localeCompare(b.earliest_date));
+
+        res.json({ data: result }); 
     });
 });
 

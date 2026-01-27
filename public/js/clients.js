@@ -137,25 +137,149 @@ function renderDirectory(list) {
 
 function renderPlanning(list) {
     const tbody = document.getElementById('planning-tbody');
-    const items = Array.isArray(list) ? list : (list.data || []);
-    if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:3rem; color:var(--neutral-400);">Aucune maintenance prévue.</td></tr>'; return; }
-    tbody.innerHTML = items.map(r => {
-        let rowClass = 'row-ok', badgeHtml = '<span class="badge badge-success">OK</span>';
-        if(r.days_remaining < 0) { rowClass = 'row-expired'; badgeHtml = '<span class="badge badge-danger">Expiré</span>'; }
-        else if(r.days_remaining < 30) { rowClass = 'row-warning'; badgeHtml = '<span class="badge badge-warning">Bientôt</span>'; }
-        return `<tr onclick="openClientDetails(${r.client_id})" class="${rowClass}">
-            <td>${badgeHtml}</td>
-            <td><strong>${escapeHtml(r.cabinet_name)}</strong></td>
-            <td>${escapeHtml(r.city)}</td>
-            <td><strong>${escapeHtml(r.catalog_name)}</strong><div style="font-size:0.8rem; color:var(--neutral-500);">${r.brand}</div></td>
-            <td>${escapeHtml(r.type)}</td>
-            <td style="color:var(--neutral-500);">${formatDate(r.last_maintenance_date)}</td>
-            <td style="font-weight:700; color:var(--neutral-800);">${formatDate(r.next_maintenance_date)}</td>
-            <td style="text-align:right;">
-                <button class="btn-icon-sm btn-icon-secondary" onclick="event.stopPropagation(); window.location.href='/reports.html?action=create&client=${r.client_id}&eq=${r.id}'" title="Créer rapport"><i class="fas fa-file-signature"></i></button>
+    tbody.innerHTML = '';
+
+    // 1. Récupération des données (format envoyé par le nouveau Backend)
+    const data = Array.isArray(list) ? list : (list.data || []);
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--neutral-400);">Aucune maintenance prévue selon ces critères.</td></tr>`;
+        return;
+    }
+
+    // 2. Génération des lignes (Client + Accordéon)
+    data.forEach(client => {
+        // A. Déterminer le statut global du client (Couleur de la ligne)
+        let statusClass = 'row-ok';
+        let statusIcon = '<i class="fas fa-check-circle" style="color:var(--color-success)"></i>';
+        
+        // worst_status_score vient du backend : 2=Expired, 1=Warning, 0=OK
+        if (client.worst_status_score === 2) { 
+            statusClass = 'row-expired';
+            statusIcon = '<i class="fas fa-exclamation-circle" style="color:var(--color-danger)"></i>';
+        } else if (client.worst_status_score === 1) { 
+            statusClass = 'row-warning';
+            statusIcon = '<i class="fas fa-clock" style="color:var(--color-warning)"></i>';
+        }
+
+        // B. Résumé textuel du parc
+        const countTotal = client.machines.length;
+        const countExpired = client.machines.filter(m => m.status === 'expired').length;
+        const countWarning = client.machines.filter(m => m.status === 'warning').length;
+        
+        let summaryHTML = `<strong>${countTotal} Appareils</strong>`;
+        if (countExpired > 0) summaryHTML += ` <span style="color:var(--color-danger); font-size:0.85em; font-weight:600;">• ${countExpired} à faire</span>`;
+        if (countWarning > 0) summaryHTML += ` <span style="color:var(--color-warning); font-size:0.85em; font-weight:600;">• ${countWarning} bientôt</span>`;
+
+        // --- CRÉATION DE LA LIGNE PRINCIPALE (CLIENT) ---
+        const tr = document.createElement('tr');
+        tr.className = `planning-row ${statusClass}`;
+        tr.style.cursor = 'pointer';
+        
+        tr.innerHTML = `
+            <td style="text-align:center; font-size:1.2rem;">${statusIcon}</td>
+            <td>
+                <div style="font-weight:700; color:var(--neutral-800);">${escapeHtml(client.cabinet_name)}</div>
+                <div style="font-size:0.85rem; color:var(--neutral-500);"><i class="fas fa-phone-alt" style="font-size:0.75rem"></i> ${client.phone || '-'}</div>
             </td>
-        </tr>`;
-    }).join('');
+            <td>
+                <span class="badge-canton">${client.canton}</span> ${escapeHtml(client.city)}
+            </td>
+            <td>${summaryHTML}</td>
+            <td style="font-family:monospace; font-weight:600; color:var(--neutral-700);">
+                ${formatDate(client.earliest_date)}
+            </td>
+            <td style="text-align:right;">
+                <button class="btn-icon-sm btn-icon-secondary btn-toggle-details">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            </td>
+        `;
+
+        // --- CRÉATION DE LA LIGNE DE DÉTAILS (CACHÉE) ---
+        const trDetails = document.createElement('tr');
+        trDetails.className = 'details-row hidden';
+        trDetails.style.backgroundColor = '#f8fafc'; 
+        
+        // Construction de la liste des machines (Sous-tableau)
+        let machinesHTML = client.machines.map(m => {
+            let color = 'var(--color-success)';
+            let icon = 'fa-check';
+            let txtColor = 'var(--neutral-600)';
+
+            if (m.status === 'expired') { 
+                color = 'var(--color-danger)'; icon = 'fa-exclamation-triangle'; txtColor = 'var(--color-danger)';
+            } else if (m.status === 'warning') { 
+                color = 'var(--color-warning)'; icon = 'fa-clock'; txtColor = '#d97706';
+            }
+            
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom:1px solid #eee;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <i class="fas ${icon}" style="color:${color}; width:20px; text-align:center;"></i>
+                        <div>
+                            <div style="font-weight:600; font-size:0.9rem; color:var(--neutral-800);">${escapeHtml(m.name)}</div>
+                            <div style="font-size:0.8rem; color:#64748b;">
+                                SN: <code style="background:white; border:1px solid #e2e8f0; padding:1px 4px; border-radius:3px;">${escapeHtml(m.serial || '?')}</code> 
+                                ${m.location ? `• <i class="fas fa-map-marker-alt"></i> ${escapeHtml(m.location)}` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align:right; display:flex; align-items:center; gap:15px;">
+                        <div>
+                            <div style="font-size:0.85rem; font-weight:700; color:${txtColor};">${formatDate(m.next_date)}</div>
+                            <div style="font-size:0.75rem; color:#94a3b8;">${m.days} jours restants</div>
+                        </div>
+                        <button class="btn-icon-sm btn-icon-primary" 
+                                onclick="event.stopPropagation(); window.location.href='/reports.html?action=create&client=${client.client_id}&eq=${m.id}'" 
+                                title="Créer rapport pour cette machine">
+                            <i class="fas fa-file-signature"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        trDetails.innerHTML = `
+            <td colspan="6" style="padding: 0;">
+                <div class="details-container" style="padding: 1rem 2rem 1.5rem 2rem; border-left: 4px solid var(--neutral-300);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <h4 style="margin:0; font-size:0.8rem; text-transform:uppercase; color:#94a3b8; font-weight:700; letter-spacing:0.05em;">
+                            Détail du parc machine
+                        </h4>
+                        <button class="btn btn-sm btn-secondary" onclick="openClientDetails(${client.client_id})">
+                            <i class="fas fa-external-link-alt"></i> Voir fiche complète
+                        </button>
+                    </div>
+                    ${machinesHTML}
+                </div>
+            </td>
+        `;
+
+        // --- INTERACTION ---
+        // Clic sur la ligne = Ouvrir/Fermer
+        tr.addEventListener('click', (e) => {
+            // Si on clique sur un bouton ou un lien dans la ligne principale, on ne déclenche pas l'accordéon
+            if (e.target.closest('button') && !e.target.classList.contains('btn-toggle-details')) return;
+            
+            trDetails.classList.toggle('hidden');
+            
+            // Animation de l'icône chevron
+            const icon = tr.querySelector('.fa-chevron-down') || tr.querySelector('.fa-chevron-up');
+            if(icon) {
+                if (trDetails.classList.contains('hidden')) {
+                    icon.classList.remove('fa-chevron-up');
+                    icon.classList.add('fa-chevron-down');
+                } else {
+                    icon.classList.remove('fa-chevron-down');
+                    icon.classList.add('fa-chevron-up');
+                }
+            }
+        });
+
+        tbody.appendChild(tr);
+        tbody.appendChild(trDetails);
+    });
 }
 
 async function openClientDetails(id) {
