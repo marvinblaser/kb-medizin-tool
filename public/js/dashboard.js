@@ -163,7 +163,7 @@ function createWidgetCard(id, icon, title, desc){
 
 window.toggleWidgetCard=function(c,n){const k=c.querySelector('input[type="checkbox"]');if(event.target!==k)k.checked=!k.checked;if(k.checked)c.classList.add('active');else c.classList.remove('active');};
 function saveWidgetCustomization(b){widgetSettings.appointments=document.getElementById('widget-check-appointments').checked;widgetSettings.contacts=document.getElementById('widget-check-contacts').checked;widgetSettings['maintenance-month']=document.getElementById('widget-check-maintenance-month').checked;widgetSettings.warranty=document.getElementById('widget-check-warranty').checked;widgetSettings.map=document.getElementById('widget-check-map').checked;localStorage.setItem('dashboardWidgets',JSON.stringify(widgetSettings));applyWidgetSettings();b.closest('.modal').remove();showNotification('Configuration enregistrée','success');}
-function loadWidgetSettings(){const s=localStorage.getItem('dashboardWidgets');if(s){try{const p=JSON.parse(s);Object.keys(p).forEach(k=>{if(widgetSettings[k]!==undefined)widgetSettings[k]=p[k];});}catch(e){}}applyWidgetSettings();}
+function loadWidgetSettings(){const s=localStorage.getItem('dashboardWidgets');if(s){try{const p=JSON.parse(s);Object.keys(p).forEach(k=>{if(widgetSettings[k]!==undefined)widgetSettings[k]=p[k];});}catch(e){}}applyWidgetSettings();applyWidgetSettings();}
 function applyWidgetSettings(){const i={'appointments':'widget-appointments','contacts':'widget-contacts','maintenance-month':'widget-maintenance-month','warranty':'widget-warranty','map':'widget-map'};Object.keys(widgetSettings).forEach(k=>{const e=document.getElementById(i[k]);if(e)e.style.display=widgetSettings[k]?'block':'none';});}
 function showNotification(m,t='info'){let c=document.getElementById('notification-container');if(!c){c=document.createElement('div');c.id='notification-container';c.className='notification-container';document.body.appendChild(c);}const n=document.createElement('div');n.className=`notification notification-${t}`;n.innerHTML=`<i class="fas ${t==='success'?'fa-check-circle':t==='error'?'fa-exclamation-circle':'fa-info-circle'}"></i><span>${m}</span>`;c.appendChild(n);setTimeout(()=>n.classList.add('show'),10);setTimeout(()=>{n.classList.remove('show');setTimeout(()=>n.remove(),300)},3000);}
 
@@ -179,7 +179,7 @@ async function loadDashboard() {
       loadPendingReportsWidget()
   ]);
 
-  // --- NOUVEAU : RENDRE LES CARTES CLIQUABLES ---
+  // --- RENDRE LES CARTES CLIQUABLES ---
   setupStatClickHandlers();
 }
 
@@ -190,7 +190,7 @@ function setupStatClickHandlers() {
     // 2. RDV à fixer / Bientôt (Orange)
     document.querySelector('.stat-card.warning').onclick = () => openStatPopup('warning');
     
-    // 3. Clients à jour (Vert) -> On affiche ceux qui NE le sont PAS
+    // 3. Clients à jour (Vert) -> On affiche ceux qui NE le sont PAS (par soustraction)
     document.querySelector('.stat-card.success').onclick = () => openStatPopup('not_ok');
 }
 
@@ -264,7 +264,7 @@ async function loadPendingReportsWidget() {
             grid.insertAdjacentHTML('afterbegin', widgetHtml);
         }
 
-        // B. WIDGET ARCHIVAGE (Avec header Rouge clair pour signaler l'action comme demandé)
+        // B. WIDGET ARCHIVAGE
         if (canArchive && validatedCount > 0) {
             const r = await fetch('/api/reports?status=validated&limit=5');
             const data = await r.json();
@@ -293,33 +293,29 @@ async function loadPendingReportsWidget() {
     } catch (e) { console.error("Err widget reports:", e); }
 }
 
-// Remplacez la fonction loadStats existante par celle-ci :
-
 async function loadStats() {
     try {
-        // 1. On récupère les stats globales (pour les clients à jour et le total équipement)
+        // 1. Stats globales
         const r = await fetch('/api/dashboard/stats');
         const s = await r.json();
 
-        // 2. CORRECTION : On récupère le nombre EXACT de machines pour être synchro avec les popups
-        // On lance les requêtes "Planning" en parallèle
+        // 2. Chiffres précis via les nouvelles routes details
+        // On récupère juste la longueur des tableaux pour les compteurs
         const [resExpired, resWarning] = await Promise.all([
-            fetch('/api/clients/planning?status=expired'),
-            fetch('/api/clients/planning?status=warning')
+            fetch('/api/dashboard/details?type=expired'),
+            fetch('/api/dashboard/details?type=warning')
         ]);
         
         const jsonExpired = await resExpired.json();
         const jsonWarning = await resWarning.json();
         
-        // On compte les machines (lignes)
-        const countExpired = (jsonExpired.data || []).length;
-        const countWarning = (jsonWarning.data || []).length;
+        const countExpired = jsonExpired.length;
+        const countWarning = jsonWarning.length;
 
-        // 3. Mise à jour de l'affichage avec les chiffres synchronisés
-        document.getElementById('stat-expired').textContent = countExpired;       // Affiche les Machines (ex: 154)
-        document.getElementById('stat-appointments').textContent = countWarning;  // Affiche les Machines (ex: 61)
+        // 3. Mise à jour de l'affichage
+        document.getElementById('stat-expired').textContent = countExpired;
+        document.getElementById('stat-appointments').textContent = countWarning;
         
-        // Le reste ne change pas
         document.getElementById('stat-uptodate').textContent = `${s.clientsUpToDate}/${s.totalClients}`;
         document.getElementById('stat-equipment').textContent = s.equipmentInstalled;
 
@@ -362,7 +358,6 @@ function updateMapMarkers(){
             return`<span class="badge badge-success" style="font-size:10px!important;padding:2px 6px;">OK</span>`;
         };
         
-        // MODIFICATION : Ajout de max-height et overflow-y pour le scroll
         const eqHtml = client.equipment && client.equipment.length > 0
             ? `<div class="map-equipment-section" style="margin-top:10px; border-top:1px solid #eee; padding-top:10px; max-height: 200px; overflow-y: auto; padding-right: 5px;">
                  <strong style="font-size:0.8rem; text-transform:uppercase; color:#64748b; display:block; margin-bottom:8px; position: sticky; top: 0; background: white; z-index: 1;">Équipements (${client.equipment.length})</strong>
@@ -414,7 +409,7 @@ function updateMapMarkers(){
     });
 }
 
-// --- GESTION DES POPUPS STATISTIQUES (GROUPÉES) ---
+// --- GESTION DES POPUPS STATISTIQUES (MODIFIÉE POUR UTILISER /API/DASHBOARD/DETAILS) ---
 
 async function openStatPopup(type) {
     const modal = document.getElementById('stats-detail-modal');
@@ -426,15 +421,14 @@ async function openStatPopup(type) {
 
     try {
         let html = '';
-        let totalCount = 0; // Compteur global
+        let totalCount = 0;
         
         if (type === 'expired') {
-            const res = await fetch('/api/clients/planning?status=expired');
-            const json = await res.json();
-            const rows = json.data || [];
+            // ICI : On utilise la nouvelle route dédiée qui renvoie la liste précise
+            const res = await fetch('/api/dashboard/details?type=expired');
+            const rows = await res.json();
             totalCount = rows.length;
             
-            // Mise à jour du titre avec le compteur
             titleEl.innerHTML = `<i class="fas fa-exclamation-circle text-danger"></i> Maintenances Expirées <span class="badge badge-danger" style="font-size:0.6em; vertical-align:middle; margin-left:10px;">${totalCount}</span>`;
             
             if (totalCount === 0) {
@@ -444,9 +438,9 @@ async function openStatPopup(type) {
             }
 
         } else if (type === 'warning') {
-            const res = await fetch('/api/clients/planning?status=warning');
-            const json = await res.json();
-            const rows = json.data || [];
+            // ICI : Pareil pour le warning
+            const res = await fetch('/api/dashboard/details?type=warning');
+            const rows = await res.json();
             totalCount = rows.length;
 
             titleEl.innerHTML = `<i class="fas fa-clock text-warning"></i> RDV à fixer (Bientôt) <span class="badge badge-warning" style="font-size:0.6em; vertical-align:middle; margin-left:10px;">${totalCount}</span>`;
@@ -458,7 +452,6 @@ async function openStatPopup(type) {
             }
 
         } else if (type === 'not_ok') {
-            // Pour les clients, la logique reste la même (pas de groupement machine nécessaire ici)
             const notUpToDateClients = allClients.filter(c => c.status !== 'ok' && c.status !== 'up_to_date');
             totalCount = notUpToDateClients.length;
 
@@ -527,13 +520,17 @@ function buildGroupedTable(rows, statusType) {
         const count = group.machines.length;
         const groupId = `group-${index}`;
         
-        // Trouver la date la plus urgente pour l'affichage principal
+        // Trouver la date la plus urgente
         const dates = group.machines.map(m => m.next_maintenance_date).sort();
         const worstDate = dates[0]; 
 
+        // Adaptation des noms de champs pour correspondre à /api/dashboard/details
+        // m.name (Model), m.brand (Brand)
+        
         if (count === 1) {
-            // CAS SIMPLE : 1 seule machine -> Affichage direct (comme avant)
             const m = group.machines[0];
+            const displayTitle = m.name || m.catalog_name || 'Machine'; // Fallback
+            
             tbodyHtml += `
             <tr onclick="window.location.href='/clients.html?open=${group.client_id}'" style="cursor:pointer; border-bottom:1px solid #eee;" class="group-row">
                 <td style="padding:10px;">
@@ -541,8 +538,8 @@ function buildGroupedTable(rows, statusType) {
                     <div style="font-size:0.85em; color:#666;">${escapeHtml(group.city)}</div>
                 </td>
                 <td style="padding:10px;">
-                    <div style="font-weight:500;">${escapeHtml(m.catalog_name)}</div>
-                    <div style="font-size:0.85em; color:#888;">${escapeHtml(m.brand)}</div>
+                    <div style="font-weight:500;">${escapeHtml(displayTitle)}</div>
+                    <div style="font-size:0.85em; color:#888;">${escapeHtml(m.brand || '')}</div>
                 </td>
                 <td style="padding:10px; font-weight:bold; color:${color};">
                     ${formatDate(m.next_maintenance_date)}
@@ -552,7 +549,6 @@ function buildGroupedTable(rows, statusType) {
                 </td>
             </tr>`;
         } else {
-            // CAS MULTIPLE : Plusieurs machines -> Liste déroulante
             tbodyHtml += `
             <tr onclick="toggleGroupRow('${groupId}', this)" class="group-row" style="border-bottom:1px solid #eee;">
                 <td style="padding:10px;">
@@ -576,20 +572,22 @@ function buildGroupedTable(rows, statusType) {
                 <td colspan="4" style="padding:0;">
                     <div style="padding: 5px 15px 15px 15px; border-bottom:2px solid #e2e8f0;">
                         <table style="width:100%; font-size:0.9em;">
-                            ${group.machines.map(m => `
-                            <tr style="border-bottom:1px dashed #e2e8f0; cursor:pointer;" onclick="window.location.href='/clients.html?open=${group.client_id}'">
-                                <td style="padding:8px 0; color:#475569;">
-                                    <i class="fas fa-circle" style="font-size:6px; vertical-align:middle; margin-right:8px; color:${color}"></i>
-                                    ${escapeHtml(m.catalog_name)} <span style="color:#94a3b8;">(${escapeHtml(m.brand)})</span>
-                                </td>
-                                <td style="padding:8px 0; text-align:right; font-weight:600; color:${color};">
-                                    ${formatDate(m.next_maintenance_date)}
-                                </td>
-                                <td style="width:30px; text-align:right;">
-                                    <i class="fas fa-arrow-right" style="font-size:0.8em; color:var(--color-primary); opacity:0.5;"></i>
-                                </td>
-                            </tr>
-                            `).join('')}
+                            ${group.machines.map(m => {
+                                const mTitle = m.name || m.catalog_name || 'Machine';
+                                return `
+                                <tr style="border-bottom:1px dashed #e2e8f0; cursor:pointer;" onclick="window.location.href='/clients.html?open=${group.client_id}'">
+                                    <td style="padding:8px 0; color:#475569;">
+                                        <i class="fas fa-circle" style="font-size:6px; vertical-align:middle; margin-right:8px; color:${color}"></i>
+                                        ${escapeHtml(mTitle)} <span style="color:#94a3b8;">(${escapeHtml(m.brand || '')})</span>
+                                    </td>
+                                    <td style="padding:8px 0; text-align:right; font-weight:600; color:${color};">
+                                        ${formatDate(m.next_maintenance_date)}
+                                    </td>
+                                    <td style="width:30px; text-align:right;">
+                                        <i class="fas fa-arrow-right" style="font-size:0.8em; color:var(--color-primary); opacity:0.5;"></i>
+                                    </td>
+                                </tr>`;
+                            }).join('')}
                         </table>
                     </div>
                 </td>
