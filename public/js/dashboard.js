@@ -51,6 +51,15 @@ const customDashboardStyles = `
   .widget-selector-card h3 { font-size: 1rem; margin: 0 0 0.5rem 0; color: #1e293b; }
   .widget-selector-card p { font-size: 0.8rem; color: #64748b; margin: 0; line-height: 1.4; }
   .widget-selector-toggle { position: absolute; top: 10px; right: 10px; }
+
+  .group-row { cursor: pointer; transition: background 0.2s; }
+  .group-row:hover { background-color: #f8fafc; }
+  .group-row.expanded { background-color: #f1f5f9; }
+  .group-details { display: none; background-color: #f8fafc; }
+  .group-details.show { display: table-row; animation: fadeIn 0.3s; }
+  .fa-chevron-down { transition: transform 0.2s; }
+  .expanded .fa-chevron-down { transform: rotate(180deg); }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 `;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -284,7 +293,40 @@ async function loadPendingReportsWidget() {
     } catch (e) { console.error("Err widget reports:", e); }
 }
 
-async function loadStats(){try{const r=await fetch('/api/dashboard/stats');const s=await r.json();document.getElementById('stat-expired').textContent=s.maintenanceExpired;document.getElementById('stat-appointments').textContent=s.appointmentsToSchedule;document.getElementById('stat-uptodate').textContent=`${s.clientsUpToDate}/${s.totalClients}`;document.getElementById('stat-equipment').textContent=s.equipmentInstalled;}catch{}}
+// Remplacez la fonction loadStats existante par celle-ci :
+
+async function loadStats() {
+    try {
+        // 1. On récupère les stats globales (pour les clients à jour et le total équipement)
+        const r = await fetch('/api/dashboard/stats');
+        const s = await r.json();
+
+        // 2. CORRECTION : On récupère le nombre EXACT de machines pour être synchro avec les popups
+        // On lance les requêtes "Planning" en parallèle
+        const [resExpired, resWarning] = await Promise.all([
+            fetch('/api/clients/planning?status=expired'),
+            fetch('/api/clients/planning?status=warning')
+        ]);
+        
+        const jsonExpired = await resExpired.json();
+        const jsonWarning = await resWarning.json();
+        
+        // On compte les machines (lignes)
+        const countExpired = (jsonExpired.data || []).length;
+        const countWarning = (jsonWarning.data || []).length;
+
+        // 3. Mise à jour de l'affichage avec les chiffres synchronisés
+        document.getElementById('stat-expired').textContent = countExpired;       // Affiche les Machines (ex: 154)
+        document.getElementById('stat-appointments').textContent = countWarning;  // Affiche les Machines (ex: 61)
+        
+        // Le reste ne change pas
+        document.getElementById('stat-uptodate').textContent = `${s.clientsUpToDate}/${s.totalClients}`;
+        document.getElementById('stat-equipment').textContent = s.equipmentInstalled;
+
+    } catch (e) {
+        console.error("Erreur chargement stats:", e);
+    }
+}
 async function loadUpcomingAppointments(){try{const r=await fetch('/api/dashboard/upcoming-appointments');const appts=await r.json();const l=document.getElementById('appointments-list');if(appts.length===0){l.innerHTML='<div class="widget-empty"><i class="fas fa-calendar-check" style="margin-right:8px; opacity:0.5;"></i> Aucun rendez-vous.</div>';return;}l.innerHTML=appts.map(a=>`<div class="widget-item"><div style="display:flex; justify-content:space-between; align-items:flex-start;"><strong>${escapeHtml(a.cabinet_name)}</strong>${a.technician_name?`<span class="badge badge-primary" style="font-size:0.7rem; padding:0.2rem 0.5rem;">${escapeHtml(a.technician_name)}</span>`:''}</div><small><i class="fas fa-calendar"></i> ${formatDate(a.appointment_at)} ${a.phone?`&nbsp;•&nbsp; <i class="fas fa-phone" style="font-size:0.7rem;"></i> ${escapeHtml(a.phone)}`:''} &nbsp;•&nbsp; ${escapeHtml(a.city)}</small></div>`).join('');}catch{}}
 async function loadClientsToContact(){try{const r=await fetch('/api/dashboard/clients-to-contact');const clients=await r.json();const l=document.getElementById('contacts-list');if(clients.length===0){l.innerHTML='<div class="widget-empty"><i class="fas fa-check-circle" style="margin-right:8px; opacity:0.5;"></i> Aucun client à contacter.</div>';return;}l.innerHTML=clients.map(c=>`<div class="widget-item"><strong>${escapeHtml(c.cabinet_name)}</strong><small><i class="fas fa-wrench"></i> ${formatDate(c.maintenance_due_date)} ${c.phone?`&nbsp;•&nbsp; <i class="fas fa-phone" style="font-size:0.7rem;"></i> ${escapeHtml(c.phone)}`:''}</small></div>`).join('');}catch{}}
 async function loadMaintenanceMonth(){try{const t=new Date();const s=new Date(t.getFullYear(),t.getMonth(),1).toISOString().split('T')[0];const e=new Date(t.getFullYear(),t.getMonth()+1,0).toISOString().split('T')[0];const r=await fetch('/api/clients?page=1&limit=1000');const d=await r.json();const m=d.clients.filter(c=>c.maintenance_due_date>=s&&c.maintenance_due_date<=e);const l=document.getElementById('maintenance-month-list');if(m.length===0){l.innerHTML='<div class="widget-empty"><i class="fas fa-clipboard-check" style="margin-right:8px; opacity:0.5;"></i> Aucune maintenance.</div>';return;}l.innerHTML=m.map(c=>`<div class="widget-item"><strong>${escapeHtml(c.cabinet_name)}</strong><small><i class="fas fa-calendar-check"></i> ${formatDate(c.maintenance_due_date)} • ${escapeHtml(c.city)}</small></div>`).join('');}catch{}}
@@ -372,7 +414,7 @@ function updateMapMarkers(){
     });
 }
 
-// --- GESTION DES POPUPS STATISTIQUES ---
+// --- GESTION DES POPUPS STATISTIQUES (GROUPÉES) ---
 
 async function openStatPopup(type) {
     const modal = document.getElementById('stats-detail-modal');
@@ -384,40 +426,45 @@ async function openStatPopup(type) {
 
     try {
         let html = '';
+        let totalCount = 0; // Compteur global
         
         if (type === 'expired') {
-            titleEl.innerHTML = '<i class="fas fa-exclamation-circle text-danger"></i> Maintenances Expirées';
-            // On utilise l'API Planning existante
             const res = await fetch('/api/clients/planning?status=expired');
             const json = await res.json();
             const rows = json.data || [];
+            totalCount = rows.length;
             
-            if (rows.length === 0) {
+            // Mise à jour du titre avec le compteur
+            titleEl.innerHTML = `<i class="fas fa-exclamation-circle text-danger"></i> Maintenances Expirées <span class="badge badge-danger" style="font-size:0.6em; vertical-align:middle; margin-left:10px;">${totalCount}</span>`;
+            
+            if (totalCount === 0) {
                 html = '<p class="text-center">Aucune maintenance expirée.</p>';
             } else {
-                html = buildPlanningTable(rows, 'expired');
+                html = buildGroupedTable(rows, 'expired');
             }
 
         } else if (type === 'warning') {
-            titleEl.innerHTML = '<i class="fas fa-clock text-warning"></i> RDV à fixer (Bientôt)';
             const res = await fetch('/api/clients/planning?status=warning');
             const json = await res.json();
             const rows = json.data || [];
+            totalCount = rows.length;
+
+            titleEl.innerHTML = `<i class="fas fa-clock text-warning"></i> RDV à fixer (Bientôt) <span class="badge badge-warning" style="font-size:0.6em; vertical-align:middle; margin-left:10px;">${totalCount}</span>`;
             
-            if (rows.length === 0) {
+            if (totalCount === 0) {
                 html = '<p class="text-center">Aucun équipement arrivant à échéance.</p>';
             } else {
-                html = buildPlanningTable(rows, 'warning');
+                html = buildGroupedTable(rows, 'warning');
             }
 
         } else if (type === 'not_ok') {
-            titleEl.innerHTML = '<i class="fas fa-user-clock text-danger"></i> Clients non à jour';
-            
-            // On utilise la liste locale "allClients" qui est déjà chargée pour la carte
-            // On filtre ceux qui ne sont PAS 'ok' (donc 'expired' ou 'warning')
+            // Pour les clients, la logique reste la même (pas de groupement machine nécessaire ici)
             const notUpToDateClients = allClients.filter(c => c.status !== 'ok' && c.status !== 'up_to_date');
+            totalCount = notUpToDateClients.length;
+
+            titleEl.innerHTML = `<i class="fas fa-user-clock text-danger"></i> Clients non à jour <span class="badge badge-danger" style="font-size:0.6em; vertical-align:middle; margin-left:10px;">${totalCount}</span>`;
             
-            if (notUpToDateClients.length === 0) {
+            if (totalCount === 0) {
                 html = '<p class="text-center text-success"><i class="fas fa-check-circle"></i> Bravo ! Tous les clients sont à jour.</p>';
             } else {
                 html = `
@@ -455,41 +502,125 @@ async function openStatPopup(type) {
     }
 }
 
-function buildPlanningTable(rows, statusType) {
+// Fonction pour grouper les machines par client
+function buildGroupedTable(rows, statusType) {
+    // 1. Groupement des données par Client ID
+    const groups = {};
+    rows.forEach(row => {
+        if (!groups[row.client_id]) {
+            groups[row.client_id] = {
+                client_name: row.cabinet_name,
+                city: row.city,
+                client_id: row.client_id,
+                machines: []
+            };
+        }
+        groups[row.client_id].machines.push(row);
+    });
+
+    const color = statusType === 'expired' ? 'var(--color-danger)' : 'var(--color-warning)';
+
+    // 2. Construction du HTML
+    let tbodyHtml = '';
+    
+    Object.values(groups).forEach((group, index) => {
+        const count = group.machines.length;
+        const groupId = `group-${index}`;
+        
+        // Trouver la date la plus urgente pour l'affichage principal
+        const dates = group.machines.map(m => m.next_maintenance_date).sort();
+        const worstDate = dates[0]; 
+
+        if (count === 1) {
+            // CAS SIMPLE : 1 seule machine -> Affichage direct (comme avant)
+            const m = group.machines[0];
+            tbodyHtml += `
+            <tr onclick="window.location.href='/clients.html?open=${group.client_id}'" style="cursor:pointer; border-bottom:1px solid #eee;" class="group-row">
+                <td style="padding:10px;">
+                    <div style="font-weight:bold; color:#333;">${escapeHtml(group.client_name)}</div>
+                    <div style="font-size:0.85em; color:#666;">${escapeHtml(group.city)}</div>
+                </td>
+                <td style="padding:10px;">
+                    <div style="font-weight:500;">${escapeHtml(m.catalog_name)}</div>
+                    <div style="font-size:0.85em; color:#888;">${escapeHtml(m.brand)}</div>
+                </td>
+                <td style="padding:10px; font-weight:bold; color:${color};">
+                    ${formatDate(m.next_maintenance_date)}
+                </td>
+                <td style="text-align:right; padding-right:15px; color:var(--color-primary);">
+                    <i class="fas fa-external-link-alt"></i>
+                </td>
+            </tr>`;
+        } else {
+            // CAS MULTIPLE : Plusieurs machines -> Liste déroulante
+            tbodyHtml += `
+            <tr onclick="toggleGroupRow('${groupId}', this)" class="group-row" style="border-bottom:1px solid #eee;">
+                <td style="padding:10px;">
+                    <div style="font-weight:bold; color:#333;">${escapeHtml(group.client_name)}</div>
+                    <div style="font-size:0.85em; color:#666;">${escapeHtml(group.city)}</div>
+                </td>
+                <td style="padding:10px;">
+                    <span class="badge" style="background:${statusType === 'expired' ? '#fee2e2' : '#fef3c7'}; color:${statusType === 'expired' ? '#991b1b' : '#92400e'}; border:1px solid ${statusType === 'expired' ? '#fca5a5' : '#fcd34d'};">
+                        ${count} Appareils
+                    </span>
+                </td>
+                <td style="padding:10px; font-weight:bold; color:${color};">
+                    ${formatDate(worstDate)} <span style="font-size:0.8em; color:#888; font-weight:normal;">(et +)</span>
+                </td>
+                <td style="text-align:right; padding-right:15px; color:#64748b;">
+                    <i class="fas fa-chevron-down"></i>
+                </td>
+            </tr>
+            
+            <tr id="${groupId}" class="group-details">
+                <td colspan="4" style="padding:0;">
+                    <div style="padding: 5px 15px 15px 15px; border-bottom:2px solid #e2e8f0;">
+                        <table style="width:100%; font-size:0.9em;">
+                            ${group.machines.map(m => `
+                            <tr style="border-bottom:1px dashed #e2e8f0; cursor:pointer;" onclick="window.location.href='/clients.html?open=${group.client_id}'">
+                                <td style="padding:8px 0; color:#475569;">
+                                    <i class="fas fa-circle" style="font-size:6px; vertical-align:middle; margin-right:8px; color:${color}"></i>
+                                    ${escapeHtml(m.catalog_name)} <span style="color:#94a3b8;">(${escapeHtml(m.brand)})</span>
+                                </td>
+                                <td style="padding:8px 0; text-align:right; font-weight:600; color:${color};">
+                                    ${formatDate(m.next_maintenance_date)}
+                                </td>
+                                <td style="width:30px; text-align:right;">
+                                    <i class="fas fa-arrow-right" style="font-size:0.8em; color:var(--color-primary); opacity:0.5;"></i>
+                                </td>
+                            </tr>
+                            `).join('')}
+                        </table>
+                    </div>
+                </td>
+            </tr>`;
+        }
+    });
+
     return `
     <table class="erp-table" style="width:100%; border-collapse:collapse;">
         <thead style="background:#f8f9fa;">
             <tr>
-                <th style="padding:10px; text-align:left;">Client</th>
-                <th style="padding:10px; text-align:left;">Machine</th>
+                <th style="padding:10px; text-align:left; width:40%;">Client</th>
+                <th style="padding:10px; text-align:left; width:30%;">Machine / Info</th>
                 <th style="padding:10px; text-align:left;">Échéance</th>
-                <th></th>
+                <th style="width:40px;"></th>
             </tr>
         </thead>
         <tbody>
-            ${rows.map(row => `
-            <tr onclick="window.location.href='/clients.html?open=${row.client_id}'" style="cursor:pointer; border-bottom:1px solid #eee;">
-                <td style="padding:10px;">
-                    <div style="font-weight:bold; color:#333;">${escapeHtml(row.cabinet_name)}</div>
-                    <div style="font-size:0.85em; color:#666;">${escapeHtml(row.city)}</div>
-                </td>
-                <td style="padding:10px;">
-                    <div style="font-weight:500;">${escapeHtml(row.catalog_name)}</div>
-                    <div style="font-size:0.85em; color:#888;">${escapeHtml(row.brand)} ${escapeHtml(row.model || '')}</div>
-                </td>
-                <td style="padding:10px;">
-                    <span style="font-weight:bold; color:${statusType === 'expired' ? 'var(--color-danger)' : 'var(--color-warning)'}">
-                        ${formatDate(row.next_maintenance_date)}
-                    </span>
-                </td>
-                <td style="text-align:right; padding-right:10px; color:var(--color-primary);">
-                    <i class="fas fa-external-link-alt"></i>
-                </td>
-            </tr>
-            `).join('')}
+            ${tbodyHtml}
         </tbody>
     </table>`;
 }
+
+// Fonction pour ouvrir/fermer l'accordéon
+window.toggleGroupRow = function(id, element) {
+    const detailRow = document.getElementById(id);
+    if (detailRow) {
+        detailRow.classList.toggle('show');
+        element.classList.toggle('expanded');
+    }
+};
 
 window.openClientFromMap=function(id){window.location.href=`/clients.html?open=${id}`;};
 function setupMapFilters(){document.querySelectorAll('.map-filter-btn').forEach(btn=>{btn.addEventListener('click',()=>{document.querySelectorAll('.map-filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');currentFilter=btn.dataset.filter;updateMapMarkers();});});}
