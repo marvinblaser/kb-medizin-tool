@@ -207,20 +207,16 @@ router.get('/export-excel', requireAuth, (req, res) => {
     });
 });
 
-// ==========================================
-// 3. PLANNING (Refondu : Groupement par Client)
-// ==========================================
+// 3. PLANNING (Modifié : Exclut les clients ayant déjà un RDV futur)
 router.get('/planning', requireAuth, (req, res) => {
     const { 
         search, status, canton, category, 
         brand, model 
     } = req.query; 
     
-    // 1. On récupère TOUTES les machines qui ont une date de maintenance
     let where = ["ce.next_maintenance_date IS NOT NULL"];
     let params = [];
 
-    // Filtres SQL de base
     if (search) {
         where.push(`(c.cabinet_name LIKE ? OR c.city LIKE ? OR ec.brand LIKE ? OR ec.model LIKE ?)`);
         const s = `%${search}%`;
@@ -231,16 +227,19 @@ router.get('/planning', requireAuth, (req, res) => {
     if (brand) { where.push("ec.brand LIKE ?"); params.push(`%${brand}%`); }
     if (model) { where.push("ec.model LIKE ?"); params.push(`%${model}%`); }
 
-    // Note : On ne filtre pas le statut (expired/ok) en SQL strict ici pour avoir une vue d'ensemble,
-    // mais on le fera lors du groupement ou via l'interface.
-    // Cependant, pour la performance, on peut exclure ceux qui sont dans le futur lointain si aucun statut n'est demandé.
-    
+    // On récupère les machines ET on regarde s'il y a un RDV futur dans appointments_history
     const sql = `
         SELECT 
             ce.id as equipment_id, ce.next_maintenance_date, ce.last_maintenance_date, ce.serial_number, ce.location,
             c.id as client_id, c.cabinet_name, c.city, c.address, c.canton, c.phone,
             ec.name as catalog_name, ec.brand, ec.model, ec.type,
-            (julianday(ce.next_maintenance_date) - julianday('now')) as days_remaining
+            (julianday(ce.next_maintenance_date) - julianday('now')) as days_remaining,
+            (
+                SELECT count(*) 
+                FROM appointments_history ah 
+                WHERE ah.client_id = c.id 
+                AND ah.appointment_date >= date('now')
+            ) as future_appointments
         FROM client_equipment ce
         JOIN clients c ON ce.client_id = c.id
         JOIN equipment_catalog ec ON ce.equipment_id = ec.id
@@ -251,7 +250,6 @@ router.get('/planning', requireAuth, (req, res) => {
     db.all(sql, params, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
 
-        // 2. LOGIQUE D'AGRÉGATION (Transformation des données)
         const clientsMap = new Map();
 
         rows.forEach(row => {
@@ -264,8 +262,9 @@ router.get('/planning', requireAuth, (req, res) => {
                     address: row.address,
                     phone: row.phone,
                     machines: [],
-                    worst_status_score: 0, // Pour le tri : 2=Expired, 1=Warning, 0=OK
-                    earliest_date: row.next_maintenance_date // La date la plus urgente
+                    worst_status_score: 0,
+                    earliest_date: row.next_maintenance_date,
+                    has_future_rdv: row.future_appointments > 0 // Flag: RDV déjà fixé ?
                 });
             }
 
@@ -274,12 +273,18 @@ router.get('/planning', requireAuth, (req, res) => {
             // Calcul du statut de la machine
             let machineStatus = 'ok';
             if (row.days_remaining < 0) machineStatus = 'expired';
-            else if (row.days_remaining <= 60) machineStatus = 'warning'; // 60 jours avant
+            else if (row.days_remaining <= 60) machineStatus = 'warning';
 
-            // Mise à jour du score du client (on prend le pire cas)
+            // --- LOGIQUE METIER : Si RDV pris, on ignore l'alerte "Expiré" ---
             let score = 0;
             if (machineStatus === 'expired') score = 2;
             else if (machineStatus === 'warning') score = 1;
+
+            // Si un RDV est déjà fixé, le score retombe à 0 (Considéré comme traité/En attente)
+            if (client.has_future_rdv) {
+                score = 0; 
+                machineStatus = 'planned'; // Nouveau statut interne pour affichage visuel éventuel
+            }
 
             if (score > client.worst_status_score) {
                 client.worst_status_score = score;
@@ -288,7 +293,6 @@ router.get('/planning', requireAuth, (req, res) => {
                 client.earliest_date = row.next_maintenance_date;
             }
 
-            // Ajout de la machine
             client.machines.push({
                 id: row.equipment_id,
                 name: `${row.brand} ${row.catalog_name}`,
@@ -301,23 +305,17 @@ router.get('/planning', requireAuth, (req, res) => {
             });
         });
 
-        // 3. Filtrage final selon le statut demandé par le front
+        // Filtrage final
         let result = Array.from(clientsMap.values());
 
         if (status === 'expired') {
-            // Uniquement ceux qui ont au moins une machine expirée (Niveau 2)
             result = result.filter(c => c.worst_status_score === 2);
         } else if (status === 'warning') {
-            // STRICTEMENT ceux qui sont en warning (Niveau 1)
-            // On exclut ceux qui sont déjà rouges (niveau 2) car ils apparaissent déjà dans le filtre "Expiré"
             result = result.filter(c => c.worst_status_score === 1);
         } else if (status === 'ok') {
-            // STRICTEMENT ceux qui n'ont aucun problème (Niveau 0)
             result = result.filter(c => c.worst_status_score === 0);
         }
 
-        // Tri final : Les plus urgents en haut
-        // (D'abord par score d'urgence, puis par date la plus proche)
         result.sort((a, b) => {
             if (b.worst_status_score !== a.worst_status_score) {
                 return b.worst_status_score - a.worst_status_score;

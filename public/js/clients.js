@@ -171,21 +171,17 @@ function renderPlanning(list) {
     const tbody = document.getElementById('planning-tbody');
     tbody.innerHTML = '';
 
-    // 1. Récupération des données (format envoyé par le nouveau Backend)
     const data = Array.isArray(list) ? list : (list.data || []);
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--neutral-400);">Aucune maintenance prévue selon ces critères.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--neutral-400);">Aucune maintenance à prévoir selon ces critères.</td></tr>`;
         return;
     }
 
-    // 2. Génération des lignes (Client + Accordéon)
     data.forEach(client => {
-        // A. Déterminer le statut global du client (Couleur de la ligne)
         let statusClass = 'row-ok';
         let statusIcon = '<i class="fas fa-check-circle" style="color:var(--color-success)"></i>';
         
-        // worst_status_score vient du backend : 2=Expired, 1=Warning, 0=OK
         if (client.worst_status_score === 2) { 
             statusClass = 'row-expired';
             statusIcon = '<i class="fas fa-exclamation-circle" style="color:var(--color-danger)"></i>';
@@ -194,16 +190,25 @@ function renderPlanning(list) {
             statusIcon = '<i class="fas fa-clock" style="color:var(--color-warning)"></i>';
         }
 
-        // B. Résumé textuel du parc
+        // Si le client est "Vert" mais qu'il a un RDV prévu, on peut mettre une icône spéciale
+        if (client.has_future_rdv && client.worst_status_score === 0) {
+             statusIcon = '<i class="fas fa-calendar-check" style="color:var(--color-primary)" title="RDV déjà fixé"></i>';
+        }
+
         const countTotal = client.machines.length;
         const countExpired = client.machines.filter(m => m.status === 'expired').length;
-        const countWarning = client.machines.filter(m => m.status === 'warning').length;
         
         let summaryHTML = `<strong>${countTotal} Appareils</strong>`;
         if (countExpired > 0) summaryHTML += ` <span style="color:var(--color-danger); font-size:0.85em; font-weight:600;">• ${countExpired} à faire</span>`;
-        if (countWarning > 0) summaryHTML += ` <span style="color:var(--color-warning); font-size:0.85em; font-weight:600;">• ${countWarning} bientôt</span>`;
 
-        // --- CRÉATION DE LA LIGNE PRINCIPALE (CLIENT) ---
+        // BOUTON ACTION RAPIDE : RDV FIXÉ
+        // On ne l'affiche que si le client n'a pas déjà de RDV futur
+        const actionButton = !client.has_future_rdv 
+            ? `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); quickSchedule(${client.client_id}, '${escapeHtml(client.cabinet_name)}')" title="Déclarer un RDV pris">
+                 <i class="fas fa-calendar-plus"></i> RDV Fixé
+               </button>`
+            : `<span style="font-size:0.8rem; color:var(--color-primary); font-weight:600;"><i class="fas fa-check"></i> Planifié</span>`;
+
         const tr = document.createElement('tr');
         tr.className = `planning-row ${statusClass}`;
         tr.style.cursor = 'pointer';
@@ -222,18 +227,20 @@ function renderPlanning(list) {
                 ${formatDate(client.earliest_date)}
             </td>
             <td style="text-align:right;">
-                <button class="btn-icon-sm btn-icon-secondary btn-toggle-details">
-                    <i class="fas fa-chevron-down"></i>
-                </button>
+                <div style="display:flex; justify-content:flex-end; gap:10px; align-items:center;">
+                    ${actionButton}
+                    <button class="btn-icon-sm btn-icon-secondary btn-toggle-details">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
             </td>
         `;
 
-        // --- CRÉATION DE LA LIGNE DE DÉTAILS (CACHÉE) ---
+        // ... (La partie "trDetails" reste identique à votre fichier actuel) ...
         const trDetails = document.createElement('tr');
         trDetails.className = 'details-row hidden';
         trDetails.style.backgroundColor = '#f8fafc'; 
         
-        // Construction de la liste des machines (Sous-tableau)
         let machinesHTML = client.machines.map(m => {
             let color = 'var(--color-success)';
             let icon = 'fa-check';
@@ -243,6 +250,8 @@ function renderPlanning(list) {
                 color = 'var(--color-danger)'; icon = 'fa-exclamation-triangle'; txtColor = 'var(--color-danger)';
             } else if (m.status === 'warning') { 
                 color = 'var(--color-warning)'; icon = 'fa-clock'; txtColor = '#d97706';
+            } else if (m.status === 'planned') {
+                color = 'var(--color-primary)'; icon = 'fa-calendar-check'; txtColor = 'var(--color-primary)'; // Visuel pour le statut planifié
             }
             
             return `
@@ -264,7 +273,7 @@ function renderPlanning(list) {
                         </div>
                         <button class="btn-icon-sm btn-icon-primary" 
                                 onclick="event.stopPropagation(); window.location.href='/reports.html?action=create&client=${client.client_id}&eq=${m.id}'" 
-                                title="Créer rapport pour cette machine">
+                                title="Créer rapport">
                             <i class="fas fa-file-signature"></i>
                         </button>
                     </div>
@@ -276,36 +285,21 @@ function renderPlanning(list) {
             <td colspan="6" style="padding: 0;">
                 <div class="details-container" style="padding: 1rem 2rem 1.5rem 2rem; border-left: 4px solid var(--neutral-300);">
                     <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                        <h4 style="margin:0; font-size:0.8rem; text-transform:uppercase; color:#94a3b8; font-weight:700; letter-spacing:0.05em;">
-                            Détail du parc machine
-                        </h4>
-                        <button class="btn btn-sm btn-secondary" onclick="openClientDetails(${client.client_id})">
-                            <i class="fas fa-external-link-alt"></i> Voir fiche complète
-                        </button>
+                        <h4 style="margin:0; font-size:0.8rem; text-transform:uppercase; color:#94a3b8; font-weight:700; letter-spacing:0.05em;">Détail du parc machine</h4>
+                        <button class="btn btn-sm btn-secondary" onclick="openClientDetails(${client.client_id})"><i class="fas fa-external-link-alt"></i> Voir fiche complète</button>
                     </div>
                     ${machinesHTML}
                 </div>
             </td>
         `;
 
-        // --- INTERACTION ---
-        // Clic sur la ligne = Ouvrir/Fermer
         tr.addEventListener('click', (e) => {
-            // Si on clique sur un bouton ou un lien dans la ligne principale, on ne déclenche pas l'accordéon
             if (e.target.closest('button') && !e.target.classList.contains('btn-toggle-details')) return;
-            
             trDetails.classList.toggle('hidden');
-            
-            // Animation de l'icône chevron
             const icon = tr.querySelector('.fa-chevron-down') || tr.querySelector('.fa-chevron-up');
             if(icon) {
-                if (trDetails.classList.contains('hidden')) {
-                    icon.classList.remove('fa-chevron-up');
-                    icon.classList.add('fa-chevron-down');
-                } else {
-                    icon.classList.remove('fa-chevron-down');
-                    icon.classList.add('fa-chevron-up');
-                }
+                if (trDetails.classList.contains('hidden')) { icon.classList.remove('fa-chevron-up'); icon.classList.add('fa-chevron-down'); } 
+                else { icon.classList.remove('fa-chevron-down'); icon.classList.add('fa-chevron-up'); }
             }
         });
 
@@ -313,6 +307,44 @@ function renderPlanning(list) {
         tbody.appendChild(trDetails);
     });
 }
+
+// Fonction pour l'action rapide (à ajouter à la fin du fichier clients.js)
+async function quickSchedule(clientId, clientName) {
+    // Demander la date via un prompt simple (ou une modale plus complexe si tu préfères plus tard)
+    // Pour l'instant, faisons simple et efficace : date par défaut = demain
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = tomorrow.toISOString().split('T')[0];
+
+    const inputDate = prompt(`Date du RDV pour ${clientName} ? (AAAA-MM-JJ)`, dateStr);
+    
+    if (inputDate) {
+        try {
+            const res = await fetch(`/api/clients/${clientId}/appointments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    appointment_date: inputDate,
+                    task_description: "Maintenance annuelle (RDV Pris via Planning)",
+                    technician_id: currentUser?.id || null // Assigne à l'utilisateur courant par défaut
+                })
+            });
+
+            if (res.ok) {
+                showNotification(`RDV fixé au ${inputDate}`, 'success');
+                loadData(); // Rechargera la liste et fera disparaitre le client de "Expiré"
+            } else {
+                showNotification("Erreur lors de la création du RDV", 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            showNotification("Erreur réseau", 'error');
+        }
+    }
+}
+
+// Exposer la fonction
+window.quickSchedule = quickSchedule;
 
 async function openClientDetails(id) {
     currentClientId = id;
