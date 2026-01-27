@@ -5,7 +5,7 @@
   "main": "server/server.js",
   "scripts": {
     "init": "node server/seed.js",
-    "start": "node server/server.js",
+    "start": "nodemon server/server.js --ignore *.db --ignore *.sqlite",
     "dev": "node --watch server/server.js"
   },
   "keywords": [

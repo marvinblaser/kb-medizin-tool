@@ -7,6 +7,7 @@ const TRAVEL_ZONES = {
   125: ["SH", "ZH", "BE", "LU", "NE", "FR", "ZG", "UR", "OW", "NW", "SZ"],
   200: ["GE", "VD", "VS", "TI", "GR", "SG", "GL", "TG", "AI", "AR"],
 };
+const HOURLY_RATE = 160; // Tarif horaire en CHF (Modifiez cette valeur selon vos tarifs)
 let currentPage = 1;
 let currentStatusFilter = "draft";
 let currentUser = null;
@@ -725,19 +726,15 @@ function getFormData() {
   data.technicians = Array.from(
     document.querySelectorAll("#technicians-list .form-row")
   )
-    .map((r) => {
-        const rawId = r.querySelector(".technician-select").value;
-        const techId = parseInt(rawId);
-        
-        return {
-            technician_id: isNaN(techId) ? null : techId,
-            technician_name: r.querySelector(".technician-select").selectedOptions[0]?.text,
-            work_date: r.querySelector(".tech-date").value,
-            hours_normal: parseFloat(r.querySelector(".tech-hours-normal").value) || 0,
-            hours_extra: parseFloat(r.querySelector(".tech-hours-extra").value) || 0,
-        };
-    })
-    // On supprime la ligne si l'ID du technicien n'est pas valide
+    .map((r) => ({
+      technician_id: r.querySelector(".technician-select").value || null,
+      technician_name: r.querySelector(".technician-select").selectedOptions[0]?.text,
+      work_date: r.querySelector(".tech-date").value,
+      hours_normal: parseFloat(r.querySelector(".tech-hours-normal").value) || 0,
+      hours_extra: parseFloat(r.querySelector(".tech-hours-extra").value) || 0,
+      // NOUVEAU : On récupère l'état coché
+      included: r.querySelector(".tech-included").checked
+    }))
     .filter((t) => t.technician_id !== null && t.technician_id !== 0);
 
   const prefixSTK = "Test de sécurité électrique obligatoire i.O - ";
@@ -822,11 +819,19 @@ async function fillReportForm(report) {
   
   if (report.client_id) await loadClientEquipmentForReport(report.client_id);
   
-  if (report.equipment_ids)
-    report.equipment_ids.forEach((id) => {
-      const cb = document.getElementById(`rep-eq-${id}`);
-      if (cb) cb.checked = true;
+  if (report.equipment_ids) {
+    // On convertit les IDs reçus en texte pour la comparaison
+    const idsToCheck = report.equipment_ids.map(id => String(id));
+    
+    // On parcourt toutes les cases présentes dans le formulaire
+    document.querySelectorAll('.eq-cb').forEach(cb => {
+        if (idsToCheck.includes(String(cb.value))) {
+            cb.checked = true;
+        }
     });
+    // On met à jour le texte du résumé
+    updateInstallationText();
+  }
     
   if (report.technicians)
     report.technicians.forEach((t) => addTechnicianRow(t));
@@ -841,6 +846,7 @@ async function fillReportForm(report) {
   
   // On met à jour le titre avec la nouvelle logique
   updateReportTitleHeader();
+  calculateTotal();
 }
 
 // Utilitaires de base
@@ -887,25 +893,38 @@ function addTechnicianRow(data = null) {
   const container = document.getElementById("technicians-list");
   const div = document.createElement("div");
   div.className = "form-row";
-  div.style.cssText =
-    "display:flex; gap:10px; margin-bottom:10px; align-items:flex-end; background:#fff; padding:8px; border:1px solid var(--border-color); border-radius:6px;";
-  div.innerHTML = `<div class="form-group" style="flex:1; margin-bottom:0;"><label>Nom</label><select class="technician-select"><option value="">--</option>${technicians
-    .map(
-      (t) =>
-        `<option value="${t.id}" ${
-          data && data.technician_id == t.id ? "selected" : ""
-        }>${escapeHtml(t.name)}</option>`
-    )
-    .join(
-      ""
-    )}</select></div><div class="form-group" style="width:140px; margin-bottom:0;"><label>Date</label><input type="date" class="tech-date" value="${
-    data ? data.work_date : new Date().toISOString().split("T")[0]
-  }" /></div><div class="form-group" style="width:70px; margin-bottom:0;"><label>Norm.</label><input type="number" class="tech-hours-normal" step="0.5" value="${
-    data ? data.hours_normal : 0
-  }" /></div><div class="form-group" style="width:70px; margin-bottom:0;"><label>Sup.</label><input type="number" class="tech-hours-extra" step="0.5" value="${
-    data ? data.hours_extra : 0
-  }" /></div><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" style="height:38px; width:38px;"><i class="fas fa-times"></i></button>`;
+  div.style.cssText = "display:flex; gap:10px; margin-bottom:10px; align-items:flex-end; background:#fff; padding:8px; border:1px solid var(--border-color); border-radius:6px;";
+  
+  const isChecked = data && data.included ? "checked" : "";
+
+  div.innerHTML = `
+  <div class="form-group" style="flex:1; margin-bottom:0;"><label>Nom</label>
+    <select class="technician-select"><option value="">--</option>${technicians.map(t => `<option value="${t.id}" ${data && data.technician_id == t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}</select>
+  </div>
+  <div class="form-group" style="width:140px; margin-bottom:0;"><label>Date</label>
+    <input type="date" class="tech-date" value="${data ? data.work_date : new Date().toISOString().split("T")[0]}" />
+  </div>
+  <div class="form-group" style="width:70px; margin-bottom:0;"><label>Norm.</label>
+    <input type="number" class="tech-hours-normal" step="0.5" value="${data ? data.hours_normal : 0}" />
+  </div>
+  <div class="form-group" style="width:70px; margin-bottom:0;"><label>Sup.</label>
+    <input type="number" class="tech-hours-extra" step="0.5" value="${data ? data.hours_extra : 0}" />
+  </div>
+  <div class="form-group" style="width:50px; margin-bottom:0; text-align:center;">
+    <label style="font-size:0.8em;">Incl.</label>
+    <input type="checkbox" class="tech-included" style="margin-top:5px;" ${isChecked}>
+  </div>
+  <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" style="height:38px; width:38px;"><i class="fas fa-times"></i></button>`;
+  // AJOUTER CECI pour écouter les changements :
+  const inputs = div.querySelectorAll('input');
+  inputs.forEach(input => {
+      input.addEventListener('change', calculateTotal);
+      input.addEventListener('input', calculateTotal);
+  });
+
   container.appendChild(div);
+  // Pour recalculer immédiatement si on charge des données existantes
+  setTimeout(calculateTotal, 100);
 }
 
 function addWorkRow(text = "") {
@@ -1005,6 +1024,7 @@ function updateMaterialsTotal() {
     .querySelectorAll(".material-total")
     .forEach((i) => (total += parseFloat(i.value) || 0));
   document.getElementById("materials-total").innerText = total.toFixed(2);
+  calculateTotal();
 }
 async function loadClientEquipmentForReport(clientId) {
   try {
@@ -1062,6 +1082,7 @@ function updateTravelCost() {
     inp.readOnly = false;
     inp.style.backgroundColor = "";
   }
+  calculateTotal();
 }
 function resetDynamicLists() {
   document.getElementById("technicians-list").innerHTML = "";
@@ -1130,4 +1151,47 @@ function updateReportTitleHeader() {
     else titleElement.innerHTML = `<i class="fas fa-file-alt"></i> ${typeText}`;
   } else
     titleElement.innerHTML = `<i class="fas fa-plus-circle"></i> ${typeText}`;
+}
+
+// --- CALCUL DU TOTAL GLOBAL ---
+function calculateTotal() {
+    let total = 0;
+
+    // 1. Matériel (On récupère le total déjà calculé)
+    document.querySelectorAll('.material-total').forEach(input => {
+        total += parseFloat(input.value) || 0;
+    });
+
+    // 2. Tests STK (Si non inclus)
+    document.querySelectorAll('#stk-tests-list .form-row').forEach(row => {
+        const price = parseFloat(row.querySelector('.stk-price').value) || 0;
+        const included = row.querySelector('.stk-incl').checked;
+        if (!included) total += price;
+    });
+    
+    // 3. Main d'œuvre (Si non inclus)
+    let laborCost = 0;
+    document.querySelectorAll('#technicians-list .form-row').forEach(row => {
+        const hNorm = parseFloat(row.querySelector('.tech-hours-normal').value) || 0;
+        const hExtra = parseFloat(row.querySelector('.tech-hours-extra').value) || 0;
+        const included = row.querySelector('.tech-included').checked;
+        
+        if (!included) {
+            // Ici on compte tout au tarif normal. Modifiez si les heures sup sont majorées.
+            laborCost += (hNorm + hExtra) * HOURLY_RATE;
+        }
+    });
+
+    // 4. Déplacement (Si non inclus)
+    const travelCost = parseFloat(document.getElementById('travel-costs').value) || 0;
+    const travelIncluded = document.getElementById('travel-incl').checked;
+    
+    if (!travelIncluded) total += travelCost;
+
+    total += laborCost;
+
+    // Affichage (Assurez-vous d'avoir un élément <span id="total-price">0.00</span> dans votre HTML, sinon console.log)
+    const totalEl = document.getElementById('total-price');
+    if(totalEl) totalEl.textContent = total.toFixed(2);
+    else console.log("Total calculé : " + total.toFixed(2));
 }

@@ -1,5 +1,8 @@
 // public/js/report-view.js
 
+// CONFIGURATION
+const HOURLY_RATE = 160; // Tarif horaire pour le calcul
+
 // --- DICTIONNAIRE DE TRADUCTION ---
 const TRANSLATIONS = {
     fr: {
@@ -26,7 +29,7 @@ const TRANSLATIONS = {
         sig_client: "Signature du client :",
         date: "Date :",
         
-        // Types de travaux (Titres Singles)
+        // Types de travaux
         "Mise en marche": "Rapport de<br>Mise en marche",
         "Réparation": "Rapport de<br>Réparation",
         "Réparation / Garantie": "Rapport de<br>Réparation / Garantie",
@@ -93,19 +96,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(params.get('id')) await loadReport(params.get('id'));
 });
 
-// --- GESTION CLICK CHECKBOX (MULTI-COMPATIBLE) ---
+// --- GESTION CLICK CHECKBOX ---
 function toggleCb(element) {
     const box = element.querySelector('.cb-box');
     box.classList.toggle('checked');
 
-    // On scanne toutes les cases cochées pour reconstruire la liste
     const allCheckedIds = Array.from(document.querySelectorAll('.cb-box.checked'))
                                .map(el => el.id.replace('cb-', ''));
     
-    // On met à jour la variable globale (ex: "Maintenance, Réparation")
     currentWorkType = allCheckedIds.join(', ');
-    
-    // On met à jour le titre
     updateTitleFromList(allCheckedIds);
 }
 
@@ -114,13 +113,10 @@ function updateTitleFromList(typesList) {
     if (!titleEl) return;
     const dict = TRANSLATIONS[currentLanguage];
 
-    // Cas 1 : Aucun choix
     if (typesList.length === 0) {
-        titleEl.innerHTML = dict.title_main; // Titre par défaut
+        titleEl.innerHTML = dict.title_main;
         return;
     }
-
-    // Cas 2 : Un seul choix (On utilise la belle traduction officielle)
     if (typesList.length === 1) {
         const singleType = typesList[0];
         if (dict[singleType]) {
@@ -128,13 +124,9 @@ function updateTitleFromList(typesList) {
             return;
         }
     }
-
-    // Cas 3 : Choix multiples (On génère un titre combiné)
     const prefix = currentLanguage === 'de' ? 'Bericht: ' : 'Rapport : ';
-    // On essaie de traduire chaque terme si possible pour l'affichage (optionnel, ici on garde le FR technique)
     titleEl.innerHTML = prefix + typesList.join(' + ');
 }
-
 
 // --- CHARGEMENT DU RAPPORT ---
 async function loadReport(id) {
@@ -149,21 +141,14 @@ async function loadReport(id) {
         // 2. Initialisation Données
         currentWorkType = data.work_type || "";
         
-        // --- FIX : GESTION DES CASES À COCHER MULTIPLES ---
         if(data.work_type) {
-            // On sépare par la virgule : "Type A, Type B" -> ["Type A", "Type B"]
             const types = data.work_type.split(',').map(s => s.trim());
-            
-            // On coche chaque case correspondante
             types.forEach(type => {
                 const el = document.getElementById(`cb-${type}`);
                 if(el) el.classList.add('checked');
             });
-            
-            // On met à jour le titre en fonction de cette liste
             updateTitleFromList(types);
         }
-        // --------------------------------------------------
 
         setText('cabinet-name', data.cabinet_name);
         setText('client-address', data.address);
@@ -178,7 +163,6 @@ async function loadReport(id) {
         if(data.technician_signature_date) setText('sig-date-tech', formatDate(data.technician_signature_date));
         if(data.technicians?.[0]) setText('sig-tech', getInitials(data.technicians[0].technician_name));
 
-        // 4. Traduction des labels des checkboxes (Seulement si DE)
         if (currentLanguage === 'de') {
             document.querySelectorAll('.cb-label-text').forEach(el => {
                 const originalFr = el.getAttribute('data-fr');
@@ -189,41 +173,96 @@ async function loadReport(id) {
         // --- Tableau Techniciens ---
         const techTbody = document.getElementById('tech-rows');
         let tNorm=0, tSup=0;
+        let totalLaborCost = 0; // Ce qui est facturé (si non inclus)
+        let totalTheoreticalValue = 0; // La valeur totale du travail (inclus ou non)
+
         (data.technicians||[]).forEach(t => {
             const tr = document.createElement('tr');
             let dayIdx = t.work_date ? new Date(t.work_date).getDay() : -1; 
             const daysMap = [1,2,3,4,5,6,0]; 
             const cells = daysMap.map(d => `<td style="font-weight:${d===dayIdx?'bold':'normal'}">${d===dayIdx?'X':''}</td>`).join('');
             
-            tr.innerHTML = `<td style="text-align:left;">${t.technician_name}</td>${cells}<td class="col-align-right">${fmt(t.hours_normal)}</td><td class="col-align-right">${fmt(t.hours_extra)}</td><td></td><td></td>`;
+            // Logique Inclus / Non Inclus
+            const isIncluded = (t.included === 1 || t.included === true || t.included === "true");
+            
+            // Calculs
+            const hNorm = t.hours_normal || 0;
+            const hExtra = t.hours_extra || 0;
+            const rowValue = (hNorm + hExtra) * HOURLY_RATE;
+            
+            totalTheoreticalValue += rowValue; // On ajoute toujours à la valeur théorique
+            
+            if (!isIncluded) {
+                totalLaborCost += rowValue; // On ajoute au coût facturé seulement si non inclus
+            }
+
+            // Affichage de (Incl.) dans le tableau
+            const inclLabel = isIncluded 
+                ? `<br><span style="font-size:0.7em; font-style:italic;">(${TRANSLATIONS[currentLanguage].travel_included})</span>` 
+                : '';
+
+            tr.innerHTML = `
+                <td style="text-align:left;">${t.technician_name}</td>
+                ${cells}
+                <td class="col-align-right">${fmt(t.hours_normal)}${inclLabel}</td>
+                <td class="col-align-right">${fmt(t.hours_extra)}${inclLabel}</td>
+                <td></td><td></td>`;
+            
             techTbody.appendChild(tr);
+            
             tNorm += t.hours_normal||0;
             tSup += t.hours_extra||0;
         });
+
+        // --- CORRECTION DU TOTAL (Logique 160.00 | 160.00 ou 160.00 | Incl.) ---
         document.getElementById('total-norm').innerText = fmt(tNorm);
         document.getElementById('total-sup').innerText = fmt(tSup);
 
-        // --- GRID ---
+        const laborPriceEl = document.getElementById('total-labor-price'); // Colonne 1 (Valeur)
+        const laborInfoEl = document.getElementById('total-labor-info');   // Colonne 2 (Facturé/Info)
+
+        if (laborPriceEl && laborInfoEl) {
+            laborPriceEl.innerText = "";
+            laborInfoEl.innerText = "";
+
+            if (totalTheoreticalValue > 0) {
+                // Colonne 1 : On affiche TOUJOURS la valeur du travail (Ex: 160.00)
+                laborPriceEl.innerText = fmt(totalTheoreticalValue);
+                
+                // Colonne 2 :
+                if (totalLaborCost > 0) {
+                    // Si facturé : On affiche le montant facturé (Ex: 160.00)
+                    laborInfoEl.innerText = fmt(totalLaborCost);
+                } else {
+                    // Si tout est inclus (Coût facturé = 0) : On affiche "Incl."
+                    laborInfoEl.innerText = TRANSLATIONS[currentLanguage].travel_included;
+                }
+            }
+        }
+        // --------------------------------------------------------
+
+        // --- GRID PRINCIPAL ---
         const grid = document.getElementById('main-grid-body');
         grid.innerHTML = '';
         grid.innerHTML += emptyRowWithLines();
 
-        // Travaux
+        // 1. Travaux
         grid.innerHTML += sectionHeaderRow(TRANSLATIONS[currentLanguage].section_work);
         const lines = (data.work_accomplished||'').split('\n');
         while(lines.length < 3) lines.push(''); 
         lines.forEach(line => grid.innerHTML += textOnlyRow(line));
 
-        // STK
+        // 2. STK
         if(data.stk_tests && data.stk_tests.length > 0) {
             grid.innerHTML += emptyRowWithLines();
             data.stk_tests.forEach(t => {
-                const showTotal = t.included ? TRANSLATIONS[currentLanguage].travel_included : fmt(t.price);
+                const isInc = (t.included === 1 || t.included === true || t.included === "true");
+                const showTotal = isInc ? TRANSLATIONS[currentLanguage].travel_included : fmt(t.price);
                 grid.innerHTML += mergedDataRow(t.test_name, fmt(t.price), showTotal);
             });
         }
 
-        // Matériel
+        // 3. Matériel
         grid.innerHTML += emptyRowWithLines();
         grid.innerHTML += sectionHeaderRow(TRANSLATIONS[currentLanguage].section_material);
         
@@ -240,10 +279,11 @@ async function loadReport(id) {
              grid.innerHTML += fullRow('', '', '', '', '');
         }
 
-        // Frais
+        // 4. Frais de déplacement
         grid.innerHTML += emptyRowWithLines();
         let travelDisplay = fmt(data.travel_costs);
-        if(data.travel_included) travelDisplay = TRANSLATIONS[currentLanguage].travel_included;
+        const travelInc = (data.travel_included === 1 || data.travel_included === true || data.travel_included === "true");
+        if(travelInc) travelDisplay = TRANSLATIONS[currentLanguage].travel_included;
         
         const travelLabel = TRANSLATIONS[currentLanguage].travel_costs;
         const travelText = `<b>${travelLabel}</b> <span style="margin-left:10px;">${data.travel_location||''}</span>`;
@@ -254,11 +294,18 @@ async function loadReport(id) {
                 <td class="col-total col-align-right">${travelDisplay}</td>
             </tr>`;
 
-        // Total
+        // --- TOTAL GÉNÉRAL ---
         let grandTotal = 0;
-        grandTotal += data.travel_included ? 0 : (data.travel_costs||0);
-        (data.stk_tests||[]).forEach(t => { if(!t.included) grandTotal += t.price; });
+        grandTotal += totalLaborCost; // On ajoute seulement ce qui est facturé
+        grandTotal += travelInc ? 0 : (data.travel_costs||0);
+        
+        (data.stk_tests||[]).forEach(t => { 
+            const isInc = (t.included === 1 || t.included === true || t.included === "true");
+            if(!isInc) grandTotal += t.price; 
+        });
+        
         (data.materials||[]).forEach(m => { grandTotal += m.total_price; });
+        
         document.getElementById('grand-total').innerText = fmt(grandTotal);
 
     } catch(e) { console.error(e); }
@@ -280,7 +327,7 @@ async function saveReport() {
     if(!id) return alert("Erreur ID");
 
     const updatedData = {
-        work_type: currentWorkType, // Envoie la chaîne combinée
+        work_type: currentWorkType,
         installation: document.getElementById('installation').innerText,
         remarks: document.getElementById('remarks').innerText,
     };
@@ -298,9 +345,9 @@ async function saveReport() {
 
 // --- HELPERS ---
 function fullRow(qty, code, desc, price, total) { return `<tr><td class="txt-center">${qty||''}</td><td class="txt-center">${code||''}</td><td>${desc||''}</td><td class="col-price col-align-right">${price||''}</td><td class="col-total col-align-right">${total||''}</td></tr>`; }
-function textOnlyRow(text) { return `<tr><td colspan="3" style="border-right:1px solid #000;">${text||''}</td><td style="border-right:1px solid #000;"></td><td></td></tr>`; }
-function mergedDataRow(text, price, total) { return `<tr><td colspan="3" style="border-right:1px solid #000;">${text||''}</td><td class="col-price col-align-right" style="border-right:1px solid #000;">${price||''}</td><td class="col-total col-align-right">${total||''}</td></tr>`; }
-function sectionHeaderRow(title) { return `<tr><td colspan="3" class="section-header" style="border-right:1px solid #000;">${title}</td><td style="border-right:1px solid #000;"></td><td></td></tr>`; }
+function textOnlyRow(text) { return `<tr><td colspan="3" style=\"border-right:1px solid #000;\">${text||''}</td><td style=\"border-right:1px solid #000;\"></td><td></td></tr>`; }
+function mergedDataRow(text, price, total) { return `<tr><td colspan="3" style=\"border-right:1px solid #000;\">${text||''}</td><td class="col-price col-align-right" style=\"border-right:1px solid #000;\">${price||''}</td><td class="col-total col-align-right">${total||''}</td></tr>`; }
+function sectionHeaderRow(title) { return `<tr><td colspan="3" class="section-header" style=\"border-right:1px solid #000;\">${title}</td><td style=\"border-right:1px solid #000;\"></td><td></td></tr>`; }
 function emptyRowWithLines() { return `<tr><td colspan="3" style="height:15px; border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td></td></tr>`; }
 function setText(id, txt) { const e = document.getElementById(id); if(e) e.innerText = txt||''; }
 function fmt(num) { if (num === undefined || num === null || num === '') return ''; return parseFloat(num).toFixed(2); }
