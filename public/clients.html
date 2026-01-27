@@ -244,6 +244,55 @@
 /* Animation simple pour l'accordéon */
 .details-row.hidden { display: none; }
 .details-row td { border-top: none !important; box-shadow: inset 0 6px 6px -6px rgba(0,0,0,0.1); }
+
+/* --- FIX SLIMSELECT (VERSION PROPRE) --- */
+
+/* 1. La barre fermée (dans la toolbar) */
+.toolbar-filters-section .ss-main {
+    background-color: white !important;
+    border: 1px solid var(--border-color) !important;
+    height: 38px !important;
+    width: 160px !important; /* Largeur fixe */
+    border-radius: 6px !important;
+    padding: 0 10px !important;
+    box-shadow: none !important;
+    color: var(--neutral-700) !important;
+    display: flex !important;
+}
+
+/* 2. Le texte à l'intérieur */
+.ss-single {
+    margin: 0 !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+}
+
+/* 3. Le Menu Déroulant (Flottant) */
+.ss-content {
+    width: 220px !important; /* Un peu plus large pour lire */
+    z-index: 10000 !important; /* Passe DEVANT le tableau */
+    border: 1px solid var(--border-color) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    margin-top: 4px !important;
+}
+
+/* 4. Les Options */
+.ss-list .ss-option {
+    padding: 8px 15px !important;
+    font-size: 0.85rem !important;
+    color: var(--neutral-800) !important; /* Texte bien noir */
+    cursor: pointer !important;
+}
+
+.ss-list .ss-option:hover {
+    background-color: var(--neutral-50) !important;
+    color: var(--color-primary) !important;
+}
+
+/* 5. Masquer la recherche (Sécurité supplémentaire) */
+.ss-search {
+    display: none !important;
+}
   </style>
 </head>
 <body>
@@ -308,20 +357,47 @@
             <div style="flex: 1;"></div> 
             
             <div class="toolbar-filters-section">
-                <select id="filter-canton" class="minimal-select">
-                    <option value="">Canton (Tous)</option>
-                    <option value="VD">Vaud</option><option value="GE">Genève</option><option value="VS">Valais</option><option value="NE">Neuchâtel</option><option value="FR">Fribourg</option><option value="JU">Jura</option><option value="BE">Berne</option><option value="ZH">Zurich</option>
-                </select>
-                
-                <select id="filter-sector" class="minimal-select">
-                    <option value="">Secteur (Tous)</option>
-                    <option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option>
-                </select>
+    <select id="filter-canton">
+        <option value="">Canton (Tous)</option>
+        <option value="AG">Argovie (AG)</option>
+        <option value="AI">Appenzell Rh.-Int. (AI)</option>
+        <option value="AR">Appenzell Rh.-Ext. (AR)</option>
+        <option value="BE">Berne (BE)</option>
+        <option value="BL">Bâle-Campagne (BL)</option>
+        <option value="BS">Bâle-Ville (BS)</option>
+        <option value="FR">Fribourg (FR)</option>
+        <option value="GE">Genève (GE)</option>
+        <option value="GL">Glaris (GL)</option>
+        <option value="GR">Grisons (GR)</option>
+        <option value="JU">Jura (JU)</option>
+        <option value="LU">Lucerne (LU)</option>
+        <option value="NE">Neuchâtel (NE)</option>
+        <option value="NW">Nidwald (NW)</option>
+        <option value="OW">Obwald (OW)</option>
+        <option value="SG">Saint-Gall (SG)</option>
+        <option value="SH">Schaffhouse (SH)</option>
+        <option value="SO">Soleure (SO)</option>
+        <option value="SZ">Schwytz (SZ)</option>
+        <option value="TG">Thurgovie (TG)</option>
+        <option value="TI">Tessin (TI)</option>
+        <option value="UR">Uri (UR)</option>
+        <option value="VD">Vaud (VD)</option>
+        <option value="VS">Valais (VS)</option>
+        <option value="ZG">Zoug (ZG)</option>
+        <option value="ZH">Zurich (ZH)</option>
+    </select>
+    
+    <select id="filter-sector">
+        <option value="">Secteur (Tous)</option>
+        <option value="ORL">ORL</option>
+        <option value="Gynécologie">Gynécologie</option>
+        <option value="Stérilisation">Stérilisation</option>
+    </select>
 
-                <button class="btn-icon-simple" id="toggle-advanced-filters" title="Filtres avancés">
-                    <i class="fas fa-sliders-h"></i>
-                </button>
-            </div>
+    <button class="btn-icon-simple" id="toggle-advanced-filters" title="Filtres avancés">
+        <i class="fas fa-sliders-h"></i>
+    </button>
+</div>
         </div>
 
         <div id="advanced-filters-panel" class="filters-panel hidden">
@@ -526,6 +602,7 @@
   <div class="modal" id="delete-modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h2 class="text-danger">Confirmer</h2><button class="modal-close" onclick="closeDeleteModal()">&times;</button></div><div class="modal-body"><p>Voulez-vous vraiment supprimer cet élément définitivement ?</p></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeDeleteModal()">Non</button><button class="btn btn-danger" id="confirm-delete-btn">Oui, supprimer</button></div></div></div>
   
   <div id="notification-container"></div>
+  <script src="https://unpkg.com/slim-select@2.8.2/dist/slimselect.min.js"></script>
 <script type="module" src="/js/init-selects.js"></script>
 <script src="/js/loader.js"></script>
   <script src="/js/clients.js"></script>

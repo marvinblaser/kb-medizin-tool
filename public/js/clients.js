@@ -81,6 +81,40 @@ document.addEventListener('DOMContentLoaded', async () => {
             e.target.value = ''; 
         }
     });
+    // --- INITIALISATION SLIMSELECT FILTRES (Avec sécurité anti-doublon) ---
+    
+    // Fonction pour nettoyer un sélecteur s'il a déjà été initialisé par erreur
+    const destroyPreviousSlimSelect = (selector) => {
+        const el = document.querySelector(selector);
+        // Si l'élément est caché, c'est que SlimSelect est déjà passsé par là
+        if (el && el.style.display === 'none' && el.nextElementSibling && el.nextElementSibling.classList.contains('ss-main')) {
+            el.nextElementSibling.remove(); // On supprime l'interface graphique en doublon
+            el.style.display = ''; // On réaffiche le select original pour que notre script puisse l'utiliser
+        }
+    };
+
+    // 1. On nettoie d'abord (au cas où init-selects.js a frappé)
+    destroyPreviousSlimSelect('#filter-canton');
+    destroyPreviousSlimSelect('#filter-sector');
+
+    // 2. On initialise proprement avec NOS réglages
+    new SlimSelect({
+        select: '#filter-canton',
+        settings: {
+            showSearch: false,
+            placeholderText: 'Canton',
+            allowDeselect: true
+        }
+    });
+
+    new SlimSelect({
+        select: '#filter-sector',
+        settings: {
+            showSearch: false,
+            placeholderText: 'Secteur',
+            allowDeselect: true
+        }
+    });
 });
 
 async function checkAuth() {
