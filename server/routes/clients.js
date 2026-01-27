@@ -230,16 +230,19 @@ router.get('/planning', requireAuth, (req, res) => {
     // On récupère les machines ET on regarde s'il y a un RDV futur dans appointments_history
     const sql = `
         SELECT 
-            ce.id as equipment_id, ce.next_maintenance_date, ce.last_maintenance_date, ce.serial_number, ce.location,
+            ce.id as equipment_id, ce.next_maintenance_date, ce.serial_number, ce.location,
             c.id as client_id, c.cabinet_name, c.city, c.address, c.canton, c.phone,
-            ec.name as catalog_name, ec.brand, ec.model, ec.type,
+            ec.name as catalog_name, ec.brand, ec.model,
             (julianday(ce.next_maintenance_date) - julianday('now')) as days_remaining,
-            (
-                SELECT count(*) 
-                FROM appointments_history ah 
-                WHERE ah.client_id = c.id 
-                AND ah.appointment_date >= date('now')
-            ) as future_appointments
+            
+            (SELECT id FROM appointments_history ah 
+             WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')
+             ORDER BY ah.appointment_date ASC LIMIT 1) as future_rdv_id,
+             
+            (SELECT appointment_date FROM appointments_history ah 
+             WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')
+             ORDER BY ah.appointment_date ASC LIMIT 1) as future_rdv_date
+
         FROM client_equipment ce
         JOIN clients c ON ce.client_id = c.id
         JOIN equipment_catalog ec ON ce.equipment_id = ec.id
@@ -279,6 +282,13 @@ router.get('/planning', requireAuth, (req, res) => {
             let score = 0;
             if (machineStatus === 'expired') score = 2;
             else if (machineStatus === 'warning') score = 1;
+
+            // AJOUT: Si RDV prévu, on force le score à 0 (Vert)
+            if (row.future_rdv_id) {
+                score = 0;
+                client.future_rdv_id = row.future_rdv_id;     // On stocke l'ID
+                client.future_rdv_date = row.future_rdv_date; // On stocke la date
+            }
 
             // Si un RDV est déjà fixé, le score retombe à 0 (Considéré comme traité/En attente)
             if (client.has_future_rdv) {
@@ -528,6 +538,24 @@ router.post('/:id/appointments', requireAuth, (req, res) => {
         res.json({ id: appId });
     });
   });
+});
+
+// Créer un RDV (depuis le bouton "Fixer")
+router.post('/:id/appointments', requireAuth, (req, res) => {
+    const { appointment_date, technician_id, task_description } = req.body;
+    db.run("INSERT INTO appointments_history (client_id, appointment_date, technician_id, task_description) VALUES (?, ?, ?, ?)", 
+    [req.params.id, appointment_date, technician_id, task_description], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "RDV créé", id: this.lastID });
+    });
+});
+
+// Supprimer un RDV (depuis le bouton "Annuler")
+router.delete('/appointments/:id', requireAuth, (req, res) => {
+    db.run("DELETE FROM appointments_history WHERE id = ?", [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "RDV supprimé" });
+    });
 });
 
 module.exports = router;

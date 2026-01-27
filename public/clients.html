@@ -163,6 +163,19 @@
     }
     .timeline-machine i { color: var(--color-secondary); font-size: 0.75rem; }
 
+    /* FIX POUR LE SELECT DANS LA MODALE */
+#schedule-modal .ss-main {
+    background-color: white !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 6px !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+#schedule-modal .ss-content {
+    z-index: 99999 !important; /* Passe au dessus de la modale */
+}
+
     /* Marqueur avec Icône */
     .timeline-marker { 
         position: absolute; left: -12px; top: 0; 
@@ -601,6 +614,34 @@
 
   <div class="modal" id="delete-modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h2 class="text-danger">Confirmer</h2><button class="modal-close" onclick="closeDeleteModal()">&times;</button></div><div class="modal-body"><p>Voulez-vous vraiment supprimer cet élément définitivement ?</p></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeDeleteModal()">Non</button><button class="btn btn-danger" id="confirm-delete-btn">Oui, supprimer</button></div></div></div>
   
+<div class="modal" id="schedule-modal">
+    <div class="modal-content" style="max-width: 400px; overflow: visible;">
+        <div class="modal-header">
+            <h2><i class="fas fa-calendar-plus"></i> Planifier RDV</h2>
+            <button class="modal-close" onclick="closeScheduleModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="overflow: visible;"> <input type="hidden" id="schedule-client-id">
+            <p id="schedule-client-name" style="margin-bottom: 1.5rem; font-weight: 600; color: var(--neutral-700); font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 10px;"></p>
+            
+            <div class="form-group">
+                <label>Date du rendez-vous</label>
+                <input type="date" id="schedule-date" class="form-control" style="width: 100%;">
+            </div>
+            
+            <div class="form-group">
+                <label>Technicien assigné</label>
+                <select id="schedule-tech">
+                    <option value="">-- Assigner à moi --</option>
+                    </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeScheduleModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="confirmSchedule()">Valider le RDV</button>
+        </div>
+    </div>
+</div>
+
   <div id="notification-container"></div>
   <script src="https://unpkg.com/slim-select@2.8.2/dist/slimselect.min.js"></script>
 <script type="module" src="/js/init-selects.js"></script>
