@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Signature STK - KB Medizin Tool</title>
+  
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/utilities.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+  <style>
+    /* --- STYLES SPÉCIFIQUES STK --- */
+    .stk-container {
+        display: flex; flex-direction: column; height: calc(100vh - 80px);
+        padding: 0 1.5rem 1.5rem 1.5rem; gap: 1rem;
+    }
+
+    /* Barre d'outils personnalisée */
+    .stk-toolbar {
+        background: white; border: 1px solid var(--border-color); border-radius: 8px;
+        padding: 0.8rem 1.5rem; display: flex; align-items: center; gap: 1.5rem;
+        box-shadow: var(--shadow-sm); flex-shrink: 0;
+    }
+
+    .tool-group { display: flex; align-items: center; gap: 10px; padding-right: 15px; border-right: 1px solid var(--border-color); }
+    .tool-group:last-child { border-right: none; }
+    .tool-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--neutral-400); margin-right: 10px; }
+
+    /* Espace de travail PDF */
+    #workspace {
+        flex: 1; background: var(--neutral-100); border: 1px solid var(--border-color);
+        border-radius: 8px; overflow: auto; position: relative;
+        display: flex; justify-content: center; padding: 40px;
+        box-shadow: inset 0 2px 10px rgba(0,0,0,0.05);
+    }
+    #workspace.drag-over { background: var(--color-primary-light); border-color: var(--color-primary); }
+
+    #pdf-wrapper {
+        position: relative; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transform-origin: top center; transition: transform 0.1s linear; display: none;
+    }
+    canvas { display: block; }
+
+    /* Éléments sur le PDF (Texte/Image) */
+    .element-wrapper { position: absolute; border: 1px solid transparent; cursor: default; z-index: 10; }
+    .element-wrapper:hover { border: 1px dashed var(--neutral-400); }
+    .element-wrapper.selected { border: 1px solid var(--color-primary); cursor: move; background: rgba(37, 99, 235, 0.05); }
+    .text-content { outline: none; white-space: nowrap; font-family: 'Helvetica', sans-serif; line-height: 1.2; padding: 2px 4px; min-width: 20px; }
+    .image-wrapper img { width: 100%; height: 100%; pointer-events: none; display: block; }
+
+    /* Draggables (Signatures) */
+    .sig-list { display: flex; gap: 10px; }
+    .sig-card {
+        background: var(--neutral-50); border: 1px solid var(--border-color); border-radius: 6px;
+        padding: 4px 8px; cursor: grab; display: flex; align-items: center; gap: 8px; transition: all 0.2s;
+    }
+    .sig-card:hover { border-color: var(--color-primary); background: white; transform: translateY(-1px); }
+    .sig-preview { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: white; border: 1px dashed var(--neutral-300); border-radius: 4px; }
+    .sig-preview img { max-width: 100%; max-height: 100%; }
+    .sig-name { font-size: 0.85rem; font-weight: 600; color: var(--neutral-700); }
+
+    /* Menu contextuel */
+    #context-menu {
+        position: absolute; display: none; background: #1f2937; color: white;
+        border-radius: 8px; padding: 6px; gap: 8px; z-index: 1000;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3); align-items: center;
+    }
+    .ctx-btn {
+        background: #374151; border: none; color: white; width: 28px; height: 28px;
+        border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .ctx-btn:hover { background: #4b5563; }
+    .ctx-btn.red:hover { background: #ef4444; }
+    
+    /* État vide */
+    #empty-state {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        text-align: center; color: var(--neutral-400); pointer-events: none;
+        display: flex; flex-direction: column; align-items: center; gap: 15px;
+    }
+    
+    /* Zoom flottant */
+    #zoom-controls {
+        position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+        background: white; padding: 5px 10px; border-radius: 20px; 
+        box-shadow: var(--shadow-md); border: 1px solid var(--border-color);
+        display: flex; align-items: center; gap: 10px; z-index: 50;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h2>KB Medizin</h2></div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
+        <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
+        <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
+        <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+        <a href="/stk.html" class="active"><i class="fas fa-file-signature"></i><span>STK</span></a>
+        <a href="/admin.html" id="admin-link" class="hidden"><i class="fas fa-cog"></i><span>Administration</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info" id="user-info"></div>
+        <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%;"><i class="fas fa-sign-out-alt"></i> Déconnexion</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div class="header-title-group">
+            <h1><i class="fas fa-file-signature"></i>Signature des STK</h1>
+        </div>
+        <div class="header-actions-group">
+            <input type="file" id="file-input" accept="application/pdf" hidden>
+            <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">
+                <i class="fas fa-folder-open"></i> Ouvrir PDF
+            </button>
+            <button class="btn btn-primary" onclick="savePdf()">
+                <i class="fas fa-save"></i> Enregistrer
+            </button>
+        </div>
+      </div>
+
+      <div class="stk-container">
+        <div class="stk-toolbar">
+            <div class="tool-group">
+                <span class="tool-label">Outils</span>
+                <button class="btn btn-sm btn-secondary" id="btn-text" onclick="activateTextTool()">
+                    <i class="fas fa-font"></i> Ajouter Texte
+                </button>
+            </div>
+
+            <div class="tool-group">
+                <span class="tool-label">Techniciens</span>
+                <div class="sig-list" id="sig-list-container">
+                    <div class="sig-card" draggable="true" ondragstart="handleDragStart(event)">
+                        <div class="sig-preview"><img src="https://dummyimage.com/200x80/ffffff/000.png&text=Marc" id="sig1"></div>
+                        <div class="sig-name">Marc D.</div>
+                    </div>
+                    <div class="sig-card" draggable="true" ondragstart="handleDragStart(event)">
+                        <div class="sig-preview"><img src="https://dummyimage.com/200x80/ffffff/000.png&text=Sophie" id="sig2"></div>
+                        <div class="sig-name">Sophie L.</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="flex:1"></div>
+            <div id="filename-display" style="font-size:0.9rem; color:var(--neutral-500); font-style:italic;">Aucun fichier chargé</div>
+        </div>
+
+        <div id="workspace">
+            <div id="empty-state">
+                <i class="fas fa-cloud-upload-alt fa-3x" style="color:var(--neutral-300); margin-bottom:1rem;"></i>
+                <div>Glissez un rapport STK ici<br><span style="font-size:0.8rem;">ou utilisez le bouton Ouvrir</span></div>
+            </div>
+            
+            <div id="pdf-wrapper">
+                <canvas id="pdf-render"></canvas>
+            </div>
+
+            <div id="zoom-controls">
+                <button class="btn-icon-sm" onclick="updateZoom(-0.1)"><i class="fas fa-minus"></i></button>
+                <span id="zoom-level" style="font-weight:600; font-size:0.9rem; min-width:40px; text-align:center;">100%</span>
+                <button class="btn-icon-sm" onclick="updateZoom(0.1)"><i class="fas fa-plus"></i></button>
+            </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="context-menu">
+    <div id="ctx-text-tools" style="display:none; gap:5px; align-items:center;">
+        <button class="ctx-btn" onclick="changeFontSize(-2)" title="Réduire"><i class="fas fa-minus"></i></button>
+        <button class="ctx-btn" onclick="changeFontSize(2)" title="Agrandir"><i class="fas fa-plus"></i></button>
+        <div style="width:1px; height:16px; background:#444; margin:0 4px;"></div>
+        <div onclick="changeColor('#000000')" style="width:16px; height:16px; background:#000; border-radius:50%; cursor:pointer; border:1px solid #666;"></div>
+        <div onclick="changeColor('#2563eb')" style="width:16px; height:16px; background:#2563eb; border-radius:50%; cursor:pointer; border:1px solid #666;"></div>
+        <div onclick="changeColor('#ef4444')" style="width:16px; height:16px; background:#ef4444; border-radius:50%; cursor:pointer; border:1px solid #666;"></div>
+    </div>
+    <div id="ctx-image-tools" style="display:none; gap:5px; align-items:center;">
+        <button class="ctx-btn" onclick="changeImageSize(0.9)"><i class="fas fa-compress-alt"></i></button>
+        <button class="ctx-btn" onclick="changeImageSize(1.1)"><i class="fas fa-expand-alt"></i></button>
+    </div>
+    <div style="width:1px; height:16px; background:#444; margin:0 4px;"></div>
+    <button class="ctx-btn red" onclick="deleteElement()"><i class="fas fa-trash"></i></button>
+  </div>
+
+  <script src="/js/stk.js"></script>
+</body>
+</html>
