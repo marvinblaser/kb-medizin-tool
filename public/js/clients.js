@@ -150,12 +150,12 @@ function renderPlanning(list) {
     }
 
     data.forEach(client => {
-        // 1. Déterminer la couleur et l'icône
+        // --- 1. Statut GLOBAL du client (Ligne principale) ---
         let statusClass = 'row-ok';
         let statusIcon = '<i class="fas fa-check-circle" style="color:var(--color-success)"></i>';
         
-        // Si PAS de RDV futur, on applique les couleurs d'urgence
         if (!client.future_rdv_id) {
+            // Pas de RDV : on regarde l'urgence
             if (client.worst_status_score === 2) { 
                 statusClass = 'row-expired';
                 statusIcon = '<i class="fas fa-exclamation-circle" style="color:var(--color-danger)"></i>';
@@ -164,34 +164,36 @@ function renderPlanning(list) {
                 statusIcon = '<i class="fas fa-clock" style="color:var(--color-warning)"></i>';
             }
         } else {
-            // Si RDV futur existe, on force le vert/bleu
+            // RDV fixé : le client est "Vert" (Géré)
             statusIcon = `<i class="fas fa-calendar-check" style="color:var(--color-primary)" title="RDV prévu le ${formatDate(client.future_rdv_date)}"></i>`;
         }
 
-        // 2. Compteurs machines
         const countTotal = client.machines.length;
-        const countExpired = client.machines.filter(m => m.status === 'expired').length;
+        // On recompte les expirés pour le résumé (basé sur la date réelle, pas le statut)
+        const countExpired = client.machines.filter(m => {
+            if(!m.next_date) return false;
+            return new Date(m.next_date) < new Date();
+        }).length;
+
         let summaryHTML = `<strong>${countTotal} Appareils</strong>`;
         if (countExpired > 0 && !client.future_rdv_id) summaryHTML += ` <span style="color:var(--color-danger); font-size:0.85em; font-weight:600;">• ${countExpired} à faire</span>`;
 
-        // 3. Boutons d'action (Logique RDV)
+        // --- 2. Actions (Boutons) ---
         let actionButtons = '';
         if (client.future_rdv_id) {
-            // Bouton ANNULER (Rouge) + Date
             actionButtons = `
                 <div style="display:flex; align-items:center; gap:6px; background:white; padding:3px 8px; border-radius:6px; border:1px solid #bae6fd; margin-right:8px;">
                     <span style="font-size:0.8rem; color:#0284c7; font-weight:600;">${formatDate(client.future_rdv_date)}</span>
                     <button class="btn-icon-sm" style="color:#ef4444; height:20px; width:20px;" onclick="event.stopPropagation(); deleteAppointment(${client.future_rdv_id})" title="Annuler le RDV"><i class="fas fa-times"></i></button>
                 </div>`;
         } else {
-            // Bouton FIXER (Bleu)
             actionButtons = `
                 <button class="btn btn-sm btn-primary" style="margin-right:8px;" onclick="event.stopPropagation(); openScheduleModal(${client.client_id}, '${escapeHtml(client.cabinet_name)}')" title="Fixer un RDV">
                     <i class="fas fa-calendar-plus"></i> Fixer
                 </button>`;
         }
 
-        // Création de la ligne
+        // --- 3. Construction Ligne Principale ---
         const tr = document.createElement('tr');
         tr.className = `planning-row ${statusClass}`;
         tr.style.cursor = 'pointer';
@@ -213,16 +215,51 @@ function renderPlanning(list) {
             </td>
         `;
 
-        // Ligne Détails (Accordéon)
+        // --- 4. Détails (Liste des machines) ---
+        // C'est ICI que nous corrigeons la logique : on recalcule l'icône selon la date réelle
         const trDetails = document.createElement('tr');
         trDetails.className = 'details-row hidden';
-        const machinesHTML = client.machines.map(m => `
-            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #eee;">
-                <span><i class="fas fa-check" style="color:var(--color-success); margin-right:5px;"></i> ${escapeHtml(m.name)} <small>(${m.serial||'?'})</small></span>
-                <strong style="font-size:0.85rem;">${formatDate(m.next_date)}</strong>
-            </div>`).join('');
+        
+        const machinesHTML = client.machines.map(m => {
+            let color = 'var(--color-success)';
+            let icon = 'fa-check';
             
-        trDetails.innerHTML = `<td colspan="6"><div style="padding:1rem 2rem; background:#f8fafc;">${machinesHTML}</div></td>`;
+            if (m.next_date) {
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const nextDate = new Date(m.next_date);
+                
+                // Calcul différence en jours
+                const diffTime = nextDate - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays < 0) {
+                    // C'est expiré -> ROUGE !
+                    color = 'var(--color-danger)';
+                    icon = 'fa-exclamation-triangle';
+                } else if (diffDays <= 60) {
+                    // C'est pour bientôt -> ORANGE
+                    color = 'var(--color-warning)';
+                    icon = 'fa-clock';
+                }
+            }
+
+            return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <i class="fas ${icon}" style="color:${color}; width:20px; text-align:center;"></i>
+                    <div>
+                        <strong style="font-size:0.9rem;">${escapeHtml(m.name)}</strong> 
+                        <small style="color:#666;">(${m.serial||'?'})</small>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <strong style="font-size:0.85rem; color:${color}">${formatDate(m.next_date)}</strong>
+                </div>
+            </div>`;
+        }).join('');
+            
+        trDetails.innerHTML = `<td colspan="6"><div style="padding:1rem 2rem; background:#f8fafc; border-left:4px solid var(--neutral-300);">${machinesHTML}</div></td>`;
         
         tr.onclick = (e) => { if(!e.target.closest('button')) trDetails.classList.toggle('hidden'); };
         tbody.appendChild(tr);
