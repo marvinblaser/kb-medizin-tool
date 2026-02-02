@@ -15,6 +15,7 @@ let currentUser = null;
 document.addEventListener('DOMContentLoaded', async () => {
     await checkAuth();
     await loadCatalog();
+    await loadTechnicians();
     loadData();
 
     // --- GESTION OUVERTURE DIRECTE DEPUIS DASHBOARD ---
@@ -76,14 +77,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     new SlimSelect({ select: '#filter-sector', settings: { showSearch: false, placeholderText: 'Secteur', allowDeselect: true } });
     new SlimSelect({ select: '#adv-status', settings: { showSearch: false, placeholderText: 'Statut', allowDeselect: true } });
 
-    // Initialisation du selecteur Technicien dans la modale RDV
-    new SlimSelect({
-        select: '#schedule-tech',
-        settings: { showSearch: false, placeholderText: 'Technicien' }
-    });
 
     // Init Selecteur Modal RDV
-    new SlimSelect({ select: '#schedule-tech', settings: { showSearch: false, placeholderText: 'Technicien' } });
+    // new SlimSelect({ select: '#schedule-tech', settings: { showSearch: false, placeholderText: 'Technicien' } });
 });
 
 async function checkAuth() {
@@ -414,28 +410,77 @@ async function loadClientEquipment(id) {
 
 async function loadClientHistory(id) {
     const div = document.getElementById('sheet-history-list');
-    div.innerHTML = '<p>Chargement...</p>';
+    div.innerHTML = '<p style="color:var(--neutral-500); padding-left:20px;">Chargement de l\'historique...</p>';
+    
     try {
         const res = await fetch(`/api/clients/${id}/appointments`);
         const list = await res.json();
         document.getElementById('count-hist').textContent = list.length;
-        if(list.length === 0) { div.innerHTML = '<div style="text-align:center; padding:2rem; color:#aaa;">Aucun historique.</div>'; return; }
+        
+        if(list.length === 0) { 
+            div.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--neutral-400); font-style:italic;"><i class="fas fa-history fa-2x" style="opacity:0.3; margin-bottom:10px;"></i><br>Aucun historique.</div>'; 
+            return; 
+        }
         
         div.innerHTML = list.map(h => {
             const isReport = h.source_type === 'report';
-            const dateStr = new Date(h.appointment_date).toLocaleDateString('fr-CH');
+            const typeClass = isReport ? 'type-report' : 'type-rdv';
+            
+            // Calculer si c'est passé ou futur
+            const rdvDate = new Date(h.appointment_date);
+            const today = new Date();
+            today.setHours(0,0,0,0); // On compare sans les heures
+            const isPast = rdvDate < today;
+
+            // Style visuel : Si passé -> Grisé / Si futur -> Coloré
+            const opacityStyle = isPast && !isReport ? 'opacity: 0.7; filter: grayscale(100%);' : '';
+            const statusBadge = isPast && !isReport ? '<span style="font-size:0.7rem; background:#eee; padding:2px 6px; border-radius:4px; color:#666;">Terminé</span>' : '';
+
+            // Icones et Titres
+            let icon = isReport ? 'fa-file-alt' : 'fa-calendar-check';
+            let title = isReport ? 'Rapport d\'Intervention' : 'Rendez-vous';
+            let tagName = isReport ? (h.report_number || 'Rapport') : 'RDV';
+            let tagClass = isReport ? 'tag-report' : 'tag-rdv';
+
+            // Gestion du nom du technicien
+            const techHtml = h.tech_name 
+                ? `<div style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--neutral-600); margin-top:4px;">
+                     <i class="fas fa-user-hard-hat" style="font-size:0.75rem; color:var(--neutral-400);"></i> 
+                     <strong>${escapeHtml(h.tech_name)}</strong>
+                   </div>`
+                : `<div style="font-size:0.8rem; color:#9ca3af; margin-top:4px; font-style:italic;">Non assigné</div>`;
+
+            const dateStr = rdvDate.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            
             return `
-            <div class="timeline-item ${isReport ? 'type-report' : 'type-rdv'}">
-                <div class="timeline-marker"><i class="fas ${isReport ? 'fa-file-alt' : 'fa-calendar-check'}"></i></div>
-                <span class="timeline-date">${dateStr}</span>
+            <div class="timeline-item ${typeClass}" style="${opacityStyle}">
+                <div class="timeline-marker"><i class="fas ${icon}"></i></div>
+                <span class="timeline-date">${dateStr} ${statusBadge}</span>
+                
                 <div class="timeline-card">
-                    <div class="timeline-header"><h4 class="timeline-title">${isReport?'Rapport':'Rendez-vous'}</h4></div>
-                    <div class="timeline-desc">${escapeHtml(h.task_description)}</div>
-                    ${h.report_id ? `<div class="timeline-action"><button class="btn-doc-action" onclick="window.open('/report-view.html?id=${h.report_id}','_blank')"><i class="fas fa-file-pdf"></i> Ouvrir</button></div>` : ''}
+                    <div class="timeline-header">
+                        <h4 class="timeline-title">${title}</h4>
+                        <span class="timeline-tag ${tagClass}">${tagName}</span>
+                    </div>
+                    
+                    ${techHtml} <div class="timeline-desc" style="margin-top:8px;">
+                        ${escapeHtml(h.task_description || 'Aucune description.')}
+                    </div>
+
+                    ${h.report_id ? `
+                    <div class="timeline-action">
+                        <button class="btn-doc-action" onclick="window.open('/report-view.html?id=${h.report_id}', '_blank')">
+                            <i class="fas fa-file-pdf"></i> Voir Rapport
+                        </button>
+                    </div>` : ''}
                 </div>
             </div>`;
         }).join('');
-    } catch { div.innerHTML = '<p>Erreur.</p>'; }
+        
+    } catch(e) {
+        console.error(e);
+        div.innerHTML = '<p style="color:var(--color-danger);">Erreur de chargement.</p>';
+    }
 }
 
 function handleSort(col) { if(currentSort.col === col) currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc'; else { currentSort.col = col; currentSort.order = 'asc'; } loadData(); }
@@ -708,7 +753,48 @@ function exportData() {
     document.body.removeChild(link);
 }
 
-// ... (Code précédent) ...
+
+let techSelectInstance = null; // Variable pour stocker l'instance SlimSelect
+
+async function loadTechnicians() {
+    try {
+        const res = await fetch('/api/clients/technicians');
+        if (!res.ok) return;
+        const users = await res.json();
+        
+        const select = document.getElementById('schedule-tech');
+        
+        // 1. IMPORTANT : Si une instance SlimSelect existe déjà sur cet élément, on la détruit !
+        // Cela supprime les doublons visuels (les 3 barres)
+        if (techSelectInstance) {
+            techSelectInstance.destroy();
+            techSelectInstance = null;
+        } else if (select.slim) {
+            // Sécurité supplémentaire si initialisé ailleurs
+            select.slim.destroy();
+        }
+        
+        // 2. On remplit le select HTML standard
+        let html = '<option value="">-- Assigner à moi --</option>';
+        users.forEach(u => {
+            html += `<option value="${u.id}">${escapeHtml(u.name)} (${u.role})</option>`;
+        });
+        select.innerHTML = html;
+
+        // 3. On ré-initialise SlimSelect proprement UNE SEULE FOIS
+        techSelectInstance = new SlimSelect({
+            select: '#schedule-tech',
+            settings: { 
+                showSearch: false, 
+                placeholderText: 'Technicien assigné',
+                allowDeselect: true
+            }
+        });
+
+    } catch (e) {
+        console.error("Erreur chargement techniciens:", e);
+    }
+}
 
 // EXPOSITION DES FONCTIONS AU HTML
 window.openClientModal = openClientModal;

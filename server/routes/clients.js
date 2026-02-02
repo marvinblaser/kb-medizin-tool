@@ -207,6 +207,18 @@ router.get('/export-excel', requireAuth, (req, res) => {
     });
 });
 
+// Récupérer la liste des techniciens pour le selecteur
+router.get('/technicians', requireAuth, (req, res) => {
+    // J'ai enlevé 'WHERE is_active = 1' au cas où vous auriez des erreurs de données
+    // Si vous voulez masquer les anciens employés, remettez : WHERE is_active = 1
+    const sql = "SELECT id, name, role FROM users ORDER BY name ASC";
+    
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
 // 3. PLANNING (Modifié : Exclut les clients ayant déjà un RDV futur)
 router.get('/planning', requireAuth, (req, res) => {
     const { 
@@ -508,18 +520,55 @@ router.delete('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
     });
 });
 
-// GET HISTORY
+// LISTER HISTORIQUE COMPLET (Rapports + RDV)
 router.get('/:id/appointments', requireAuth, (req, res) => {
   const sql = `
-    SELECT 'report' as source_type, r.id as report_id, r.report_number, r.technician_signature_date as appointment_date, r.work_accomplished as task_description, NULL as equipment_name,
-    (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ') FROM report_equipment re JOIN equipment_catalog ec ON re.equipment_id = ec.id WHERE re.report_id = r.id) as machines
-    FROM reports r WHERE r.client_id = ? AND r.status IN ('validated', 'archived')
+    -- 1. LES RAPPORTS (Signés/Archivés)
+    SELECT 
+        'report' as source_type, 
+        r.id as id_unique,
+        r.id as report_id,              -- ID pour ouvrir le PDF
+        r.report_number, 
+        r.technician_signature_date as appointment_date, 
+        r.work_accomplished as task_description,
+        u.name as tech_name,            -- Nom du technicien (Auteur)
+        
+        -- Récupération groupée des machines du rapport
+        (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ') 
+         FROM report_equipment re 
+         JOIN equipment_catalog ec ON re.equipment_id = ec.id 
+         WHERE re.report_id = r.id) as machines
+
+    FROM reports r 
+    LEFT JOIN users u ON r.author_id = u.id
+    WHERE r.client_id = ? AND r.status IN ('validated', 'archived')
+
     UNION ALL
-    SELECT 'appointment' as source_type, ah.id as report_id, NULL as report_number, ah.appointment_date, ah.task_description, NULL as equipment_name,
-    (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ') FROM appointment_equipment ae JOIN client_equipment ce ON ae.equipment_id = ce.id JOIN equipment_catalog ec ON ce.equipment_id = ec.id WHERE ae.appointment_id = ah.id) as machines
-    FROM appointments_history ah WHERE ah.client_id = ?
+
+    -- 2. LES RENDEZ-VOUS (Table Historique)
+    SELECT 
+        'rdv' as source_type, 
+        ah.id as id_unique,
+        ah.report_id as report_id,      -- NULL (sauf si un rapport a été lié plus tard)
+        NULL as report_number, 
+        ah.appointment_date, 
+        ah.task_description,
+        u.name as tech_name,            -- Nom du technicien (Assigné)
+        
+        -- Récupération groupée des machines du RDV
+        (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ') 
+         FROM appointment_equipment ae 
+         JOIN client_equipment ce ON ae.equipment_id = ce.id 
+         JOIN equipment_catalog ec ON ce.equipment_id = ec.id 
+         WHERE ae.appointment_id = ah.id) as machines
+
+    FROM appointments_history ah 
+    LEFT JOIN users u ON ah.technician_id = u.id
+    WHERE ah.client_id = ?
+
     ORDER BY appointment_date DESC
   `;
+
   db.all(sql, [req.params.id, req.params.id], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
@@ -557,5 +606,7 @@ router.delete('/appointments/:id', requireAuth, (req, res) => {
         res.json({ message: "RDV supprimé" });
     });
 });
+
+
 
 module.exports = router;
