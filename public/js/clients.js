@@ -447,10 +447,47 @@ async function openClientModal(id = null) {
 function closeClientModal() { document.getElementById('client-modal').classList.remove('active'); }
 async function saveClient() {
     const id = document.getElementById('client-id').value;
-    const data = { cabinet_name: document.getElementById('client-name').value, city: document.getElementById('client-city').value }; 
-    const method = id ? 'PUT' : 'POST'; const url = id ? `/api/clients/${id}` : '/api/clients';
-    await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-    closeClientModal(); loadData(); showNotification('Enregistré', 'success');
+    
+    // On récupère TOUS les champs du formulaire
+    const data = {
+        cabinet_name: document.getElementById('client-name').value,
+        activity: document.getElementById('client-activity').value,
+        contact_name: document.getElementById('client-contact').value,
+        phone: document.getElementById('client-phone').value,
+        email: document.getElementById('client-email').value,
+        address: document.getElementById('client-address').value,
+        postal_code: document.getElementById('client-npa').value,
+        city: document.getElementById('client-city').value,
+        canton: document.getElementById('client-canton').value,
+        notes: document.getElementById('client-notes').value,
+        latitude: document.getElementById('client-lat').value,
+        longitude: document.getElementById('client-lon').value
+    };
+
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/api/clients/${id}` : '/api/clients';
+
+    try { 
+        const res = await fetch(url, { 
+            method, 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(data) 
+        });
+
+        if(res.ok) { 
+            closeClientModal(); 
+            loadData(); 
+            // Si on modifiait le client actuellement ouvert en détail, on rafraîchit la fiche
+            if(id && id == currentClientId) openClientDetails(id); 
+            showNotification('Client enregistré avec succès', 'success'); 
+        } else {
+            const err = await res.json();
+            showNotification(err.error || 'Erreur lors de l\'enregistrement', 'error');
+        }
+    } catch(e) { 
+        console.error(e);
+        showNotification('Erreur réseau', 'error'); 
+    }
 }
 function showNotification(message, type = 'info') {
   let container = document.getElementById('notification-container');
