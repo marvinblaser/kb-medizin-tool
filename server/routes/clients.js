@@ -408,7 +408,13 @@ router.get('/', requireAuth, (req, res) => {
 // ==========================================
 
 router.get('/:id', requireAuth, (req, res) => {
-    db.get("SELECT * FROM clients WHERE id = ?", [req.params.id], (err, row) => {
+    const sql = `
+        SELECT c.*,
+        (SELECT appointment_date FROM appointments_history ah WHERE ah.client_id = c.id AND ah.appointment_date >= date('now') ORDER BY appointment_date ASC LIMIT 1) as next_rdv_date,
+        (SELECT name FROM users u JOIN appointments_history ah ON u.id = ah.technician_id WHERE ah.client_id = c.id AND ah.appointment_date >= date('now') ORDER BY appointment_date ASC LIMIT 1) as next_rdv_tech
+        FROM clients c WHERE c.id = ?
+    `;
+    db.get(sql, [req.params.id], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: "Client introuvable" });
         res.json(row);
@@ -604,6 +610,32 @@ router.delete('/appointments/:id', requireAuth, (req, res) => {
     db.run("DELETE FROM appointments_history WHERE id = ?", [req.params.id], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: "RDV supprimé" });
+    });
+});
+
+// Récupérer un seul RDV (pour l'édition)
+router.get('/appointments/:id', requireAuth, (req, res) => {
+    db.get("SELECT * FROM appointments_history WHERE id = ?", [req.params.id], (err, row) => {
+        if (err || !row) return res.status(404).json({ error: "RDV introuvable" });
+        res.json(row);
+    });
+});
+
+// Mettre à jour un RDV (PUT)
+router.put('/appointments/:id', requireAuth, (req, res) => {
+    const { appointment_date, technician_id, task_description } = req.body;
+    const sql = `UPDATE appointments_history SET appointment_date = ?, technician_id = ?, task_description = ? WHERE id = ?`;
+    
+    db.run(sql, [appointment_date, technician_id, task_description, req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        // On récupère le client_id pour mettre à jour la date rapide dans la table clients (optionnel mais recommandé)
+        db.get("SELECT client_id FROM appointments_history WHERE id = ?", [req.params.id], (err, row) => {
+            if(row) {
+                db.run("UPDATE clients SET appointment_at = ? WHERE id = ?", [appointment_date, row.client_id]);
+            }
+            res.json({ message: "RDV mis à jour" });
+        });
     });
 });
 

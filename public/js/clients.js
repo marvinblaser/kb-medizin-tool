@@ -332,6 +332,8 @@ async function openClientDetails(id) {
     try {
         const res = await fetch(`/api/clients/${id}`);
         const c = await res.json();
+        
+        // Remplissage standard...
         document.getElementById('sheet-name').textContent = c.cabinet_name;
         document.getElementById('sheet-category').textContent = c.activity || 'Autre';
         document.getElementById('sheet-city-header').textContent = c.city;
@@ -339,13 +341,39 @@ async function openClientDetails(id) {
         document.getElementById('sheet-phone').textContent = c.phone || '-';
         document.getElementById('sheet-email').textContent = c.email || '-';
         document.getElementById('sheet-contact').textContent = c.contact_name;
-        document.getElementById('sheet-notes').textContent = c.notes || 'Aucune note renseignée.';
+        document.getElementById('sheet-notes').textContent = c.notes || 'Aucune note.';
         document.getElementById('sheet-coords').innerHTML = c.latitude ? `<i class="fas fa-check-circle"></i> ${c.latitude}, ${c.longitude}` : 'Non localisé';
         
-        switchSheetTab('equipment'); loadClientEquipment(id); loadClientHistory(id);
+        // --- NOUVEAU : Injection du Prochain RDV dans la sidebar ---
+        const sidebar = document.querySelector('.sheet-sidebar');
+        // On nettoie d'abord si un ancien bloc RDV existe
+        const oldRdv = document.getElementById('sidebar-rdv-box');
+        if(oldRdv) oldRdv.remove();
+
+        if(c.next_rdv_date) {
+            const dateStr = new Date(c.next_rdv_date).toLocaleDateString('fr-CH');
+            const techStr = c.next_rdv_tech ? `(${c.next_rdv_tech})` : '';
+            
+            const rdvHtml = `
+                <div id="sidebar-rdv-box" class="info-group" style="background:#eff6ff; border:1px solid #bfdbfe; padding:10px; border-radius:6px; margin-bottom:20px;">
+                    <label style="color:#1e40af; margin-bottom:5px;">PROCHAIN RDV</label>
+                    <div style="color:#1e3a8a; font-weight:bold; font-size:1rem; display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-calendar-alt"></i> ${dateStr}
+                    </div>
+                    <div style="font-size:0.8rem; color:#60a5fa; margin-top:2px; margin-left:24px;">${techStr}</div>
+                </div>
+            `;
+            // On l'insère tout en haut de la sidebar
+            sidebar.insertAdjacentHTML('afterbegin', rdvHtml);
+        }
+
+        switchSheetTab('equipment'); 
+        loadClientEquipment(id); 
+        loadClientHistory(id);
         modal.classList.add('active');
-    } catch {}
+    } catch(e) { console.error(e); }
 }
+
 function closeClientDetailsModal() { document.getElementById('client-details-modal').classList.remove('active'); }
 
 function switchSheetTab(tab) {
@@ -412,6 +440,9 @@ async function loadClientHistory(id) {
     const div = document.getElementById('sheet-history-list');
     div.innerHTML = '<p style="color:var(--neutral-500); padding-left:20px;">Chargement de l\'historique...</p>';
     
+    // On récupère le nom du client affiché en haut de la fiche pour la modale
+    const clientName = document.getElementById('sheet-name').textContent || 'Client';
+
     try {
         const res = await fetch(`/api/clients/${id}/appointments`);
         const list = await res.json();
@@ -463,7 +494,9 @@ async function loadClientHistory(id) {
                         <span class="timeline-tag ${tagClass}">${tagName}</span>
                     </div>
                     
-                    ${techHtml} <div class="timeline-desc" style="margin-top:8px;">
+                    ${techHtml} 
+                    
+                    <div class="timeline-desc" style="margin-top:8px;">
                         ${escapeHtml(h.task_description || 'Aucune description.')}
                     </div>
 
@@ -473,6 +506,15 @@ async function loadClientHistory(id) {
                             <i class="fas fa-file-pdf"></i> Voir Rapport
                         </button>
                     </div>` : ''}
+
+                    ${!isReport && !isPast ? `
+                    <div class="timeline-action">
+                        <button class="btn-doc-action" style="border-color:#cbd5e1; color:#475569;" 
+                                onclick="event.stopPropagation(); openScheduleModal(${id}, '${escapeHtml(clientName)}', ${h.id_unique})">
+                            <i class="fas fa-pen"></i> Modifier
+                        </button>
+                    </div>` : ''}
+
                 </div>
             </div>`;
         }).join('');
@@ -550,12 +592,45 @@ function exportData() { showNotification("Fonction d'export CSV à implémenter.
 
 // --- FONCTIONS RENDEZ-VOUS ---
 
-function openScheduleModal(clientId, clientName) {
+// Variable globale pour stocker l'ID du RDV en cours d'édition
+let currentEditingRdvId = null;
+
+// Accepte maintenant un ID de RDV optionnel
+async function openScheduleModal(clientId, clientName, rdvId = null) {
     document.getElementById('schedule-client-id').value = clientId;
     document.getElementById('schedule-client-name').textContent = clientName;
-    // Date par défaut = Demain
-    const d = new Date(); d.setDate(d.getDate() + 1);
-    document.getElementById('schedule-date').value = d.toISOString().split('T')[0];
+    
+    currentEditingRdvId = rdvId; // On stocke l'ID
+    const btn = document.querySelector('#schedule-modal .btn-primary');
+    const title = document.querySelector('#schedule-modal h2');
+
+    if (rdvId) {
+        // MODE ÉDITION
+        title.innerHTML = '<i class="fas fa-edit"></i> Modifier RDV';
+        btn.textContent = "Enregistrer les modifications";
+        
+        try {
+            const res = await fetch(`/api/clients/appointments/${rdvId}`);
+            const rdv = await res.json();
+            
+            document.getElementById('schedule-date').value = rdv.appointment_date;
+            
+            // Attendre que le select soit prêt (si loadTechnicians est async)
+            const techSelect = document.getElementById('schedule-tech');
+            if(techSelect) techSelect.value = rdv.technician_id || '';
+            
+        } catch(e) { console.error("Erreur chargement RDV", e); }
+
+    } else {
+        // MODE CRÉATION
+        title.innerHTML = '<i class="fas fa-calendar-plus"></i> Planifier RDV';
+        btn.textContent = "Valider le RDV";
+        
+        const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+        document.getElementById('schedule-date').value = tomorrow.toISOString().split('T')[0];
+        document.getElementById('schedule-tech').value = ''; 
+    }
+    
     document.getElementById('schedule-modal').classList.add('active');
 }
 
@@ -567,26 +642,43 @@ async function confirmSchedule() {
     const clientId = document.getElementById('schedule-client-id').value;
     const date = document.getElementById('schedule-date').value;
     const techId = document.getElementById('schedule-tech').value || (currentUser ? currentUser.id : null);
+    
+    if (!date) { showNotification("Date requise", "error"); return; }
 
-    if (!date) { showNotification("Veuillez choisir une date", "error"); return; }
+    const body = {
+        appointment_date: date,
+        task_description: "Maintenance", // Ou ajouter un champ description dans la modale si tu veux
+        technician_id: techId
+    };
 
     try {
-        const res = await fetch(`/api/clients/${clientId}/appointments`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                appointment_date: date,
-                task_description: "Maintenance (Planning)",
-                technician_id: techId
-            })
-        });
+        let res;
+        if (currentEditingRdvId) {
+            // MISE À JOUR (PUT)
+            res = await fetch(`/api/clients/appointments/${currentEditingRdvId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+        } else {
+            // CRÉATION (POST)
+            res = await fetch(`/api/clients/${clientId}/appointments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+        }
 
         if (res.ok) {
             closeScheduleModal();
-            showNotification(`RDV fixé au ${formatDate(date)}`, 'success');
-            loadData(); // Rafraîchit la liste (Le client passera en vert/bleu)
+            showNotification(currentEditingRdvId ? "RDV modifié" : "RDV créé", 'success');
+            loadData();
+            // Si on est dans la fiche client, on rafraîchit l'historique
+            if(document.getElementById('client-details-modal').classList.contains('active')) {
+                openClientDetails(clientId); // Rafraîchit tout (sidebar + historique)
+            }
         } else {
-            showNotification("Erreur lors de la création", 'error');
+            showNotification("Erreur sauvegarde", 'error');
         }
     } catch (e) { console.error(e); }
 }
