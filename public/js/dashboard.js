@@ -375,13 +375,19 @@ async function loadDashboard() {
     loadStats(),
     loadUpcomingAppointments(),
     loadClientsToContact(),
-    loadMaintenanceMonth(),
-    loadWarrantyExpiring(),
+    // loadMaintenanceMonth(), // DÉSACTIVÉ
+    // loadWarrantyExpiring(), // DÉSACTIVÉ
     loadClientsMap(),
     loadPendingReportsWidget(),
   ]);
 
-  // --- RENDRE LES CARTES CLIQUABLES ---
+  // Masquer visuellement les conteneurs vides des widgets désactivés s'ils existent
+  const maintenanceWidget = document.getElementById('widget-maintenance-month');
+  if(maintenanceWidget) maintenanceWidget.style.display = 'none';
+  
+  const warrantyWidget = document.getElementById('widget-warranty');
+  if(warrantyWidget) warrantyWidget.style.display = 'none';
+
   setupStatClickHandlers();
 }
 
@@ -551,42 +557,104 @@ async function loadStats() {
     console.error("Erreur chargement stats:", e);
   }
 }
+
 async function loadUpcomingAppointments() {
   try {
     const r = await fetch("/api/dashboard/upcoming-appointments");
-    const appts = await r.json();
+    const data = await r.json();
     const l = document.getElementById("appointments-list");
-    if (appts.length === 0) {
-      l.innerHTML =
-        '<div class="widget-empty"><i class="fas fa-calendar-check" style="margin-right:8px; opacity:0.5;"></i> Aucun rendez-vous.</div>';
+
+    if (data.length === 0) {
+      l.innerHTML = '<div class="widget-empty"><i class="fas fa-calendar-check" style="margin-right:8px; opacity:0.5;"></i> Aucun rendez-vous prévu.</div>';
       return;
     }
-    l.innerHTML = appts
-      .map(
-        (a) =>
-          `<div class="widget-item"><div style="display:flex; justify-content:space-between; align-items:flex-start;"><strong>${escapeHtml(a.cabinet_name)}</strong>${a.technician_name ? `<span class="badge badge-primary" style="font-size:0.7rem; padding:0.2rem 0.5rem;">${escapeHtml(a.technician_name)}</span>` : ""}</div><small><i class="fas fa-calendar"></i> ${formatDate(a.appointment_at)} ${a.phone ? `&nbsp;•&nbsp; <i class="fas fa-phone" style="font-size:0.7rem;"></i> ${escapeHtml(a.phone)}` : ""} &nbsp;•&nbsp; ${escapeHtml(a.city)}</small></div>`,
-      )
-      .join("");
-  } catch {}
+
+    l.innerHTML = data.map((rdv) => {
+        // Date propre
+        const d = new Date(rdv.appointment_date);
+        const dateStr = d.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        
+        // Badges techniciens élégants (Pill)
+        let techsHtml = '<span style="color:#94a3b8; font-style:italic; font-size:0.75rem;">À assigner</span>';
+        if (rdv.technician_names) {
+            techsHtml = rdv.technician_names.split(', ').map(name => 
+                `<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:12px; font-size:0.7rem; font-weight:600; border:1px solid #bae6fd;">${escapeHtml(name)}</span>`
+            ).join(' ');
+        }
+
+        // Nouveau Design : Flexbox structuré
+        return `
+        <div class="widget-item" style="padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.2s;"
+             onclick="window.location.href='/clients.html?open=${rdv.client_id}'">
+            
+            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0;">
+                <div style="font-weight: 600; color: #1e293b; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    ${escapeHtml(rdv.cabinet_name)}
+                </div>
+                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    ${techsHtml}
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-left: 10px;">
+                <div style="font-size: 0.9rem; font-weight: 600; color: #475569; background: #f8fafc; padding: 5px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <i class="far fa-calendar-alt" style="color:var(--color-primary); margin-right:5px; font-size:0.8rem;"></i> ${dateStr}
+                </div>
+                
+                <button onclick="event.stopPropagation(); window.location.href='/clients.html?open=${rdv.client_id}&edit_rdv=${rdv.appointment_id}'"
+                        title="Modifier le RDV"
+                        style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e2e8f0; background: white; color: var(--neutral-600); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                    <i class="fas fa-pen" style="font-size: 0.85rem;"></i>
+                </button>
+            </div>
+        </div>
+        `;
+    }).join('');
+  } catch (e) {
+      console.error("Erreur chargement RDV:", e);
+  }
 }
+
 async function loadClientsToContact() {
   try {
     const r = await fetch("/api/dashboard/clients-to-contact");
     const clients = await r.json();
     const l = document.getElementById("contacts-list");
+    
     if (clients.length === 0) {
-      l.innerHTML =
-        '<div class="widget-empty"><i class="fas fa-check-circle" style="margin-right:8px; opacity:0.5;"></i> Aucun client à contacter.</div>';
+      l.innerHTML = '<div class="widget-empty"><i class="fas fa-check-circle" style="margin-right:8px; opacity:0.5;"></i> Aucun client à contacter.</div>';
       return;
     }
-    l.innerHTML = clients
-      .map(
-        (c) =>
-          `<div class="widget-item"><strong>${escapeHtml(c.cabinet_name)}</strong><small><i class="fas fa-wrench"></i> ${formatDate(c.maintenance_due_date)} ${c.phone ? `&nbsp;•&nbsp; <i class="fas fa-phone" style="font-size:0.7rem;"></i> ${escapeHtml(c.phone)}` : ""}</small></div>`,
-      )
-      .join("");
-  } catch {}
+    
+    l.innerHTML = clients.map((c) => {
+        // Formatage date
+        const dateStr = new Date(c.maintenance_due_date).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+        // Design harmonisé avec "Rendez-vous à venir"
+        return `
+        <div class="widget-item" style="padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.2s;"
+             onclick="window.location.href='/clients.html?open=${c.id}'">
+            
+            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0;">
+                <div style="font-weight: 600; color: #1e293b; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    ${escapeHtml(c.cabinet_name)}
+                </div>
+                <div style="font-size: 0.8rem; color: #64748b; display: flex; align-items: center; gap: 5px;">
+                   <i class="fas fa-phone" style="font-size: 0.7rem;"></i> ${escapeHtml(c.phone || '-')}
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-left: 10px;">
+                <div style="font-size: 0.9rem; font-weight: 600; color: #b91c1c; background: #fef2f2; padding: 5px 10px; border-radius: 6px; border: 1px solid #fecaca; display:flex; align-items:center; gap:5px;">
+                     <i class="fas fa-wrench" style="font-size:0.8rem;"></i> ${dateStr}
+                </div>
+            </div>
+        </div>
+        `;
+      }).join("");
+  } catch(e) { console.error(e); }
 }
+
 async function loadMaintenanceMonth() {
   try {
     const t = new Date();

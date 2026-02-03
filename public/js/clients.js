@@ -18,21 +18,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadTechnicians();
     loadData();
 
-    // --- GESTION OUVERTURE DIRECTE DEPUIS DASHBOARD ---
+    // --- 1. GESTION DES PARAMÈTRES URL (Dashboard) ---
     const urlParams = new URLSearchParams(window.location.search);
-    const clientToOpen = urlParams.get('open');
-    const viewParam = urlParams.get('view');
+    const clientToOpen = urlParams.get('open');     // ID du client
+    const editRdvId = urlParams.get('edit_rdv');    // ID du RDV (si clic sur modifier)
+    const viewParam = urlParams.get('view');        // Vue (planning/annuaire)
 
+    // A. Changement de vue si demandé
     if(viewParam === 'planning') {
         switchView('planning');
     }
 
+    // B. Ouverture automatique (Fiche client + Modale RDV)
     if (clientToOpen) {
-        setTimeout(() => { openClientDetails(clientToOpen); }, 500);
+        // On nettoie l'URL immédiatement pour que ce soit propre
         window.history.replaceState({}, document.title, "/clients.html");
+
+        // On lance l'ouverture avec un petit délai (pour laisser le temps au DOM/Selects de charger)
+        setTimeout(() => {
+            // 1. Toujours ouvrir la fiche client
+            openClientDetails(clientToOpen);
+
+            // 2. Si un RDV spécifique est demandé (Bouton Modifier du Dashboard)
+            if (editRdvId) {
+                // On récupère le nom du client pour afficher proprement la modale
+                fetch(`/api/clients/${clientToOpen}`)
+                    .then(r => r.json())
+                    .then(client => {
+                        // On ouvre la modale d'édition par-dessus la fiche
+                        openScheduleModal(clientToOpen, client.cabinet_name, editRdvId);
+                    })
+                    .catch(e => console.error("Erreur récupération client pour modale", e));
+            }
+        }, 600);
     }
 
-    // --- LISTENERS ---
+    // --- 2. LISTENERS (Recherche & Filtres) ---
     document.getElementById('global-search')?.addEventListener('input', debounce(e => { 
         currentFilters.search = e.target.value; currentPage = 1; loadData(); 
     }, 300));
@@ -54,15 +75,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('toggle-advanced-filters')?.addEventListener('click', () => document.getElementById('advanced-filters-panel').classList.toggle('hidden'));
     document.getElementById('clear-filters')?.addEventListener('click', resetFilters);
     
+    // Pagination
     document.getElementById('prev-page')?.addEventListener('click', () => changePage(-1));
     document.getElementById('next-page')?.addEventListener('click', () => changePage(1));
     document.getElementById('limit-select')?.addEventListener('change', e => { itemsPerPage = parseInt(e.target.value); currentPage = 1; loadData(); });
     
+    // Actions globales
     document.getElementById('logout-btn')?.addEventListener('click', logout);
     document.getElementById('confirm-delete-btn')?.addEventListener('click', confirmDeleteClient);
     document.getElementById('btn-geo-search')?.addEventListener('click', searchCoordinates);
     
-    // Initialisation SlimSelect
+    // --- 3. INITIALISATION SLIMSELECT ---
     const destroyPreviousSlimSelect = (selector) => {
         const el = document.querySelector(selector);
         if (el && el.style.display === 'none' && el.nextElementSibling?.classList.contains('ss-main')) {
@@ -76,10 +99,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     new SlimSelect({ select: '#filter-canton', settings: { showSearch: false, placeholderText: 'Canton', allowDeselect: true } });
     new SlimSelect({ select: '#filter-sector', settings: { showSearch: false, placeholderText: 'Secteur', allowDeselect: true } });
     new SlimSelect({ select: '#adv-status', settings: { showSearch: false, placeholderText: 'Statut', allowDeselect: true } });
-
-
-    // Init Selecteur Modal RDV
-    // new SlimSelect({ select: '#schedule-tech', settings: { showSearch: false, placeholderText: 'Technicien' } });
 });
 
 async function checkAuth() {
@@ -265,17 +284,6 @@ function renderPlanning(list) {
 
 // --- FONCTIONS MODALE RDV ---
 
-function openScheduleModal(clientId, clientName) {
-    document.getElementById('schedule-client-id').value = clientId;
-    document.getElementById('schedule-client-name').textContent = clientName;
-    
-    // Date par défaut : Demain
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-    document.getElementById('schedule-date').value = tomorrow.toISOString().split('T')[0];
-    
-    document.getElementById('schedule-modal').classList.add('active');
-}
-
 function closeScheduleModal() {
     document.getElementById('schedule-modal').classList.remove('active');
 }
@@ -283,43 +291,42 @@ function closeScheduleModal() {
 async function confirmSchedule() {
     const clientId = document.getElementById('schedule-client-id').value;
     const date = document.getElementById('schedule-date').value;
-    const techId = document.getElementById('schedule-tech').value || (currentUser ? currentUser.id : null);
+    
+    // Récupérer le tableau des IDs depuis SlimSelect
+    const techIds = techSelectInstance ? techSelectInstance.getSelected() : [];
 
-    if (!date) { showNotification("Veuillez choisir une date", "error"); return; }
+    if (!date) { showNotification("Date requise", "error"); return; }
+
+    const body = {
+        appointment_date: date,
+        task_description: "Maintenance",
+        technician_ids: techIds // On envoie le tableau [1, 3]
+    };
 
     try {
-        const res = await fetch(`/api/clients/${clientId}/appointments`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                appointment_date: date,
-                task_description: "Maintenance (Via Planning)",
-                technician_id: techId
-            })
-        });
-
+        let res;
+        if (currentEditingRdvId) {
+            res = await fetch(`/api/clients/appointments/${currentEditingRdvId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+        } else {
+            res = await fetch(`/api/clients/${clientId}/appointments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+        }
+        
         if (res.ok) {
             closeScheduleModal();
-            showNotification(`RDV planifié le ${formatDate(date)}`, 'success');
-            loadData(); // Rafraîchit la liste pour enlever le rouge
-        } else {
-            showNotification("Erreur lors de la création", 'error');
-        }
-    } catch (e) { console.error(e); }
-}
-
-async function deleteAppointment(rdvId) {
-    // Utilisation d'un confirm natif pour faire simple mais efficace (pas d'alert d'info, juste confirmation)
-    if(!confirm("Annuler ce rendez-vous ? Le client repassera en liste d'attente.")) return;
-
-    try {
-        // CORRECTION DE L'URL : /api/clients/appointments/ID
-        const res = await fetch(`/api/clients/appointments/${rdvId}`, { method: 'DELETE' });
-        if (res.ok) {
-            showNotification("Rendez-vous annulé", 'info');
-            loadData(); // Le client redevient Rouge/Orange
-        } else {
-            showNotification("Erreur suppression", 'error');
+            showNotification("Enregistré avec succès", 'success');
+            loadData(); // Rafraîchir le tableau
+            // Si on est dans la fiche client, on rafraîchit aussi
+            if(document.getElementById('client-details-modal').classList.contains('active')) {
+                openClientDetails(clientId);
+            }
         }
     } catch (e) { console.error(e); }
 }
@@ -333,7 +340,7 @@ async function openClientDetails(id) {
         const res = await fetch(`/api/clients/${id}`);
         const c = await res.json();
         
-        // Remplissage standard...
+        // Remplissage infos de base
         document.getElementById('sheet-name').textContent = c.cabinet_name;
         document.getElementById('sheet-category').textContent = c.activity || 'Autre';
         document.getElementById('sheet-city-header').textContent = c.city;
@@ -344,9 +351,25 @@ async function openClientDetails(id) {
         document.getElementById('sheet-notes').textContent = c.notes || 'Aucune note.';
         document.getElementById('sheet-coords').innerHTML = c.latitude ? `<i class="fas fa-check-circle"></i> ${c.latitude}, ${c.longitude}` : 'Non localisé';
         
-        // --- NOUVEAU : Injection du Prochain RDV dans la sidebar ---
+        // --- NOUVEAU : Injection des boutons d'action dans le header ---
+        const actionsRow = modal.querySelector('.sheet-actions-row');
+        if (actionsRow) {
+            actionsRow.innerHTML = `
+                <button class="btn btn-primary btn-sm" onclick="openScheduleModal(${c.id}, '${escapeHtml(c.cabinet_name)}')" title="Fixer un nouveau RDV">
+                    <i class="fas fa-calendar-plus"></i> Planifier
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="openClientModal(${c.id})">
+                    <i class="fas fa-pen"></i> Modifier
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="openDeleteModal(${c.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+                <button class="modal-close" onclick="closeClientDetailsModal()">&times;</button>
+            `;
+        }
+
+        // Gestion Sidebar (RDV existant)
         const sidebar = document.querySelector('.sheet-sidebar');
-        // On nettoie d'abord si un ancien bloc RDV existe
         const oldRdv = document.getElementById('sidebar-rdv-box');
         if(oldRdv) oldRdv.remove();
 
@@ -363,7 +386,6 @@ async function openClientDetails(id) {
                     <div style="font-size:0.8rem; color:#60a5fa; margin-top:2px; margin-left:24px;">${techStr}</div>
                 </div>
             `;
-            // On l'insère tout en haut de la sidebar
             sidebar.insertAdjacentHTML('afterbegin', rdvHtml);
         }
 
@@ -592,110 +614,88 @@ function exportData() { showNotification("Fonction d'export CSV à implémenter.
 
 // --- FONCTIONS RENDEZ-VOUS ---
 
-// Variable globale pour stocker l'ID du RDV en cours d'édition
+// Variable globale pour stocker l'ID du RDV (si pas déjà présente en haut du fichier)
 let currentEditingRdvId = null;
 
-// Accepte maintenant un ID de RDV optionnel
 async function openScheduleModal(clientId, clientName, rdvId = null) {
     document.getElementById('schedule-client-id').value = clientId;
     document.getElementById('schedule-client-name').textContent = clientName;
+    currentEditingRdvId = rdvId;
     
-    currentEditingRdvId = rdvId; // On stocke l'ID
-    const btn = document.querySelector('#schedule-modal .btn-primary');
-    const title = document.querySelector('#schedule-modal h2');
+    // Reset propre
+    if(techSelectInstance) techSelectInstance.setSelected([]);
+
+    const footer = document.querySelector('#schedule-modal .modal-footer');
+    footer.innerHTML = `
+        <button class="btn btn-secondary" onclick="closeScheduleModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="confirmSchedule()">Valider</button>
+    `;
 
     if (rdvId) {
-        // MODE ÉDITION
-        title.innerHTML = '<i class="fas fa-edit"></i> Modifier RDV';
-        btn.textContent = "Enregistrer les modifications";
+        // MODE MODIFICATION
+        document.querySelector('#schedule-modal h2').innerHTML = '<i class="fas fa-edit"></i> Modifier RDV';
         
+        // Bouton Supprimer
+        const btnDelete = document.createElement('button');
+        btnDelete.className = 'btn';
+        btnDelete.style.cssText = "background-color: #ef4444; color: white; margin-right: auto;"; 
+        btnDelete.innerHTML = '<i class="fas fa-trash"></i> Supprimer';
+        btnDelete.onclick = () => deleteAppointment(rdvId);
+        footer.insertBefore(btnDelete, footer.firstChild);
+
         try {
             const res = await fetch(`/api/clients/appointments/${rdvId}`);
             const rdv = await res.json();
             
             document.getElementById('schedule-date').value = rdv.appointment_date;
             
-            // Attendre que le select soit prêt (si loadTechnicians est async)
-            const techSelect = document.getElementById('schedule-tech');
-            if(techSelect) techSelect.value = rdv.technician_id || '';
-            
-        } catch(e) { console.error("Erreur chargement RDV", e); }
-
+            // CORRECTION IMPORTANTE : Convertir les IDs en String pour SlimSelect
+            if(techSelectInstance && rdv.technician_ids) {
+                const idsAsString = rdv.technician_ids.map(id => String(id));
+                techSelectInstance.setSelected(idsAsString);
+            }
+        } catch(e) { console.error(e); }
     } else {
         // MODE CRÉATION
-        title.innerHTML = '<i class="fas fa-calendar-plus"></i> Planifier RDV';
-        btn.textContent = "Valider le RDV";
-        
-        const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-        document.getElementById('schedule-date').value = tomorrow.toISOString().split('T')[0];
-        document.getElementById('schedule-tech').value = ''; 
+        document.querySelector('#schedule-modal h2').innerHTML = '<i class="fas fa-calendar-plus"></i> Planifier RDV';
+        const d = new Date(); d.setDate(d.getDate() + 1);
+        document.getElementById('schedule-date').value = d.toISOString().split('T')[0];
     }
     
     document.getElementById('schedule-modal').classList.add('active');
 }
 
-function closeScheduleModal() {
-    document.getElementById('schedule-modal').classList.remove('active');
-}
-
-async function confirmSchedule() {
-    const clientId = document.getElementById('schedule-client-id').value;
-    const date = document.getElementById('schedule-date').value;
-    const techId = document.getElementById('schedule-tech').value || (currentUser ? currentUser.id : null);
-    
-    if (!date) { showNotification("Date requise", "error"); return; }
-
-    const body = {
-        appointment_date: date,
-        task_description: "Maintenance", // Ou ajouter un champ description dans la modale si tu veux
-        technician_id: techId
-    };
-
-    try {
-        let res;
-        if (currentEditingRdvId) {
-            // MISE À JOUR (PUT)
-            res = await fetch(`/api/clients/appointments/${currentEditingRdvId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-        } else {
-            // CRÉATION (POST)
-            res = await fetch(`/api/clients/${clientId}/appointments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-        }
-
-        if (res.ok) {
-            closeScheduleModal();
-            showNotification(currentEditingRdvId ? "RDV modifié" : "RDV créé", 'success');
-            loadData();
-            // Si on est dans la fiche client, on rafraîchit l'historique
-            if(document.getElementById('client-details-modal').classList.contains('active')) {
-                openClientDetails(clientId); // Rafraîchit tout (sidebar + historique)
-            }
-        } else {
-            showNotification("Erreur sauvegarde", 'error');
-        }
-    } catch (e) { console.error(e); }
-}
-
 async function deleteAppointment(rdvId) {
-    if (!confirm("Annuler ce rendez-vous ?")) return; // Simple confirmation native
+    if (!confirm("Voulez-vous vraiment supprimer ce rendez-vous ?")) return;
     
     try {
-        // Notez l'URL correcte définie dans server/routes/clients.js
         const res = await fetch(`/api/clients/appointments/${rdvId}`, { method: 'DELETE' });
+        
         if (res.ok) {
-            showNotification("Rendez-vous annulé", 'info');
-            loadData(); // Le client redeviendra Rouge/Orange
+            // 1. D'abord on ferme la modale pour éviter les bugs visuels
+            closeScheduleModal();
+            showNotification("Rendez-vous supprimé", 'info');
+            
+            // 2. Ensuite on rafraîchit les données
+            // Si on est dans une fiche client, on la met à jour
+            const modalDetails = document.getElementById('client-details-modal');
+            if (modalDetails && modalDetails.classList.contains('active')) {
+                // On récupère l'ID du client depuis le champ caché de la modale RDV
+                const clientId = document.getElementById('schedule-client-id').value;
+                if(clientId) openClientDetails(clientId);
+            }
+            
+            // Dans tous les cas, on rafraîchit la liste principale ou le planning
+            loadData(); 
+            
         } else {
-            showNotification("Erreur suppression", 'error');
+            const err = await res.json();
+            showNotification(err.error || "Erreur lors de la suppression", 'error');
         }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error(e);
+        showNotification("Erreur réseau", 'error');
+    }
 }
 
 // --- FONCTIONS MANQUANTES (GEOLOCALISATION) ---
@@ -846,7 +846,7 @@ function exportData() {
 }
 
 
-let techSelectInstance = null; // Variable pour stocker l'instance SlimSelect
+let techSelectInstance = null;
 
 async function loadTechnicians() {
     try {
@@ -856,36 +856,40 @@ async function loadTechnicians() {
         
         const select = document.getElementById('schedule-tech');
         
-        // 1. IMPORTANT : Si une instance SlimSelect existe déjà sur cet élément, on la détruit !
-        // Cela supprime les doublons visuels (les 3 barres)
-        if (techSelectInstance) {
-            techSelectInstance.destroy();
-            techSelectInstance = null;
-        } else if (select.slim) {
-            // Sécurité supplémentaire si initialisé ailleurs
-            select.slim.destroy();
+        // 1. NETTOYAGE AGRESSIF (Anti-doublons)
+        // On détruit l'instance SlimSelect si on la connaît
+        if (techSelectInstance) { 
+            techSelectInstance.destroy(); 
+            techSelectInstance = null; 
         }
         
-        // 2. On remplit le select HTML standard
-        let html = '<option value="">-- Assigner à moi --</option>';
-        users.forEach(u => {
-            html += `<option value="${u.id}">${escapeHtml(u.name)} (${u.role})</option>`;
-        });
-        select.innerHTML = html;
+        // Si SlimSelect a créé des éléments visuels orphelins, on les supprime manuellement
+        if (select.nextElementSibling && select.nextElementSibling.classList.contains('ss-main')) {
+            select.nextElementSibling.remove();
+            select.style.display = ''; // On réaffiche le select natif pour le réinitialiser proprement
+        }
+        
+        // 2. FORCER LES ATTRIBUTS
+        select.multiple = true;
+        select.setAttribute('multiple', 'multiple');
+        
+        // 3. REMPLISSAGE HTML
+        select.innerHTML = users.map(u => 
+            `<option value="${u.id}">${escapeHtml(u.name)} (${u.role})</option>`
+        ).join('');
 
-        // 3. On ré-initialise SlimSelect proprement UNE SEULE FOIS
+        // 4. INITIALISATION SLIMSELECT
         techSelectInstance = new SlimSelect({
             select: '#schedule-tech',
             settings: { 
-                showSearch: false, 
-                placeholderText: 'Technicien assigné',
-                allowDeselect: true
+                showSearch: false,
+                placeholderText: 'Sélectionner technicien(s)',
+                allowDeselect: true,
+                closeOnSelect: false // IMPORTANT : Garde le menu ouvert pour en cocher plusieurs
             }
         });
 
-    } catch (e) {
-        console.error("Erreur chargement techniciens:", e);
-    }
+    } catch (e) { console.error("Erreur chargement techniciens", e); }
 }
 
 // EXPOSITION DES FONCTIONS AU HTML

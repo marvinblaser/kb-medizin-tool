@@ -526,20 +526,19 @@ router.delete('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
     });
 });
 
-// LISTER HISTORIQUE COMPLET (Rapports + RDV)
+// LISTER HISTORIQUE COMPLET (Rapports + RDV Multi-Tech)
 router.get('/:id/appointments', requireAuth, (req, res) => {
   const sql = `
     -- 1. LES RAPPORTS (Signés/Archivés)
     SELECT 
         'report' as source_type, 
         r.id as id_unique,
-        r.id as report_id,              -- ID pour ouvrir le PDF
+        r.id as report_id,
         r.report_number, 
         r.technician_signature_date as appointment_date, 
         r.work_accomplished as task_description,
-        u.name as tech_name,            -- Nom du technicien (Auteur)
+        u.name as tech_name, -- Auteur unique pour le rapport
         
-        -- Récupération groupée des machines du rapport
         (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ') 
          FROM report_equipment re 
          JOIN equipment_catalog ec ON re.equipment_id = ec.id 
@@ -555,13 +554,17 @@ router.get('/:id/appointments', requireAuth, (req, res) => {
     SELECT 
         'rdv' as source_type, 
         ah.id as id_unique,
-        ah.report_id as report_id,      -- NULL (sauf si un rapport a été lié plus tard)
+        ah.report_id as report_id,
         NULL as report_number, 
         ah.appointment_date, 
         ah.task_description,
-        u.name as tech_name,            -- Nom du technicien (Assigné)
         
-        -- Récupération groupée des machines du RDV
+        -- MODIFICATION ICI : On récupère tous les techniciens liés via la nouvelle table
+        (SELECT group_concat(u.name, ', ') 
+         FROM appointment_technicians at
+         JOIN users u ON at.user_id = u.id 
+         WHERE at.appointment_id = ah.id) as tech_name,
+        
         (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ') 
          FROM appointment_equipment ae 
          JOIN client_equipment ce ON ae.equipment_id = ce.id 
@@ -569,7 +572,6 @@ router.get('/:id/appointments', requireAuth, (req, res) => {
          WHERE ae.appointment_id = ah.id) as machines
 
     FROM appointments_history ah 
-    LEFT JOIN users u ON ah.technician_id = u.id
     WHERE ah.client_id = ?
 
     ORDER BY appointment_date DESC
@@ -581,27 +583,42 @@ router.get('/:id/appointments', requireAuth, (req, res) => {
   });
 });
 
-// ADD MANUAL APPOINTMENT
+// CRÉATION RDV (Multi-Tech + Équipements)
 router.post('/:id/appointments', requireAuth, (req, res) => {
-  const { appointment_date, task_description, technician_id, report_id, equipment_ids } = req.body;
-  db.serialize(() => {
-    db.run("INSERT INTO appointments_history (client_id, appointment_date, task_description, technician_id, report_id) VALUES (?,?,?,?,?)", [req.params.id, appointment_date, task_description, technician_id, report_id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        const appId = this.lastID;
-        if (equipment_ids && equipment_ids.length > 0) { const placeholders = equipment_ids.map(() => '(?, ?)').join(','); const values = []; equipment_ids.forEach(eid => { values.push(appId, eid); }); db.run(`INSERT INTO appointment_equipment (appointment_id, equipment_id) VALUES ${placeholders}`, values); }
-        db.run("UPDATE clients SET appointment_at = ? WHERE id = ?", [appointment_date, req.params.id]);
-        res.json({ id: appId });
-    });
-  });
-});
+    // On récupère technician_ids (tableau) et equipment_ids (tableau)
+    const { appointment_date, technician_ids, task_description, equipment_ids } = req.body; 
+    
+    db.serialize(() => {
+        // 1. Insertion RDV de base
+        db.run("INSERT INTO appointments_history (client_id, appointment_date, task_description) VALUES (?, ?, ?)", 
+        [req.params.id, appointment_date, task_description], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            
+            const rdvId = this.lastID;
 
-// Créer un RDV (depuis le bouton "Fixer")
-router.post('/:id/appointments', requireAuth, (req, res) => {
-    const { appointment_date, technician_id, task_description } = req.body;
-    db.run("INSERT INTO appointments_history (client_id, appointment_date, technician_id, task_description) VALUES (?, ?, ?, ?)", 
-    [req.params.id, appointment_date, technician_id, task_description], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "RDV créé", id: this.lastID });
+            // 2. Insertion des techniciens (Multiples)
+            if (Array.isArray(technician_ids) && technician_ids.length > 0) {
+                const placeholders = technician_ids.map(() => '(?, ?)').join(',');
+                const values = [];
+                technician_ids.forEach(uid => { values.push(rdvId, uid); });
+                
+                db.run(`INSERT INTO appointment_technicians (appointment_id, user_id) VALUES ${placeholders}`, values);
+            }
+
+            // 3. Insertion des équipements (Si sélectionnés)
+            if (Array.isArray(equipment_ids) && equipment_ids.length > 0) { 
+                 const placeholders = equipment_ids.map(() => '(?, ?)').join(','); 
+                 const values = []; 
+                 equipment_ids.forEach(eid => { values.push(rdvId, eid); }); 
+                 
+                 db.run(`INSERT INTO appointment_equipment (appointment_id, equipment_id) VALUES ${placeholders}`, values); 
+            }
+            
+            // 4. Mise à jour cache date client
+            db.run("UPDATE clients SET appointment_at = ? WHERE id = ?", [appointment_date, req.params.id]);
+            
+            res.json({ message: "RDV créé", id: rdvId });
+        });
     });
 });
 
@@ -613,27 +630,45 @@ router.delete('/appointments/:id', requireAuth, (req, res) => {
     });
 });
 
-// Récupérer un seul RDV (pour l'édition)
+// Récupérer un RDV (Avec les IDs multiples pour pré-remplir le selecteur)
 router.get('/appointments/:id', requireAuth, (req, res) => {
-    db.get("SELECT * FROM appointments_history WHERE id = ?", [req.params.id], (err, row) => {
+    const sql = `
+        SELECT ah.*, 
+        (SELECT group_concat(user_id) FROM appointment_technicians WHERE appointment_id = ah.id) as technician_ids
+        FROM appointments_history ah 
+        WHERE id = ?`;
+    
+    db.get(sql, [req.params.id], (err, row) => {
         if (err || !row) return res.status(404).json({ error: "RDV introuvable" });
+        // Conversion "1,2" -> [1, 2] pour le frontend
+        row.technician_ids = row.technician_ids ? row.technician_ids.split(',').map(Number) : [];
         res.json(row);
     });
 });
 
-// Mettre à jour un RDV (PUT)
+// Mise à jour RDV (Multi-Tech)
 router.put('/appointments/:id', requireAuth, (req, res) => {
-    const { appointment_date, technician_id, task_description } = req.body;
-    const sql = `UPDATE appointments_history SET appointment_date = ?, technician_id = ?, task_description = ? WHERE id = ?`;
+    const { appointment_date, technician_ids, task_description } = req.body;
     
-    db.run(sql, [appointment_date, technician_id, task_description, req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        
-        // On récupère le client_id pour mettre à jour la date rapide dans la table clients (optionnel mais recommandé)
+    db.serialize(() => {
+        // Update infos de base
+        db.run("UPDATE appointments_history SET appointment_date = ?, task_description = ? WHERE id = ?", 
+            [appointment_date, task_description, req.params.id]);
+
+        // Reset et réinsertion des techniciens
+        db.run("DELETE FROM appointment_technicians WHERE appointment_id = ?", [req.params.id]);
+
+        if (Array.isArray(technician_ids) && technician_ids.length > 0) {
+            const placeholders = technician_ids.map(() => '(?, ?)').join(',');
+            const values = [];
+            technician_ids.forEach(uid => { values.push(req.params.id, uid); });
+            
+            db.run(`INSERT INTO appointment_technicians (appointment_id, user_id) VALUES ${placeholders}`, values);
+        }
+
+        // Mise à jour cache client
         db.get("SELECT client_id FROM appointments_history WHERE id = ?", [req.params.id], (err, row) => {
-            if(row) {
-                db.run("UPDATE clients SET appointment_at = ? WHERE id = ?", [appointment_date, row.client_id]);
-            }
+            if(row) db.run("UPDATE clients SET appointment_at = ? WHERE id = ?", [appointment_date, row.client_id]);
             res.json({ message: "RDV mis à jour" });
         });
     });
