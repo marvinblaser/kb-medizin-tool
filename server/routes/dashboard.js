@@ -16,7 +16,7 @@ router.get('/stats', requireAuth, (req, res) => {
     JOIN clients c ON ce.client_id = c.id
     LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
     WHERE ce.next_maintenance_date < ?
-    AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL) -- EXCLURE SECONDAIRES
+    AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL) 
     AND NOT EXISTS (
         SELECT 1 FROM appointments_history ah 
         WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')
@@ -31,7 +31,7 @@ router.get('/stats', requireAuth, (req, res) => {
     LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
     WHERE ce.next_maintenance_date >= ? 
     AND ce.next_maintenance_date <= date(?, '+60 days')
-    AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL) -- EXCLURE SECONDAIRES
+    AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL) 
     AND NOT EXISTS (
         SELECT 1 FROM appointments_history ah 
         WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')
@@ -40,7 +40,7 @@ router.get('/stats', requireAuth, (req, res) => {
 
   const sqlEquipment = `SELECT count(*) as count FROM client_equipment`;
 
-  // 3. STATUT CLIENTS (Mise à jour pour ignorer les appareils secondaires dans le calcul)
+  // 3. STATUT CLIENTS
   const sqlClientsStatus = `
     SELECT 
         c.id, 
@@ -91,7 +91,7 @@ router.get('/details', requireAuth, (req, res) => {
         FROM client_equipment ce
         JOIN clients c ON ce.client_id = c.id
         LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
-        WHERE (ec.is_secondary = 0 OR ec.is_secondary IS NULL) -- FILTRE GLOBAL
+        WHERE (ec.is_secondary = 0 OR ec.is_secondary IS NULL) 
         AND NOT EXISTS (
             SELECT 1 FROM appointments_history ah 
             WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')
@@ -112,7 +112,7 @@ router.get('/details', requireAuth, (req, res) => {
 });
 
 // --- WIDGETS ---
-// 1. Prochains RDV (Inchangé)
+// 1. Prochains RDV
 router.get('/upcoming-appointments', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const sql = `
@@ -128,7 +128,7 @@ router.get('/upcoming-appointments', requireAuth, (req, res) => {
   db.all(sql, [today], (err, rows) => res.json(rows));
 });
 
-// 2. À Contacter (Filtre Secondary)
+// 2. À Contacter
 router.get('/clients-to-contact', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const sql = `
@@ -137,7 +137,7 @@ router.get('/clients-to-contact', requireAuth, (req, res) => {
     JOIN client_equipment ce ON c.id = ce.client_id
     LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
     WHERE ce.next_maintenance_date < ?
-    AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL) -- FILTRE
+    AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL) 
     AND NOT EXISTS (
         SELECT 1 FROM appointments_history ah 
         WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')
@@ -148,31 +148,55 @@ router.get('/clients-to-contact', requireAuth, (req, res) => {
   db.all(sql, [today], (err, rows) => res.json(rows));
 });
 
-// 3. Carte (Filtre Secondary dans le SUM)
+// 3. Carte (CORRIGÉE : Retour du statut Warning + Ignore Secu)
 router.get('/clients-map', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
+  
+  // On calcule le nombre d'expirés ET la prochaine date (en ignorant les secondaires pour les deux)
   const sql = `
     SELECT 
       c.id, c.cabinet_name, c.contact_name, c.address, c.city, c.postal_code, c.phone, c.canton,
       c.latitude, c.longitude,
+      
+      -- Compte seulement les appareils prioritaires expirés
       SUM(CASE 
         WHEN ce.next_maintenance_date < ? 
         AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL) 
         THEN 1 ELSE 0 END
       ) as expired_count,
+      
+      -- Prend la date la plus proche UNIQUEMENT parmi les appareils prioritaires
+      MIN(CASE 
+        WHEN (ec.is_secondary = 0 OR ec.is_secondary IS NULL) 
+        THEN ce.next_maintenance_date END
+      ) as next_date,
+
       (SELECT count(*) FROM appointments_history ah WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')) as future_rdv
+    
     FROM clients c
     LEFT JOIN client_equipment ce ON c.id = ce.client_id
     LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
     GROUP BY c.id
   `;
+
   db.all(sql, [today], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
+    
     const clients = rows.map(row => {
       let status = 'ok';
-      if (row.future_rdv > 0) status = 'ok';
-      else if (row.expired_count > 0) status = 'expired';
-      // Note: On ne met pas 'warning' sur la carte pour simplifier, ou on pourrait l'ajouter avec la même logique
+      
+      if (row.future_rdv > 0) {
+          status = 'ok'; // Vert (RDV prévu)
+      } else if (row.expired_count > 0) {
+          status = 'expired'; // Rouge (Maintenance expirée)
+      } else if (row.next_date) {
+          // Calcul des jours restants pour l'Orange
+          const days = Math.ceil((new Date(row.next_date) - new Date()) / (1000 * 60 * 60 * 24));
+          if (days >= 0 && days <= 60) {
+              status = 'warning'; // Orange (Bientôt)
+          }
+      }
+      
       return { ...row, status };
     });
     res.json(clients);
