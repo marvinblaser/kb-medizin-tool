@@ -168,8 +168,26 @@ router.get('/device-types', requireAdmin, (req, res) => db.all("SELECT * FROM de
 router.post('/device-types', requireAdmin, (req, res) => db.run("INSERT INTO device_types (name) VALUES (?)", [req.body.name], function(err) { err ? res.status(400).json({error:"Erreur"}) : res.json({id:this.lastID}); }));
 router.delete('/device-types/:id', requireAdmin, (req, res) => db.run("DELETE FROM device_types WHERE id=?", [req.params.id], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})));
 router.get('/equipment', requireAuth, (req, res) => db.all("SELECT * FROM equipment_catalog ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
-router.post('/equipment', requireAdmin, (req, res) => { const { name, brand, model, type, device_type } = req.body; db.run("INSERT INTO equipment_catalog (name, brand, model, type, device_type) VALUES (?, ?, ?, ?, ?)", [name, brand, model, type, device_type], function(err){ err?res.status(500).json({error:err.message}):res.json({id:this.lastID}); }); });
-router.put('/equipment/:id', requireAdmin, (req, res) => { const { name, brand, model, type, device_type } = req.body; db.run("UPDATE equipment_catalog SET name=?, brand=?, model=?, type=?, device_type=? WHERE id=?", [name, brand, model, type, device_type, req.params.id], (err)=>err?res.status(500).json({error:err.message}):res.json({success:true})); });
+// POST : Ajouter un équipement (avec is_secondary)
+router.post('/equipment', requireAdmin, (req, res) => { 
+    const { name, brand, model, type, device_type, is_secondary } = req.body; 
+    // On force 1 ou 0
+    const secVal = is_secondary ? 1 : 0;
+    
+    db.run("INSERT INTO equipment_catalog (name, brand, model, type, device_type, is_secondary) VALUES (?, ?, ?, ?, ?, ?)", 
+    [name, brand, model, type, device_type, secVal], function(err){ 
+        if(err) return res.status(500).json({error:err.message}); 
+        res.json({id:this.lastID}); 
+    }); 
+});
+router.put('/equipment/:id', requireAdmin, (req, res) => { 
+    const { name, brand, model, type, device_type, is_secondary } = req.body; 
+    const secVal = is_secondary ? 1 : 0;
+    
+    db.run("UPDATE equipment_catalog SET name=?, brand=?, model=?, type=?, device_type=?, is_secondary=? WHERE id=?", 
+    [name, brand, model, type, device_type, secVal, req.params.id], 
+    (err)=>err?res.status(500).json({error:err.message}):res.json({success:true})); 
+});
 router.delete('/equipment/:id', requireAdmin, (req, res) => db.run("DELETE FROM equipment_catalog WHERE id=?", [req.params.id], (err)=>err?res.status(500).json({error:err.message}):res.json({success:true})));
 
 router.get('/export/clients', requireAdmin, (req, res) => {

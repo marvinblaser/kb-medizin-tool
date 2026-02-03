@@ -316,6 +316,13 @@
                             <div class="form-group"><label>Appareil *</label><select id="equipment-device-type" required></select></div>
                             <div class="form-group"><label>Secteur *</label><select id="equipment-type" required></select></div>
                         </div>
+                        <div class="form-group" style="background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: 10px; display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="equipment-secondary" style="width: 20px; height: 20px; cursor: pointer;">
+                            <div style="display:flex; flex-direction:column;">
+                                <label for="equipment-secondary" style="margin:0; font-weight:600; cursor:pointer;">Appareil Secondaire</label>
+                                <small style="color:#64748b; font-size:0.8rem;">(Ne déclenche pas d'alerte rouge "Maintenance Expirée")</small>
+                            </div>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer"><button class="btn btn-secondary" onclick="closeEquipmentModal()">Annuler</button><button class="btn btn-primary" id="save-equipment-btn">Enregistrer</button></div>
