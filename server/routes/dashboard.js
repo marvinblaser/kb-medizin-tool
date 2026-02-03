@@ -114,7 +114,7 @@ router.get('/details', requireAuth, (req, res) => {
 
 // --- WIDGETS ---
 
-// 1. Prochains RDV (Multi-techniciens + Date corrigée)
+// 1. Prochains RDV
 router.get('/upcoming-appointments', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const sql = `
@@ -133,20 +133,19 @@ router.get('/upcoming-appointments', requireAuth, (req, res) => {
     JOIN clients c ON ah.client_id = c.id
     WHERE ah.appointment_date >= ?
     ORDER BY ah.appointment_date ASC
-    LIMIT 10
-  `; // J'ai augmenté la limite à 10 pour voir plus de RDV
-  
+    LIMIT 100  -- AUGMENTÉ pour le popup
+  `;
   db.all(sql, [today], (err, rows) => {
       if(err) return res.status(500).json({error: err.message});
       res.json(rows);
   });
 });
 
-// 2. À Contacter (Exclut ceux avec RDV)
+// 2. À Contacter
 router.get('/clients-to-contact', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const sql = `
-    SELECT DISTINCT c.cabinet_name, c.phone, MIN(ce.next_maintenance_date) as maintenance_due_date
+    SELECT DISTINCT c.id, c.cabinet_name, c.phone, MIN(ce.next_maintenance_date) as maintenance_due_date
     FROM clients c
     JOIN client_equipment ce ON c.id = ce.client_id
     WHERE ce.next_maintenance_date < ?
@@ -156,7 +155,7 @@ router.get('/clients-to-contact', requireAuth, (req, res) => {
     )
     GROUP BY c.id
     ORDER BY maintenance_due_date ASC
-    LIMIT 5
+    LIMIT 100 -- AUGMENTÉ pour le popup
   `;
   db.all(sql, [today], (err, rows) => res.json(rows));
 });

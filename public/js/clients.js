@@ -13,44 +13,47 @@ let itemsPerPage = 25;
 let currentUser = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // 1. D'abord on charge tout ce qui est nécessaire
     await checkAuth();
-    await loadCatalog();
-    await loadTechnicians();
-    loadData();
+    
+    // On lance les chargements en parallèle pour aller plus vite
+    await Promise.all([
+        loadCatalog(),
+        loadTechnicians(),
+        loadData()
+    ]);
 
-    // --- 1. GESTION DES PARAMÈTRES URL (Dashboard) ---
+    // 2. Ensuite on gère les paramètres URL
     const urlParams = new URLSearchParams(window.location.search);
-    const clientToOpen = urlParams.get('open');     // ID du client
-    const editRdvId = urlParams.get('edit_rdv');    // ID du RDV (si clic sur modifier)
-    const viewParam = urlParams.get('view');        // Vue (planning/annuaire)
+    const clientToOpen = urlParams.get('open');
+    const editRdvId = urlParams.get('edit_rdv');
+    const viewParam = urlParams.get('view');
 
-    // A. Changement de vue si demandé
     if(viewParam === 'planning') {
         switchView('planning');
     }
 
-    // B. Ouverture automatique (Fiche client + Modale RDV)
     if (clientToOpen) {
-        // On nettoie l'URL immédiatement pour que ce soit propre
+        // Nettoyage URL immédiat
         window.history.replaceState({}, document.title, "/clients.html");
 
-        // On lance l'ouverture avec un petit délai (pour laisser le temps au DOM/Selects de charger)
-        setTimeout(() => {
-            // 1. Toujours ouvrir la fiche client
-            openClientDetails(clientToOpen);
+        // Ouverture Fiche Client
+        // Note: On attend explicitement que la fiche soit ouverte pour lancer la modale RDV
+        await openClientDetails(clientToOpen); 
 
-            // 2. Si un RDV spécifique est demandé (Bouton Modifier du Dashboard)
-            if (editRdvId) {
-                // On récupère le nom du client pour afficher proprement la modale
-                fetch(`/api/clients/${clientToOpen}`)
-                    .then(r => r.json())
-                    .then(client => {
-                        // On ouvre la modale d'édition par-dessus la fiche
-                        openScheduleModal(clientToOpen, client.cabinet_name, editRdvId);
-                    })
-                    .catch(e => console.error("Erreur récupération client pour modale", e));
+        // Ouverture Modale RDV (si demandé)
+        if (editRdvId) {
+            // Petite sécurité : on s'assure que la fonction est dispo et que le technicien select est prêt
+            const rdvModal = document.getElementById('schedule-modal');
+            if (rdvModal) {
+                // On récupère le nom pour le titre (optionnel, cosmétique)
+                const nameEl = document.getElementById('sheet-name');
+                const clientName = nameEl ? nameEl.textContent : "Client";
+                
+                console.log("Ouverture modale RDV pour:", editRdvId);
+                openScheduleModal(clientToOpen, clientName, editRdvId);
             }
-        }, 600);
+        }
     }
 
     // --- 2. LISTENERS (Recherche & Filtres) ---

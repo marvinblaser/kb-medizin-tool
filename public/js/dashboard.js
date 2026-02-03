@@ -558,6 +558,7 @@ async function loadStats() {
   }
 }
 
+// --- WIDGET : PROCHAINS RDV (MINIMALISTE) ---
 async function loadUpcomingAppointments() {
   try {
     const r = await fetch("/api/dashboard/upcoming-appointments");
@@ -565,93 +566,95 @@ async function loadUpcomingAppointments() {
     const l = document.getElementById("appointments-list");
 
     if (data.length === 0) {
-      l.innerHTML = '<div class="widget-empty"><i class="fas fa-calendar-check" style="margin-right:8px; opacity:0.5;"></i> Aucun rendez-vous prévu.</div>';
+      l.innerHTML = '<div class="widget-empty" style="color:#94a3b8; padding:1.5rem; text-align:center;"><i class="fas fa-check" style="opacity:0.3; display:block; margin-bottom:5px; font-size:1.2rem;"></i>Rien à l\'agenda</div>';
       return;
     }
 
-    l.innerHTML = data.map((rdv) => {
-        // Date propre
+    // On affiche 7 lignes max
+    const MAX = 5;
+    const list = data.slice(0, MAX);
+    
+    l.innerHTML = list.map(rdv => {
         const d = new Date(rdv.appointment_date);
         const dateStr = d.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
         
-        // Badges techniciens élégants (Pill)
-        let techsHtml = '<span style="color:#94a3b8; font-style:italic; font-size:0.75rem;">À assigner</span>';
+        // Techniciens : juste les prénoms ou "Non assigné", en texte simple gris
+        let techText = '<span style="color:#cbd5e1; font-style:italic;">Non assigné</span>';
         if (rdv.technician_names) {
-            techsHtml = rdv.technician_names.split(', ').map(name => 
-                `<span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:12px; font-size:0.7rem; font-weight:600; border:1px solid #bae6fd;">${escapeHtml(name)}</span>`
-            ).join(' ');
+            techText = `<span style="color:#64748b;">${escapeHtml(rdv.technician_names)}</span>`;
         }
 
-        // Nouveau Design : Flexbox structuré
         return `
-        <div class="widget-item" style="padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.2s;"
+        <div class="widget-item" style="padding:10px 15px; border-bottom:1px solid #f8fafc; cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
              onclick="window.location.href='/clients.html?open=${rdv.client_id}'">
-            
-            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0;">
-                <div style="font-weight: 600; color: #1e293b; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+             
+             <div style="min-width:0;">
+                <div style="font-weight:600; color:#334155; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                     ${escapeHtml(rdv.cabinet_name)}
                 </div>
-                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-                    ${techsHtml}
-                </div>
-            </div>
+                <div style="font-size:0.8rem; margin-top:1px;">${techText}</div>
+             </div>
 
-            <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-left: 10px;">
-                <div style="font-size: 0.9rem; font-weight: 600; color: #475569; background: #f8fafc; padding: 5px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    <i class="far fa-calendar-alt" style="color:var(--color-primary); margin-right:5px; font-size:0.8rem;"></i> ${dateStr}
-                </div>
-                
+             <div style="text-align:right; flex-shrink:0; margin-left:10px;">
+                <div style="font-size:0.85rem; font-weight:600; color:#475569;">${dateStr}</div>
                 <button onclick="event.stopPropagation(); window.location.href='/clients.html?open=${rdv.client_id}&edit_rdv=${rdv.appointment_id}'"
-                        title="Modifier le RDV"
-                        style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e2e8f0; background: white; color: var(--neutral-600); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
-                    <i class="fas fa-pen" style="font-size: 0.85rem;"></i>
+                        style="background:none; border:none; color:#94a3b8; cursor:pointer; padding:2px;">
+                    <i class="fas fa-pen" style="font-size:0.8rem;"></i>
                 </button>
-            </div>
-        </div>
-        `;
+             </div>
+        </div>`;
     }).join('');
-  } catch (e) {
-      console.error("Erreur chargement RDV:", e);
-  }
+
+    // Petit lien "Voir tout" si nécessaire
+    if (data.length > MAX) {
+        l.innerHTML += `<div style="text-align:center; padding:8px; font-size:0.8rem;"><a href="#" onclick="event.preventDefault(); openStatPopup('appointments_full')" style="color:#64748b; text-decoration:none;">Voir les ${data.length} RDV</a></div>`;
+    }
+
+  } catch (e) { console.error(e); }
 }
 
+// --- WIDGET : CLIENTS À CONTACTER (MINIMALISTE) ---
 async function loadClientsToContact() {
   try {
     const r = await fetch("/api/dashboard/clients-to-contact");
-    const clients = await r.json();
+    const data = await r.json();
     const l = document.getElementById("contacts-list");
     
-    if (clients.length === 0) {
-      l.innerHTML = '<div class="widget-empty"><i class="fas fa-check-circle" style="margin-right:8px; opacity:0.5;"></i> Aucun client à contacter.</div>';
+    if (data.length === 0) {
+      l.innerHTML = '<div class="widget-empty" style="color:#94a3b8; padding:1.5rem; text-align:center;"><i class="fas fa-smile" style="opacity:0.3; display:block; margin-bottom:5px; font-size:1.2rem;"></i>Tout est à jour</div>';
       return;
     }
-    
-    l.innerHTML = clients.map((c) => {
-        // Formatage date
-        const dateStr = new Date(c.maintenance_due_date).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-        // Design harmonisé avec "Rendez-vous à venir"
+    const MAX = 5;
+    const list = data.slice(0, MAX);
+
+    l.innerHTML = list.map(c => {
+        const d = new Date(c.maintenance_due_date);
+        const dateStr = d.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        
         return `
-        <div class="widget-item" style="padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.2s;"
+        <div class="widget-item" style="padding:10px 15px; border-bottom:1px solid #f8fafc; cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
              onclick="window.location.href='/clients.html?open=${c.id}'">
-            
-            <div style="display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0;">
-                <div style="font-weight: 600; color: #1e293b; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+             
+             <div style="min-width:0;">
+                <div style="font-weight:600; color:#334155; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                     ${escapeHtml(c.cabinet_name)}
                 </div>
-                <div style="font-size: 0.8rem; color: #64748b; display: flex; align-items: center; gap: 5px;">
-                   <i class="fas fa-phone" style="font-size: 0.7rem;"></i> ${escapeHtml(c.phone || '-')}
+                <div style="font-size:0.8rem; color:#94a3b8;">
+                    <i class="fas fa-phone" style="font-size:0.7rem;"></i> ${escapeHtml(c.phone || '-')}
                 </div>
-            </div>
+             </div>
 
-            <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-left: 10px;">
-                <div style="font-size: 0.9rem; font-weight: 600; color: #b91c1c; background: #fef2f2; padding: 5px 10px; border-radius: 6px; border: 1px solid #fecaca; display:flex; align-items:center; gap:5px;">
-                     <i class="fas fa-wrench" style="font-size:0.8rem;"></i> ${dateStr}
-                </div>
-            </div>
-        </div>
-        `;
-      }).join("");
+             <div style="text-align:right; flex-shrink:0; margin-left:10px;">
+                <div style="font-size:0.85rem; font-weight:600; color:#ef4444;">${dateStr}</div>
+             </div>
+        </div>`;
+    }).join('');
+
+    if (data.length > MAX) {
+        l.innerHTML += `<div style="text-align:center; padding:8px; font-size:0.8rem;"><a href="#" onclick="event.preventDefault(); openStatPopup('contacts_full')" style="color:#64748b; text-decoration:none;">Voir les ${data.length} clients</a></div>`;
+    }
+
   } catch(e) { console.error(e); }
 }
 
@@ -878,97 +881,113 @@ function updateMapMarkers() {
 
 // --- GESTION DES POPUPS STATISTIQUES (MODIFIÉE POUR UTILISER /API/DASHBOARD/DETAILS) ---
 
+// --- POPUP : STYLE HARMONISÉ (Identique à Maintenances Expirées) ---
 async function openStatPopup(type) {
   const modal = document.getElementById("stats-detail-modal");
   const titleEl = document.getElementById("stats-modal-title");
   const listEl = document.getElementById("stats-modal-list");
 
   modal.classList.add("active");
-  listEl.innerHTML =
-    '<div style="text-align:center; padding:2rem; color:#666;"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Chargement...</div>';
+  listEl.innerHTML = '<div style="text-align:center; padding:2rem; color:#cbd5e1;"><i class="fas fa-circle-notch fa-spin fa-2x"></i></div>';
 
   try {
-    let html = "";
-    let totalCount = 0;
-
-    if (type === "expired") {
-      // ICI : On utilise la nouvelle route dédiée qui renvoie la liste précise
+    let html = '<table class="erp-table" style="width:100%; border-collapse:collapse;">';
+    
+    // CAS 1 : TOUS LES RDV (Style "Maintenances Expirées")
+    if (type === 'appointments_full') {
+        const res = await fetch("/api/dashboard/upcoming-appointments");
+        const rows = await res.json();
+        
+        titleEl.innerHTML = `Agenda complet <span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:10px; font-size:0.6em; vertical-align:middle;">${rows.length}</span>`;
+        
+        html += `<thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                    <tr>
+                        <th style="padding:12px; text-align:left; color:#64748b;">Client</th>
+                        <th style="padding:12px; text-align:left; color:#64748b;">Info</th>
+                        <th style="padding:12px; text-align:left; color:#64748b;">Date</th>
+                        <th style="width:40px;"></th>
+                    </tr>
+                 </thead><tbody>`;
+            
+        html += rows.map(rdv => `
+            <tr style="border-bottom:1px solid #f1f5f9; cursor:pointer;" onclick="window.location.href='/clients.html?open=${rdv.client_id}'">
+                <td style="padding:12px;">
+                    <div style="font-weight:600; color:#334155;">${escapeHtml(rdv.cabinet_name)}</div>
+                    <div style="font-size:0.85em; color:#94a3b8;">${escapeHtml(rdv.city)}</div>
+                </td>
+                <td style="padding:12px;">
+                     <div style="font-size:0.9em; color:#475569;">${rdv.technician_names || '<span style="font-style:italic;color:#cbd5e1">Non assigné</span>'}</div>
+                </td>
+                <td style="padding:12px; font-weight:600; color:#334155;">
+                    ${new Date(rdv.appointment_date).toLocaleDateString('fr-CH')}
+                </td>
+                <td style="text-align:right; padding-right:15px;">
+                    <button onclick="event.stopPropagation(); window.location.href='/clients.html?open=${rdv.client_id}&edit_rdv=${rdv.appointment_id}'"
+                            style="border:1px solid #e2e8f0; background:white; color:#64748b; border-radius:4px; padding:4px 8px; cursor:pointer;">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    } 
+    
+    // CAS 2 : TOUS LES CLIENTS À CONTACTER (Style "Maintenances Expirées")
+    else if (type === 'contacts_full') {
+        const res = await fetch("/api/dashboard/clients-to-contact");
+        const rows = await res.json();
+        
+        titleEl.innerHTML = `À contacter <span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:10px; font-size:0.6em; vertical-align:middle;">${rows.length}</span>`;
+        
+        html += `<thead style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                    <tr>
+                        <th style="padding:12px; text-align:left; color:#64748b;">Client</th>
+                        <th style="padding:12px; text-align:left; color:#64748b;">Contact</th>
+                        <th style="padding:12px; text-align:left; color:#64748b;">Échéance</th>
+                        <th style="width:40px;"></th>
+                    </tr>
+                 </thead><tbody>`;
+            
+        html += rows.map(c => `
+            <tr style="border-bottom:1px solid #f1f5f9; cursor:pointer;" onclick="window.location.href='/clients.html?open=${c.id}'">
+                <td style="padding:12px;">
+                    <div style="font-weight:600; color:#334155;">${escapeHtml(c.cabinet_name)}</div>
+                    <div style="font-size:0.85em; color:#ef4444; font-weight:500;">Maintenance expirée</div>
+                </td>
+                <td style="padding:12px;">
+                     ${c.phone ? `<div style="font-size:0.9em; color:#475569;"><i class="fas fa-phone" style="font-size:0.8em; margin-right:5px; color:#cbd5e1;"></i>${escapeHtml(c.phone)}</div>` : '-'}
+                </td>
+                <td style="padding:12px; font-weight:600; color:#dc2626;">
+                    ${new Date(c.maintenance_due_date).toLocaleDateString('fr-CH')}
+                </td>
+                <td style="text-align:right; padding-right:15px; color:#3b82f6;">
+                    <i class="fas fa-external-link-alt"></i>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    // CAS 3 & 4 : GARDER LE STYLE "MAINTENANCES" EXISTANT
+    else if (type === "expired") {
       const res = await fetch("/api/dashboard/details?type=expired");
       const rows = await res.json();
-      totalCount = rows.length;
-
-      titleEl.innerHTML = `<i class="fas fa-exclamation-circle text-danger"></i> Maintenances Expirées <span class="badge badge-danger" style="font-size:0.6em; vertical-align:middle; margin-left:10px;">${totalCount}</span>`;
-
-      if (totalCount === 0) {
-        html = '<p class="text-center">Aucune maintenance expirée.</p>';
-      } else {
-        html = buildGroupedTable(rows, "expired");
-      }
-    } else if (type === "warning") {
-      // ICI : Pareil pour le warning
+      titleEl.innerHTML = `Maintenances Expirées <span class="badge badge-danger" style="margin-left:10px;">${rows.length}</span>`;
+      if (rows.length === 0) return listEl.innerHTML = '<p class="text-center">Rien à signaler.</p>';
+      html = buildGroupedTable(rows, "expired"); // On utilise votre fonction existante qui marche bien
+      return listEl.innerHTML = html; // On retourne direct car buildGroupedTable retourne déjà une table
+    } 
+    else if (type === "warning") {
       const res = await fetch("/api/dashboard/details?type=warning");
       const rows = await res.json();
-      totalCount = rows.length;
-
-      titleEl.innerHTML = `<i class="fas fa-clock text-warning"></i> RDV à fixer (Bientôt) <span class="badge badge-warning" style="font-size:0.6em; vertical-align:middle; margin-left:10px;">${totalCount}</span>`;
-
-      if (totalCount === 0) {
-        html =
-          '<p class="text-center">Aucun équipement arrivant à échéance.</p>';
-      } else {
-        html = buildGroupedTable(rows, "warning");
-      }
-    } else if (type === "not_ok") {
-      const notUpToDateClients = allClients.filter(
-        (c) => c.status !== "ok" && c.status !== "up_to_date",
-      );
-      totalCount = notUpToDateClients.length;
-
-      titleEl.innerHTML = `<i class="fas fa-user-clock text-danger"></i> Clients non à jour <span class="badge badge-danger" style="font-size:0.6em; vertical-align:middle; margin-left:10px;">${totalCount}</span>`;
-
-      if (totalCount === 0) {
-        html =
-          '<p class="text-center text-success"><i class="fas fa-check-circle"></i> Bravo ! Tous les clients sont à jour.</p>';
-      } else {
-        html = `
-                <table class="erp-table" style="width:100%">
-                    <thead>
-                        <tr>
-                            <th style="text-align:left">Client</th>
-                            <th style="text-align:left">Ville</th>
-                            <th style="text-align:center">Statut</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${notUpToDateClients
-                          .map((c) => {
-                            const badgeClass =
-                              c.status === "expired"
-                                ? "badge-danger"
-                                : "badge-warning";
-                            const badgeText =
-                              c.status === "expired" ? "Expiré" : "Bientôt";
-                            return `
-                            <tr onclick="window.location.href='/clients.html?open=${c.id}'" style="cursor:pointer; border-bottom:1px solid #eee;">
-                                <td style="padding:10px;"><strong>${escapeHtml(c.cabinet_name)}</strong></td>
-                                <td style="padding:10px;">${escapeHtml(c.city)}</td>
-                                <td style="padding:10px; text-align:center;"><span class="badge ${badgeClass}">${badgeText}</span></td>
-                                <td style="text-align:right; color:var(--color-primary);"><i class="fas fa-chevron-right"></i></td>
-                            </tr>`;
-                          })
-                          .join("")}
-                    </tbody>
-                </table>`;
-      }
+      titleEl.innerHTML = `RDV à fixer (Bientôt) <span class="badge badge-warning" style="margin-left:10px;">${rows.length}</span>`;
+      if (rows.length === 0) return listEl.innerHTML = '<p class="text-center">Rien à signaler.</p>';
+      html = buildGroupedTable(rows, "warning");
+      return listEl.innerHTML = html;
     }
 
+    html += `</tbody></table>`;
     listEl.innerHTML = html;
-  } catch (e) {
-    console.error(e);
-    listEl.innerHTML =
-      '<p class="text-danger text-center">Erreur lors du chargement des données.</p>';
-  }
+    
+  } catch (e) { console.error(e); listEl.innerHTML = '<p>Erreur.</p>'; }
 }
 
 // Fonction pour grouper les machines par client
