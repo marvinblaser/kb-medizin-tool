@@ -23,14 +23,14 @@ router.get('/stats', requireAuth, (req, res) => {
     )
   `;
   
-  // 2. À FIXER / BIENTÔT (30 à 60 jours selon vos réglages, ici 60)
+  // 2. À FIXER / BIENTÔT (Réglé sur 30 jours)
   const sqlWarning = `
     SELECT count(*) as count 
     FROM client_equipment ce
     JOIN clients c ON ce.client_id = c.id
     LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
     WHERE ce.next_maintenance_date >= ? 
-    AND ce.next_maintenance_date <= date(?, '+60 days')
+    AND ce.next_maintenance_date <= date(?, '+30 days') -- ICI : 30 jours
     AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL)
     AND NOT EXISTS (
         SELECT 1 FROM appointments_history ah 
@@ -103,7 +103,8 @@ router.get('/details', requireAuth, (req, res) => {
         sql += ` AND ce.next_maintenance_date < ?`;
         params.push(today);
     } else if (type === 'warning') {
-        sql += ` AND ce.next_maintenance_date >= ? AND ce.next_maintenance_date <= date(?, '+60 days')`;
+        // ICI : On aligne aussi la liste détaillée sur 30 jours
+        sql += ` AND ce.next_maintenance_date >= ? AND ce.next_maintenance_date <= date(?, '+30 days')`;
         params.push(today, today);
     } else { return res.json([]); }
 
@@ -112,7 +113,6 @@ router.get('/details', requireAuth, (req, res) => {
 });
 
 // --- WIDGETS ---
-// 1. Prochains RDV
 router.get('/upcoming-appointments', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const sql = `
@@ -128,7 +128,6 @@ router.get('/upcoming-appointments', requireAuth, (req, res) => {
   db.all(sql, [today], (err, rows) => res.json(rows));
 });
 
-// 2. À Contacter
 router.get('/clients-to-contact', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const sql = `
@@ -148,7 +147,7 @@ router.get('/clients-to-contact', requireAuth, (req, res) => {
   db.all(sql, [today], (err, rows) => res.json(rows));
 });
 
-// 3. Carte (CORRECTION)
+// --- CARTE (CORRIGÉE : 30 jours) ---
 router.get('/clients-map', requireAuth, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   
@@ -189,10 +188,9 @@ router.get('/clients-map', requireAuth, (req, res) => {
       } else if (row.expired_count > 0) {
           status = 'expired';
       } else if (row.next_date) {
-          // ICI : On synchronise le seuil "Orange" avec celui des compteurs (60 jours)
-          // Si vous voulez que la carte soit verte jusqu'à 30 jours, changez 60 par 30 ici.
+          // ICI : Seuil ajusté à 30 jours pour correspondre à vos listes
           const days = Math.ceil((new Date(row.next_date) - new Date()) / (1000 * 60 * 60 * 24));
-          if (days >= 0 && days <= 60) {
+          if (days >= 0 && days <= 30) {
               status = 'warning';
           }
       }
