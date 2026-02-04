@@ -1025,44 +1025,95 @@ function updateMaterialsTotal() {
   document.getElementById("materials-total").innerText = total.toFixed(2);
   calculateTotal();
 }
+
 async function loadClientEquipmentForReport(clientId) {
   try {
     const res = await fetch(`/api/clients/${clientId}/equipment`);
     const eqs = await res.json();
     const container = document.getElementById("client-equipment-list");
+    
+    // Nettoyage du conteneur
+    container.innerHTML = '';
+
     if (eqs.length === 0) {
-      container.innerHTML = '<p style="color:#666;">Aucun équipement.</p>';
+      container.innerHTML = '<p style="color:#94a3b8; font-style:italic; padding:10px;">Aucun équipement enregistré pour ce client.</p>';
       return;
     }
-    container.innerHTML = eqs
-      .map((e) => {
-        let display = e.final_name || e.name;
-        if (!display || display === "undefined")
-          display =
-            (e.final_brand || e.brand || "") +
-            " " +
-            (e.final_device_type || e.device_type || e.type || "");
-        const serial = e.serial_number
-          ? `S/N:${escapeHtml(e.serial_number)}`
-          : "";
-        return `<div style="margin-bottom:8px; display:flex; align-items:center;"><input type="checkbox" class="eq-cb" id="rep-eq-${
-          e.id
-        }" value="${e.id}" data-txt="${escapeHtml(
-          display + " " + serial
-        ).trim()}" style="width:16px; height:16px; margin-right:10px;"><label for="rep-eq-${
-          e.id
-        }" style="cursor:pointer; font-size:0.9rem;"><strong>${escapeHtml(
-          display
-        )}</strong> <span style="color:#666; font-size:0.8rem;">${serial}</span></label></div>`;
-      })
-      .join("");
+
+    // 1. REGROUPEMENT PAR "LOCATION" (La catégorie définie dans la fiche client)
+    const groups = {};
+    eqs.forEach(e => {
+        // Si pas d'emplacement, on met "Général / Non défini"
+        const loc = e.location ? e.location.trim() : "Général / Non défini";
+        if (!groups[loc]) groups[loc] = [];
+        groups[loc].push(e);
+    });
+
+    // 2. TRI ALPHABÉTIQUE DES CATÉGORIES
+    const sortedLocations = Object.keys(groups).sort();
+
+    let html = '';
+
+    // 3. GÉNÉRATION DU HTML STRUCTURÉ
+    sortedLocations.forEach(loc => {
+        const items = groups[loc];
+        
+        // A. L'En-tête de catégorie (Gris, en gras)
+        html += `
+        <div style="
+            background: #f1f5f9; 
+            color: #475569; 
+            padding: 5px 10px; 
+            border-radius: 4px; 
+            font-size: 0.8rem; 
+            font-weight: 700; 
+            margin-top: 12px; 
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-left: 3px solid var(--color-primary);
+        ">
+            ${escapeHtml(loc)}
+        </div>`;
+
+        // B. La liste des machines de cette catégorie
+        items.forEach(e => {
+            // Construction du nom d'affichage
+            let display = e.final_name || e.name;
+            if (!display || display === "undefined") {
+              display = (e.final_brand || e.brand || "") + " " + (e.final_device_type || e.device_type || e.type || "");
+            }
+            
+            const serial = e.serial_number ? `S/N: ${escapeHtml(e.serial_number)}` : "";
+            
+            // Ligne checkbox avec mise en page soignée
+            html += `
+            <div style="margin-bottom:6px; display:flex; align-items:flex-start; padding-left: 8px;">
+                <input type="checkbox" class="eq-cb" id="rep-eq-${e.id}" value="${e.id}" 
+                    data-txt="${escapeHtml(display + " " + serial).trim()}" 
+                    style="width:16px; height:16px; margin-right:10px; margin-top: 3px; cursor: pointer; accent-color: var(--color-primary);">
+                
+                <label for="rep-eq-${e.id}" style="cursor:pointer; font-size:0.9rem; line-height:1.4;">
+                    <span style="font-weight:600; color:var(--neutral-800);">${escapeHtml(display)}</span> 
+                    <br><span style="color:#64748b; font-size:0.8rem;">${serial}</span>
+                </label>
+            </div>`;
+        });
+    });
+
+    container.innerHTML = html;
+
+    // Réattachement des écouteurs pour la mise à jour automatique du champ texte "Résumé"
     container.querySelectorAll(".eq-cb").forEach((cb) => {
       cb.addEventListener("change", updateInstallationText);
     });
+
   } catch (e) {
-    console.error(e);
+    console.error("Erreur chargement équipement:", e);
+    document.getElementById("client-equipment-list").innerHTML = '<p style="color:red; padding:10px;">Erreur de chargement des équipements.</p>';
   }
 }
+
 function updateTravelCost() {
   const sel = document.getElementById("travel-canton").value;
   const inp = document.getElementById("travel-costs");
