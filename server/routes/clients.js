@@ -222,12 +222,16 @@ router.get('/technicians', requireAuth, (req, res) => {
 // 3. PLANNING (Modifié : Exclut les clients ayant déjà un RDV futur)
 router.get('/planning', requireAuth, (req, res) => {
     const { 
-        search, status, canton, category, 
+        search, status, canton, category, showHidden,
         brand, model 
     } = req.query; 
     
     let where = ["ce.next_maintenance_date IS NOT NULL"];
     let params = [];
+
+    if (showHidden !== 'true') {
+        where.push("(c.is_hidden = 0 OR c.is_hidden IS NULL)");
+    }
 
     if (search) {
         where.push(`(c.cabinet_name LIKE ? OR c.city LIKE ? OR ec.brand LIKE ? OR ec.model LIKE ?)`);
@@ -353,11 +357,18 @@ router.get('/planning', requireAuth, (req, res) => {
 // 4. LISTE DES CLIENTS
 // ==========================================
 router.get('/', requireAuth, (req, res) => {
-    const { page = 1, limit = 25, search, canton, category, sortBy, sortOrder } = req.query;
+    // 1. On récupère 'showHidden' dans les paramètres
+    const { page = 1, limit = 25, search, canton, category, sortBy, sortOrder, showHidden } = req.query; // <--- AJOUT
     const offset = (page - 1) * limit;
 
     let where = ["1=1"];
     let params = [];
+
+    // 2. LOGIQUE DE FILTRAGE
+    // Si on ne demande pas explicitement les masqués (showHidden !== 'true'), on les cache.
+    if (showHidden !== 'true') {   // <--- AJOUT BLOC
+        where.push("(is_hidden = 0 OR is_hidden IS NULL)");
+    }
 
     if (search) {
         where.push(`(cabinet_name LIKE ? OR city LIKE ? OR contact_name LIKE ?)`);
@@ -375,6 +386,8 @@ router.get('/', requireAuth, (req, res) => {
     }
 
     const countSql = `SELECT count(*) as count FROM clients WHERE ${where.join(' AND ')}`;
+    
+    // Note: J'ai gardé votre requête exacte pour les équipements
     const sql = `
         SELECT c.*, 
         (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ';;') 
@@ -400,6 +413,14 @@ router.get('/', requireAuth, (req, res) => {
                 }
             });
         });
+    });
+});
+
+router.put('/:id/toggle-hidden', requireAuth, (req, res) => {
+    const { is_hidden } = req.body;
+    db.run("UPDATE clients SET is_hidden = ? WHERE id = ?", [is_hidden, req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
     });
 });
 

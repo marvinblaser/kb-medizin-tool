@@ -75,6 +75,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById(id)?.addEventListener('input', debounce(() => { currentPage = 1; loadData(); }, 500));
     });
 
+    document.getElementById('show-hidden-cb')?.addEventListener('change', e => { 
+        currentFilters.showHidden = e.target.checked; 
+        currentPage = 1; 
+        loadData(); 
+    });
+
     document.getElementById('toggle-advanced-filters')?.addEventListener('click', () => document.getElementById('advanced-filters-panel').classList.toggle('hidden'));
     document.getElementById('clear-filters')?.addEventListener('click', resetFilters);
     
@@ -130,6 +136,7 @@ async function loadData() {
         page: currentPage, limit: itemsPerPage,
         search: currentFilters.search, canton: currentFilters.canton, category: currentFilters.sector,
         sortBy: currentSort.col, sortOrder: currentSort.order,
+        showHidden: currentFilters.showHidden,
         brand: document.getElementById('adv-brand')?.value||'', model: document.getElementById('adv-model')?.value||'', serialNumber: document.getElementById('adv-serial')?.value||'', status: document.getElementById('adv-status')?.value||''
     });
     try {
@@ -140,20 +147,69 @@ async function loadData() {
     } catch(e) { console.error(e); }
 }
 
+// --- UPDATE : renderDirectory (Le tableau) ---
 function renderDirectory(list) {
     const tbody = document.getElementById('clients-tbody');
     if(!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:3rem; color:var(--neutral-400);">Aucun résultat trouvé.</td></tr>'; return; }
-    tbody.innerHTML = list.map(c => `
-        <tr onclick="openClientDetails(${c.id})">
-            <td><strong style="color:var(--color-primary); font-size:0.95rem;">${escapeHtml(c.cabinet_name)}</strong><br><span style="font-size:0.8rem; color:var(--neutral-500);">${escapeHtml(c.activity)}</span></td>
+    
+    tbody.innerHTML = list.map(c => {
+        // Logique visuelle pour les masqués
+        const isHidden = c.is_hidden === 1;
+        const rowStyle = isHidden ? 'background-color:#f3f4f6; opacity:0.75;' : '';
+        const badgeHidden = isHidden ? '<span class="badge" style="background:#e5e7eb; color:#6b7280; font-size:0.7em; margin-left:5px;">Masqué</span>' : '';
+        
+        // Icône du bouton : Oeil barré si visible (pour masquer), Oeil ouvert si masqué (pour réafficher)
+        const iconClass = isHidden ? 'fa-eye' : 'fa-eye-slash';
+        const titleAction = isHidden ? 'Réafficher ce client' : 'Masquer ce client';
+        const btnColor = isHidden ? 'btn-icon-primary' : 'btn-icon-secondary'; // Bleu si on réaffiche, Gris si on masque
+
+        return `
+        <tr onclick="openClientDetails(${c.id})" style="${rowStyle}">
+            <td>
+                <strong style="color:var(--color-primary); font-size:0.95rem;">${escapeHtml(c.cabinet_name)}</strong> ${badgeHidden}<br>
+                <span style="font-size:0.8rem; color:var(--neutral-500);">${escapeHtml(c.activity)}</span>
+            </td>
             <td>${escapeHtml(c.city)} <span style="font-size:0.75rem; color:var(--neutral-400);">(${c.canton||''})</span></td>
             <td>${escapeHtml(c.contact_name)}<br><span style="font-size:0.75rem; color:var(--neutral-500);">${escapeHtml(c.phone||'-')}</span></td>
-            <td><small style="color:var(--neutral-500);">${c.equipment_summary ? c.equipment_summary.split(';;').length + ' machines installées' : 'Aucune machine'}</small></td>
+            <td><small style="color:var(--neutral-500);">${c.equipment_summary ? c.equipment_summary.split(';;').length + ' machines' : 'Aucune machine'}</small></td>
             <td>${c.appointment_at ? formatDate(c.appointment_at) : '-'}</td>
             <td style="text-align:right;">
-                <button class="btn-icon-sm btn-icon-primary" onclick="event.stopPropagation(); openClientModal(${c.id})" title="Éditer"><i class="fas fa-pen"></i></button>
+                <div style="display:flex; justify-content:flex-end; gap:5px;">
+                    <button class="btn-icon-sm ${btnColor}" onclick="event.stopPropagation(); toggleClientHidden(${c.id}, ${c.is_hidden || 0})" title="${titleAction}">
+                        <i class="fas ${iconClass}"></i>
+                    </button>
+                    <button class="btn-icon-sm btn-icon-primary" onclick="event.stopPropagation(); openClientModal(${c.id})" title="Éditer">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                </div>
             </td>
-        </tr>`).join('');
+        </tr>`;
+    }).join('');
+}
+
+// --- NOUVELLE FONCTION (Ajoutez-la à la fin du fichier ou exposez-la) ---
+async function toggleClientHidden(id, currentStatus) {
+    // Si c'est 1 (masqué), on veut passer à 0. Si c'est 0, on veut passer à 1.
+    const newStatus = currentStatus ? 0 : 1;
+    const actionWord = newStatus ? "masquer" : "réafficher";
+    
+    if(!confirm(`Voulez-vous vraiment ${actionWord} ce client ?`)) return;
+
+    try {
+        const res = await fetch(`/api/clients/${id}/toggle-hidden`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_hidden: newStatus })
+        });
+        
+        if (res.ok) {
+            // On recharge les données pour mettre à jour la liste
+            loadData();
+            showNotification(`Client ${newStatus ? 'masqué' : 'réaffiché'} avec succès.`, 'success');
+        } else {
+            showNotification("Erreur lors de la mise à jour.", "error");
+        }
+    } catch(e) { console.error(e); }
 }
 
 // --- LOGIQUE PLANNING (AVEC BOUTONS RDV) ---
@@ -909,6 +965,7 @@ window.openEquipFormModal = openEquipFormModal;
 window.closeEquipModal = closeEquipModal;
 window.saveEquipment = saveEquipment;
 window.deleteEquipment = deleteEquipment;
+window.toggleClientHidden = toggleClientHidden;
 
 // Fonctions RDV / Planning (Nouveautés)
 window.openScheduleModal = openScheduleModal;
