@@ -823,56 +823,122 @@ async function loadClientHistory(id) {
 }
 
 function handleSort(col) { if(currentSort.col === col) currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc'; else { currentSort.col = col; currentSort.order = 'asc'; } loadData(); }
+// 1. Fonction d'ouverture (CORRIGÉE : IDs alignés sur le HTML)
 async function openClientModal(id = null) {
-    const modal = document.getElementById('client-modal'); document.getElementById('client-form').reset(); document.getElementById('client-id').value = '';
-    if (id) { const res = await fetch(`/api/clients/${id}`); const d = await res.json(); document.getElementById('client-id').value = d.id; document.getElementById('client-name').value = d.cabinet_name; document.getElementById('client-city').value = d.city; }
-    modal.classList.add('active');
+    // 1. Reset du formulaire
+    const form = document.getElementById('client-form');
+    if(form) form.reset();
+    
+    // 2. Gestion du titre (Sécurisée)
+    const titleEl = document.getElementById('modal-title');
+    if (titleEl) {
+        titleEl.innerHTML = id ? '<i class="fas fa-user-edit"></i> Modifier Client' : '<i class="fas fa-user-plus"></i> Nouveau Client';
+    }
+    
+    // Reset ID
+    const idField = document.getElementById('client-id');
+    if(idField) idField.value = '';
+
+    // 3. Si on modifie un client existant
+    if (id) {
+        if(idField) idField.value = id;
+
+        try {
+            const res = await fetch(`/api/clients/${id}`);
+            if (!res.ok) throw new Error("Erreur chargement client");
+            
+            const client = await res.json();
+
+            // Fonction helper pour remplir sans planter si un champ manque
+            const setVal = (domId, value) => {
+                const el = document.getElementById(domId);
+                if (el) el.value = value || '';
+            };
+
+            setVal('client-name', client.cabinet_name);
+            setVal('client-activity', client.activity); // Correspond à votre HTML <select id="client-activity">
+            setVal('client-contact', client.contact_name);
+            setVal('client-phone', client.phone);
+            setVal('client-email', client.email);
+            setVal('client-address', client.address);
+            setVal('client-npa', client.postal_code);
+            setVal('client-city', client.city);
+            setVal('client-canton', client.canton);
+            setVal('client-lat', client.latitude);
+            setVal('client-lon', client.longitude);
+            setVal('client-notes', client.notes);
+            
+        } catch (e) {
+            console.error("Erreur openClientModal:", e);
+            // showNotification("Erreur chargement", "error"); // Activez si vous avez la fonction
+        }
+    }
+
+    // 4. Affichage
+    const detailsModal = document.getElementById('client-details-modal');
+    if(detailsModal) detailsModal.classList.remove('active');
+    
+    const editModal = document.getElementById('client-modal');
+    if(editModal) editModal.classList.add('active');
 }
+
 function closeClientModal() { document.getElementById('client-modal').classList.remove('active'); }
+// 2. Fonction de sauvegarde (CORRIGÉE aussi pour envoyer les bons champs)
 async function saveClient() {
     const id = document.getElementById('client-id').value;
-    
-    // On récupère TOUS les champs du formulaire
-    const data = {
-        cabinet_name: document.getElementById('client-name').value,
-        activity: document.getElementById('client-activity').value,
-        contact_name: document.getElementById('client-contact').value,
-        phone: document.getElementById('client-phone').value,
-        email: document.getElementById('client-email').value,
-        address: document.getElementById('client-address').value,
-        postal_code: document.getElementById('client-npa').value,
-        city: document.getElementById('client-city').value,
-        canton: document.getElementById('client-canton').value,
-        notes: document.getElementById('client-notes').value,
-        latitude: document.getElementById('client-lat').value,
-        longitude: document.getElementById('client-lon').value
-    };
-
     const method = id ? 'PUT' : 'POST';
     const url = id ? `/api/clients/${id}` : '/api/clients';
 
-    try { 
-        const res = await fetch(url, { 
-            method, 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify(data) 
+    // Helper pour récupérer la valeur sans crash
+    const getVal = (domId) => document.getElementById(domId)?.value || '';
+
+    const body = {
+        cabinet_name: getVal('client-name'),
+        activity: getVal('client-activity'), // Correction ici aussi
+        contact_name: getVal('client-contact'),
+        phone: getVal('client-phone'),
+        email: getVal('client-email'),
+        address: getVal('client-address'),
+        postal_code: getVal('client-npa'),
+        city: getVal('client-city'),
+        canton: getVal('client-canton'),
+        latitude: getVal('client-lat'),
+        longitude: getVal('client-lon'),
+        notes: getVal('client-notes')
+    };
+
+    // Validation minimale
+    if (!body.cabinet_name) {
+        showNotification("Le nom du cabinet est obligatoire", "error");
+        return;
+    }
+
+    try {
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
         });
 
-        if(res.ok) { 
-            closeClientModal(); 
-            loadData(); 
-            // Si on modifiait le client actuellement ouvert en détail, on rafraîchit la fiche
-            if(id && id == currentClientId) openClientDetails(id); 
-            showNotification('Client enregistré avec succès', 'success'); 
+        if (res.ok) {
+            closeClientModal();
+            loadData(); // Rafraichit la liste derrière
+            showNotification("Client enregistré avec succès", "success");
+            
+            // Si on était dans la fiche détail, on la met à jour
+            if (id && document.getElementById('client-details-modal').classList.contains('active')) {
+                // On peut rappeler openClientDetails(id) ou laisser tel quel
+            }
         } else {
             const err = await res.json();
-            showNotification(err.error || 'Erreur lors de l\'enregistrement', 'error');
+            showNotification(err.error || "Erreur lors de l'enregistrement", "error");
         }
-    } catch(e) { 
+    } catch (e) {
         console.error(e);
-        showNotification('Erreur réseau', 'error'); 
+        showNotification("Erreur de communication serveur", "error");
     }
 }
+
 function showNotification(message, type = 'info') {
   let container = document.getElementById('notification-container');
   if (!container) { const div = document.createElement('div'); div.id = 'notification-container'; div.className = 'notification-container'; document.body.appendChild(div); container = div; }

@@ -528,13 +528,13 @@ tr.row-selected { background-color: var(--color-primary-light) !important; }
     <div class="bulk-separator"></div>
     
     <div class="bulk-buttons">
-        <button class="btn-bulk btn-bulk-secondary" onclick="triggerBulkConfirm('hide')">
+        <button class="btn-bulk btn-bulk-secondary" onclick="requestBulkAction('hide')">
             <i class="fas fa-eye-slash"></i> Masquer
         </button>
-        <button class="btn-bulk btn-bulk-secondary" onclick="triggerBulkConfirm('show')">
+        <button class="btn-bulk btn-bulk-secondary" onclick="requestBulkAction('show')">
             <i class="fas fa-eye"></i> Afficher
         </button>
-        <button class="btn-bulk btn-bulk-danger" onclick="triggerBulkConfirm('delete')">
+        <button class="btn-bulk btn-bulk-danger" onclick="requestBulkAction('delete')">
             <i class="fas fa-trash"></i>
         </button>
     </div>
@@ -680,7 +680,10 @@ tr.row-selected { background-color: var(--color-primary-light) !important; }
 
   <div class="modal" id="client-modal">
       <div class="modal-content" style="max-width: 700px;">
-          <div class="modal-header"><h2><i class="fas fa-user-edit"></i> Édition Client</h2><button class="modal-close" onclick="closeClientModal()">&times;</button></div>
+          <div class="modal-header">
+    <h2 id="modal-title"><i class="fas fa-user-edit"></i> Édition Client</h2>
+    <button class="modal-close" onclick="closeClientModal()">&times;</button>
+</div>
           <div class="modal-body">
               <form id="client-form">
                   <input type="hidden" id="client-id">
@@ -775,19 +778,19 @@ tr.row-selected { background-color: var(--color-primary-light) !important; }
     </div>
 </div>
 
-<div class="modal" id="generic-confirm-modal" style="z-index: 9999;">
+<div class="modal" id="confirm-modal" style="z-index: 9999;">
     <div class="modal-content" style="max-width: 400px; text-align: center; padding: 2rem;">
         <div style="margin-bottom: 1rem;">
             <div style="width: 50px; height: 50px; background: #fee2e2; color: #dc2626; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 1.5rem;">
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
         </div>
-        <h3 id="confirm-title" style="margin-bottom: 0.5rem; color: var(--neutral-800);">Confirmer l'action</h3>
-        <p id="confirm-message" style="color: var(--neutral-600); margin-bottom: 2rem;">Êtes-vous sûr ?</p>
+        <h3 id="confirm-modal-title" style="margin-bottom: 0.5rem; color: var(--neutral-800);">Confirmer l'action</h3>
+        <p id="confirm-modal-text" style="color: var(--neutral-600); margin-bottom: 2rem;">Êtes-vous sûr ?</p>
         
         <div style="display: flex; justify-content: center; gap: 10px;">
             <button class="btn btn-secondary" onclick="closeConfirmModal()">Annuler</button>
-            <button class="btn btn-primary" id="btn-confirm-action">Confirmer</button>
+            <button class="btn btn-primary" id="confirm-modal-btn">Confirmer</button>
         </div>
     </div>
 </div>
