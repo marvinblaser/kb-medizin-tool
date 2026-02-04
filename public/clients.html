@@ -514,20 +514,9 @@ tr.row-selected { background-color: var(--color-primary-light) !important; }
     </div>
 </div>
 
-        <div class="erp-pagination">
-            <div id="pagination-info" style="font-size:0.85rem; color:var(--neutral-500);">Chargement...</div>
-            <div class="pagination-controls" style="display: flex; gap: 5px;">
-                <button class="pg-btn" id="prev-page"><i class="fas fa-chevron-left"></i></button>
-                <button class="pg-btn" id="next-page"><i class="fas fa-chevron-right"></i></button>
-            </div>
-            <div class="pagination-limit">
-                <select id="limit-select" class="minimal-select" style="height:32px; padding:0 25px 0 10px;">
-                    <option value="25">25 / page</option>
-                    <option value="50">50 / page</option>
-                    <option value="100">100 / page</option>
-                </select>
-            </div>
-        </div>
+        <div style="margin-top: 1rem; padding: 0.5rem 1rem; text-align: right; color: var(--neutral-500); border-top: 1px solid var(--border-color);">
+    Total affiché : <strong id="total-clients-count" style="color: var(--neutral-800);">0</strong> clients
+</div>
 
       </div>
       <div id="bulk-toolbar" class="bulk-actions-bar">

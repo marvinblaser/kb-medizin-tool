@@ -221,11 +221,6 @@ router.get('/technicians', requireAuth, (req, res) => {
 
 // 3. PLANNING (Modifié : Exclut les clients ayant déjà un RDV futur)
 router.get('/planning', requireAuth, (req, res) => {
-    // <--- LOGS DEBUG ---
-    console.log(">>> REÇU GET /planning");
-    console.log(">>> Query Params:", req.query);
-    // -------------------
-
     const { 
         search, status, canton, category, showHidden,
         brand, model 
@@ -234,7 +229,6 @@ router.get('/planning', requireAuth, (req, res) => {
     let where = ["ce.next_maintenance_date IS NOT NULL"];
     let params = [];
 
-    // --- SÉCURITÉ : On s'assure que showHidden est géré proprement ---
     if (showHidden !== 'true') {
         where.push("(c.is_hidden = 0 OR c.is_hidden IS NULL)");
     }
@@ -273,10 +267,7 @@ router.get('/planning', requireAuth, (req, res) => {
     `;
 
     db.all(sql, params, (err, rows) => {
-        if (err) {
-            console.error(">>> ERREUR SQL PLANNING:", err.message); // <--- LOG
-            return res.status(500).json({ error: err.message });
-        }
+        if (err) return res.status(500).json({ error: err.message });
 
         const clientsMap = new Map();
 
@@ -292,39 +283,33 @@ router.get('/planning', requireAuth, (req, res) => {
                     machines: [],
                     worst_status_score: 0,
                     earliest_date: row.next_maintenance_date,
-                    // CORRECTION ICI : On utilise future_rdv_id car future_appointments n'existe pas dans le SELECT
-                    has_future_rdv: !!row.future_rdv_id 
+                    has_future_rdv: !!row.future_rdv_id // Correction: utilise future_rdv_id pour le flag
                 });
             }
 
             const client = clientsMap.get(row.client_id);
             
-            // 1. Calcul du statut théorique de la machine
+            // Calcul du statut de la machine
             let machineStatus = 'ok';
             if (row.days_remaining < 0) machineStatus = 'expired';
             else if (row.days_remaining <= 60) machineStatus = 'warning';
 
-            // 2. Calcul du score d'urgence
+            // --- LOGIQUE METIER : Si RDV pris, on ignore l'alerte "Expiré" ---
             let score = 0;
             if (machineStatus === 'expired') score = 2;
             else if (machineStatus === 'warning') score = 1;
 
-            // 3. LOGIQUE MÉTIER : Si un RDV est fixé, tout passe au vert
+            // AJOUT: Si RDV prévu, on force le score à 0 (Vert)
             if (row.future_rdv_id) {
-                score = 0; // On force le score à 0 (Vert)
-                machineStatus = 'planned'; // On force le statut de la machine
-                
-                // On stocke les infos du RDV
-                client.future_rdv_id = row.future_rdv_id;
-                client.future_rdv_date = row.future_rdv_date;
+                score = 0;
+                client.future_rdv_id = row.future_rdv_id;     // On stocke l'ID
+                client.future_rdv_date = row.future_rdv_date; // On stocke la date
+                machineStatus = 'planned'; // Nouveau statut interne
             }
 
-            // 4. Mise à jour du "pire score" du client (pour le tri global)
             if (score > client.worst_status_score) {
                 client.worst_status_score = score;
             }
-            
-            // Mise à jour de la date la plus proche
             if (row.next_maintenance_date < client.earliest_date) {
                 client.earliest_date = row.next_maintenance_date;
             }
@@ -336,7 +321,7 @@ router.get('/planning', requireAuth, (req, res) => {
                 serial: row.serial_number,
                 location: row.location,
                 next_date: row.next_maintenance_date,
-                status: machineStatus, // Sera 'planned' si RDV existe, sinon 'expired'/'warning'/'ok'
+                status: machineStatus,
                 days: Math.round(row.days_remaining)
             });
         });
@@ -363,23 +348,19 @@ router.get('/planning', requireAuth, (req, res) => {
     });
 });
 
-// ==========================================
-// 4. LISTE DES CLIENTS
-// ==========================================
+// DANS server/routes/clients.js
+
+// 4. LISTE DES CLIENTS (ANNUAIRE) - SANS PAGINATION
 router.get('/', requireAuth, (req, res) => {
-    const { page = 1, limit = 25, search, canton, category, sortBy, sortOrder, showHidden } = req.query;
-    const offset = (page - 1) * limit;
+    const { search, canton, category, sortBy, sortOrder, showHidden } = req.query;
 
     let where = ["1=1"];
     let params = [];
 
-    // --- CORRECTION 1 : On utilise 'c.' partout pour être précis ---
-
-    // Si on ne demande pas explicitement les masqués, on les cache
+    // Logique de filtrage (inchangée)
     if (showHidden !== 'true') {
         where.push("(c.is_hidden = 0 OR c.is_hidden IS NULL)");
     }
-
     if (search) {
         where.push(`(c.cabinet_name LIKE ? OR c.city LIKE ? OR c.contact_name LIKE ?)`);
         const s = `%${search}%`;
@@ -388,17 +369,14 @@ router.get('/', requireAuth, (req, res) => {
     if (canton) { where.push("c.canton = ?"); params.push(canton); }
     if (category) { where.push("c.activity = ?"); params.push(category); }
 
-    let order = "c.cabinet_name ASC"; // Ajout de c.
+    let order = "c.cabinet_name ASC";
     if (sortBy) {
         const dir = sortOrder === 'desc' ? 'DESC' : 'ASC';
         const allowed = ['cabinet_name', 'city', 'appointment_at', 'created_at'];
         if (allowed.includes(sortBy)) order = `c.${sortBy} ${dir}`;
     }
 
-    // --- CORRECTION 2 : On ajoute l'alias 'c' ici aussi ---
-    // Cela permet au filtre 'c.is_hidden' de fonctionner pour le comptage
-    const countSql = `SELECT count(*) as count FROM clients c WHERE ${where.join(' AND ')}`;
-    
+    // Requête UNIQUE sans LIMIT ni OFFSET
     const sql = `
         SELECT c.*, 
         (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ';;') 
@@ -407,22 +385,13 @@ router.get('/', requireAuth, (req, res) => {
          WHERE ce.client_id = c.id) as equipment_summary
         FROM clients c 
         WHERE ${where.join(' AND ')} 
-        ORDER BY ${order} 
-        LIMIT ? OFFSET ?`;
+        ORDER BY ${order}`;
 
-    db.get(countSql, params, (err, countRow) => {
-        if (err) return res.status(500).json({ error: "DB Error: " + err.message });
-        
-        db.all(sql, [...params, limit, offset], (err, rows) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({
-                clients: rows,
-                pagination: {
-                    page: parseInt(page),
-                    totalPages: Math.ceil((countRow?.count || 0) / limit),
-                    totalItems: countRow?.count || 0
-                }
-            });
+    db.all(sql, params, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({
+            clients: rows,
+            count: rows.length // On renvoie simplement le nombre total
         });
     });
 });
@@ -434,6 +403,37 @@ router.put('/:id/toggle-hidden', requireAuth, (req, res) => {
         res.json({ success: true });
     });
 });
+
+// ROUTE AJOUTÉE : Actions de groupe (Bulk Update)
+// C'est celle qui manquait pour que la sélection multiple fonctionne !
+router.put('/bulk-update', requireAuth, (req, res) => {
+    const { ids, action } = req.body;
+    
+    // Sécurité : On vérifie que c'est bien un tableau
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "Aucune sélection." });
+    }
+
+    let sql = "";
+    // On construit une requête avec autant de "?" que d'IDs
+    const placeholders = ids.map(() => '?').join(',');
+
+    if (action === 'hide') {
+        sql = `UPDATE clients SET is_hidden = 1 WHERE id IN (${placeholders})`;
+    } else if (action === 'show') {
+        sql = `UPDATE clients SET is_hidden = 0 WHERE id IN (${placeholders})`;
+    } else if (action === 'delete') {
+        sql = `DELETE FROM clients WHERE id IN (${placeholders})`;
+    } else {
+        return res.status(400).json({ error: "Action non reconnue." });
+    }
+
+    db.run(sql, ids, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, count: this.changes });
+    });
+});
+
 
 // ==========================================
 // 5. CRUD CLIENTS
@@ -708,42 +708,6 @@ router.put('/appointments/:id', requireAuth, (req, res) => {
     });
 });
 
-// Route pour les actions de groupe (Bulk Update)
-router.put('/bulk-update', requireAuth, (req, res) => {
-    console.log(">>> REÇU PUT /bulk-update"); // <--- LOG
-    console.log(">>> Body:", req.body);       // <--- LOG
 
-    const { ids, action } = req.body;
-    
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-        console.log(">>> ERREUR: Aucune sélection"); // <--- LOG
-        return res.status(400).json({ error: "Aucune sélection." });
-    }
-
-    let sql = "";
-    // On construit une requête avec autant de "?" que d'IDs
-    const placeholders = ids.map(() => '?').join(',');
-
-    if (action === 'hide') {
-        sql = `UPDATE clients SET is_hidden = 1 WHERE id IN (${placeholders})`;
-    } else if (action === 'show') {
-        sql = `UPDATE clients SET is_hidden = 0 WHERE id IN (${placeholders})`;
-    } else if (action === 'delete') {
-        sql = `DELETE FROM clients WHERE id IN (${placeholders})`;
-    } else {
-        return res.status(400).json({ error: "Action non reconnue." });
-    }
-
-    console.log(">>> SQL Exécuté:", sql); // <--- LOG (Ajoutez ceci avant db.run)
-
-    db.run(sql, ids, function(err) {
-        if (err) {
-            console.error(">>> ERREUR SQL:", err.message); // <--- LOG
-            return res.status(500).json({ error: err.message });
-        }
-        console.log(`>>> SUCCÈS: ${this.changes} lignes modifiées.`); // <--- LOG
-        res.json({ success: true, count: this.changes });
-    });
-});
 
 module.exports = router;

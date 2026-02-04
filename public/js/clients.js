@@ -131,25 +131,23 @@ function switchView(view) {
     loadData();
 }
 
+// DANS public/js/clients.js
+
 async function loadData() {
     const endpoint = currentView === 'directory' ? '/api/clients' : '/api/clients/planning';
     
-    // 1. On lit la checkbox en direct (C'est la source de vérité)
     const hiddenCheckbox = document.getElementById('show-hidden-cb');
     const isShowHidden = hiddenCheckbox ? hiddenCheckbox.checked : false;
-
-    // 2. Récupération sécurisée des valeurs (évite les bugs si l'élément n'existe pas)
     const getVal = (id) => document.getElementById(id)?.value || '';
 
+    // SUPPRESSION de 'page' et 'limit' ici
     const params = new URLSearchParams({
-        page: currentPage, 
-        limit: itemsPerPage,
         search: currentFilters.search, 
         canton: currentFilters.canton, 
         category: currentFilters.sector,
         sortBy: currentSort.col, 
         sortOrder: currentSort.order,
-        showHidden: isShowHidden, // <--- ICI : On envoie obligatoirement true ou false
+        showHidden: isShowHidden,
         brand: getVal('adv-brand'),
         model: getVal('adv-model'),
         serialNumber: getVal('adv-serial'),
@@ -161,14 +159,19 @@ async function loadData() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         
         const data = await res.json();
-        if (currentView === 'directory') renderDirectory(data.clients); 
-        else renderPlanning(data);
         
-        updatePagination({ 
-            page: currentPage, 
-            totalPages: data.pagination?.totalPages || 1, 
-            totalItems: data.pagination?.totalItems || (data.length || 0) 
-        });
+        if (currentView === 'directory') {
+            renderDirectory(data.clients);
+            // MISE À JOUR DU COMPTEUR
+            const countEl = document.getElementById('total-clients-count');
+            if(countEl) countEl.textContent = data.count || data.clients.length;
+        } 
+        else {
+            renderPlanning(data);
+        }
+        
+        // SUPPRESSION de updatePagination()
+        
     } catch(e) { console.error("Erreur loadData:", e); }
 }
 
