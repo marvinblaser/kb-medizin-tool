@@ -112,36 +112,141 @@
 }
 .page-header h1 i { color: var(--color-primary); opacity: 0.8; }
 
-/* Footer */
+/* --- FOOTER MODERNE --- */
 .app-footer {
-  margin-top: auto; padding: 4rem 3rem; background: white; border-top: 1px solid var(--border-color);
+    background-color: white;
+    border-top: 1px solid var(--border-color);
+    margin-top: auto; /* Pousse le footer vers le bas */
+    padding: 3rem 0 0 0;
+    color: var(--neutral-600);
 }
+
 .footer-content {
-  max-width: var(--container-max-width); margin: 0 auto;
-  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem 3rem 2rem;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1.5fr; /* 3 Colonnes inégales */
+    gap: 4rem;
 }
-.footer-brand { display: flex; align-items: center; gap: 1rem; }
-.footer-logo {
-  width: 48px; height: 48px; 
-  background: var(--gradient-primary); 
-  color: white;
-  border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+
+/* Colonne Identité */
+.brand-col .footer-logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
-.footer-info h3 { margin: 0; font-size: 1rem; color: var(--neutral-900); font-weight: 700; }
-.footer-info p { margin: 0; font-size: 0.85rem; color: var(--neutral-500); }
+.footer-desc {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    max-width: 300px;
+}
+.footer-socials {
+    display: flex;
+    gap: 10px;
+}
+.social-link {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--neutral-100);
+    color: var(--neutral-600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+.social-link:hover {
+    background: var(--color-primary);
+    color: white;
+    transform: translateY(-2px);
+}
 
-.footer-links ul { list-style: none; padding: 0; margin: 0; }
-.footer-links li { margin-bottom: 0.5rem; }
-.footer-links a { color: var(--neutral-600); font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; transition: color 0.2s; }
-.footer-links a:hover { color: var(--color-primary); }
+/* Colonnes Liens & Contact */
+.footer-col h4 {
+    color: var(--neutral-900);
+    font-weight: 700;
+    margin-bottom: 1.2rem;
+    font-size: 1rem;
+}
 
+.footer-nav, .contact-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.footer-nav li { margin-bottom: 0.8rem; }
+.footer-nav a {
+    color: var(--neutral-600);
+    text-decoration: none;
+    transition: color 0.2s;
+    font-size: 0.95rem;
+}
+.footer-nav a:hover { color: var(--color-primary); padding-left: 5px; }
+
+.contact-list li {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    align-items: flex-start;
+}
+.contact-list i {
+    color: var(--color-primary);
+    margin-top: 4px;
+}
+.contact-list a {
+    color: var(--neutral-600);
+    text-decoration: none;
+}
+.contact-list a:hover { text-decoration: underline; }
+
+/* Barre du bas */
 .footer-bottom {
-  border-top: 1px solid var(--neutral-100); margin-top: 3rem; padding-top: 1.5rem;
-  text-align: center; color: var(--neutral-400); font-size: 0.8rem;
+    background: var(--neutral-50);
+    padding: 1.5rem 2rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center; /* Centré par défaut */
+    align-items: center;
+    gap: 2rem;
+    font-size: 0.85rem;
+    flex-wrap: wrap;
 }
 
-@media (max-width: 1024px) {
-  .sidebar { transform: translateX(-100%); }
-  .main-content { margin-left: 0; }
-  .page-header { padding: 0 1.5rem; }
+.footer-legal {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.footer-legal a { color: var(--neutral-500); text-decoration: none; }
+.footer-legal a:hover { color: var(--color-primary); }
+.sep { color: var(--neutral-300); }
+.version { 
+    background: var(--neutral-200); 
+    padding: 2px 6px; 
+    border-radius: 4px; 
+    font-size: 0.75rem; 
+    font-weight: 600; 
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .footer-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        text-align: center;
+    }
+    .brand-col .footer-logo, .contact-list li, .footer-socials {
+        justify-content: center;
+    }
+    .footer-desc { margin: 0 auto 1.5rem auto; }
+    .footer-bottom { flex-direction: column; gap: 1rem; }
 }
