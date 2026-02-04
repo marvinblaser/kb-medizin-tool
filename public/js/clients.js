@@ -6,7 +6,8 @@ let clients = [];
 let catalog = [];
 let currentClientId = null;
 let clientIdToDelete = null;
-let currentFilters = { search: '', canton: '', sector: '' };
+// CORRECTION : On ajoute showHidden: false par défaut
+let currentFilters = { search: '', canton: '', sector: '', showHidden: false };
 let currentSort = { col: 'cabinet_name', order: 'asc' };
 let currentPage = 1;
 let itemsPerPage = 25;
@@ -132,59 +133,262 @@ function switchView(view) {
 
 async function loadData() {
     const endpoint = currentView === 'directory' ? '/api/clients' : '/api/clients/planning';
+    
+    // 1. On lit la checkbox en direct (C'est la source de vérité)
+    const hiddenCheckbox = document.getElementById('show-hidden-cb');
+    const isShowHidden = hiddenCheckbox ? hiddenCheckbox.checked : false;
+
+    // 2. Récupération sécurisée des valeurs (évite les bugs si l'élément n'existe pas)
+    const getVal = (id) => document.getElementById(id)?.value || '';
+
     const params = new URLSearchParams({
-        page: currentPage, limit: itemsPerPage,
-        search: currentFilters.search, canton: currentFilters.canton, category: currentFilters.sector,
-        sortBy: currentSort.col, sortOrder: currentSort.order,
-        showHidden: currentFilters.showHidden,
-        brand: document.getElementById('adv-brand')?.value||'', model: document.getElementById('adv-model')?.value||'', serialNumber: document.getElementById('adv-serial')?.value||'', status: document.getElementById('adv-status')?.value||''
+        page: currentPage, 
+        limit: itemsPerPage,
+        search: currentFilters.search, 
+        canton: currentFilters.canton, 
+        category: currentFilters.sector,
+        sortBy: currentSort.col, 
+        sortOrder: currentSort.order,
+        showHidden: isShowHidden, // <--- ICI : On envoie obligatoirement true ou false
+        brand: getVal('adv-brand'),
+        model: getVal('adv-model'),
+        serialNumber: getVal('adv-serial'),
+        status: getVal('adv-status')
     });
+
     try {
         const res = await fetch(`${endpoint}?${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
         const data = await res.json();
-        if (currentView === 'directory') renderDirectory(data.clients); else renderPlanning(data);
-        updatePagination({ page: currentPage, totalPages: data.pagination?.totalPages || 1, totalItems: data.pagination?.totalItems || data.length });
-    } catch(e) { console.error(e); }
+        if (currentView === 'directory') renderDirectory(data.clients); 
+        else renderPlanning(data);
+        
+        updatePagination({ 
+            page: currentPage, 
+            totalPages: data.pagination?.totalPages || 1, 
+            totalItems: data.pagination?.totalItems || (data.length || 0) 
+        });
+    } catch(e) { console.error("Erreur loadData:", e); }
 }
 
-// --- UPDATE : renderDirectory (Le tableau) ---
+// 1. VARIABLE GLOBALE (À mettre tout en haut avec les autres)
+let selectedClients = new Set(); // Stocke les IDs sélectionnés
+
+// 2. MODIFIER LA FONCTION renderDirectory
 function renderDirectory(list) {
     const tbody = document.getElementById('clients-tbody');
-    if(!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:3rem; color:var(--neutral-400);">Aucun résultat trouvé.</td></tr>'; return; }
+    // Réinitialisation de la checkbox "Tout sélectionner" si la page change
+    const selectAllCb = document.getElementById('select-all-cb');
+    if(selectAllCb) selectAllCb.checked = false;
+
+    if(!list || list.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:3rem; color:var(--neutral-400);">Aucun résultat trouvé.</td></tr>'; 
+        return; 
+    }
     
     tbody.innerHTML = list.map(c => {
-        // Logique visuelle pour les masqués
         const isHidden = c.is_hidden === 1;
         const rowStyle = isHidden ? 'background-color:#f3f4f6; opacity:0.75;' : '';
         const badgeHidden = isHidden ? '<span class="badge" style="background:#e5e7eb; color:#6b7280; font-size:0.7em; margin-left:5px;">Masqué</span>' : '';
         
-        // Icône du bouton : Oeil barré si visible (pour masquer), Oeil ouvert si masqué (pour réafficher)
-        const iconClass = isHidden ? 'fa-eye' : 'fa-eye-slash';
-        const titleAction = isHidden ? 'Réafficher ce client' : 'Masquer ce client';
-        const btnColor = isHidden ? 'btn-icon-primary' : 'btn-icon-secondary'; // Bleu si on réaffiche, Gris si on masque
+        // On vérifie si ce client est déjà coché
+        const isChecked = selectedClients.has(c.id) ? 'checked' : '';
 
         return `
-        <tr onclick="openClientDetails(${c.id})" style="${rowStyle}">
-            <td>
+        <tr style="${rowStyle}" class="${isChecked ? 'row-selected' : ''}">
+            <td style="text-align:center; padding-left:10px;">
+                <input type="checkbox" class="row-checkbox client-cb" value="${c.id}" ${isChecked} onchange="toggleClientSelection(${c.id}, this)">
+            </td>
+            <td onclick="openClientDetails(${c.id})" style="cursor:pointer">
                 <strong style="color:var(--color-primary); font-size:0.95rem;">${escapeHtml(c.cabinet_name)}</strong> ${badgeHidden}<br>
                 <span style="font-size:0.8rem; color:var(--neutral-500);">${escapeHtml(c.activity)}</span>
             </td>
-            <td>${escapeHtml(c.city)} <span style="font-size:0.75rem; color:var(--neutral-400);">(${c.canton||''})</span></td>
-            <td>${escapeHtml(c.contact_name)}<br><span style="font-size:0.75rem; color:var(--neutral-500);">${escapeHtml(c.phone||'-')}</span></td>
-            <td><small style="color:var(--neutral-500);">${c.equipment_summary ? c.equipment_summary.split(';;').length + ' machines' : 'Aucune machine'}</small></td>
-            <td>${c.appointment_at ? formatDate(c.appointment_at) : '-'}</td>
+            <td onclick="openClientDetails(${c.id})" style="cursor:pointer">${escapeHtml(c.city)} <span style="font-size:0.75rem; color:var(--neutral-400);">(${c.canton||''})</span></td>
+            <td onclick="openClientDetails(${c.id})" style="cursor:pointer">${escapeHtml(c.contact_name)}<br><span style="font-size:0.75rem; color:var(--neutral-500);">${escapeHtml(c.phone||'-')}</span></td>
+            <td onclick="openClientDetails(${c.id})" style="cursor:pointer"><small style="color:var(--neutral-500);">${c.equipment_summary ? c.equipment_summary.split(';;').length + ' machines' : 'Aucune machine'}</small></td>
+            <td onclick="openClientDetails(${c.id})" style="cursor:pointer">${c.appointment_at ? formatDate(c.appointment_at) : '-'}</td>
             <td style="text-align:right;">
                 <div style="display:flex; justify-content:flex-end; gap:5px;">
-                    <button class="btn-icon-sm ${btnColor}" onclick="event.stopPropagation(); toggleClientHidden(${c.id}, ${c.is_hidden || 0})" title="${titleAction}">
-                        <i class="fas ${iconClass}"></i>
+                    <button class="btn-icon-sm btn-icon-secondary" onclick="event.stopPropagation(); toggleClientHidden(${c.id}, ${c.is_hidden || 0})">
+                        <i class="fas ${isHidden ? 'fa-eye' : 'fa-eye-slash'}"></i>
                     </button>
-                    <button class="btn-icon-sm btn-icon-primary" onclick="event.stopPropagation(); openClientModal(${c.id})" title="Éditer">
+                    <button class="btn-icon-sm btn-icon-primary" onclick="event.stopPropagation(); openClientModal(${c.id})">
                         <i class="fas fa-pen"></i>
                     </button>
                 </div>
             </td>
         </tr>`;
     }).join('');
+    
+    updateBulkToolbarUI(); // Vérifie l'état de la barre
+}
+
+// 3. AJOUTER CES NOUVELLES FONCTIONS (Gestion Sélection)
+
+let currentConfirmCallback = null; // Stocke l'action à valider
+
+// A. Logique de sélection (Reste similaire)
+window.toggleClientSelection = function(id, cb) {
+    const numericId = parseInt(id); // Important : Forcer le nombre
+    if (cb.checked) selectedClients.add(numericId);
+    else selectedClients.delete(numericId);
+    
+    // Ajout visuel immédiat (classe CSS)
+    const tr = cb.closest('tr');
+    if(tr) cb.checked ? tr.classList.add('row-selected') : tr.classList.remove('row-selected');
+    
+    updateBulkToolbarUI();
+}
+
+window.toggleSelectAll = function() {
+    const masterCb = document.getElementById('select-all-cb');
+    const checkboxes = document.querySelectorAll('.client-cb');
+    
+    checkboxes.forEach(cb => {
+        cb.checked = masterCb.checked;
+        const id = parseInt(cb.value);
+        const tr = cb.closest('tr');
+        
+        if (masterCb.checked) {
+            selectedClients.add(id);
+            if(tr) tr.classList.add('row-selected');
+        } else {
+            selectedClients.delete(id);
+            if(tr) tr.classList.remove('row-selected');
+        }
+    });
+    updateBulkToolbarUI();
+}
+
+window.clearSelection = function() {
+    selectedClients.clear();
+    const masterCb = document.getElementById('select-all-cb');
+    if(masterCb) masterCb.checked = false;
+    document.querySelectorAll('.client-cb').forEach(cb => {
+        cb.checked = false;
+        cb.closest('tr')?.classList.remove('row-selected');
+    });
+    updateBulkToolbarUI();
+}
+
+function updateBulkToolbarUI() {
+    const toolbar = document.getElementById('bulk-toolbar');
+    const countSpan = document.getElementById('selected-count');
+    if (selectedClients.size > 0) {
+        toolbar.classList.add('active');
+        countSpan.textContent = selectedClients.size;
+    } else {
+        toolbar.classList.remove('active');
+    }
+}
+
+// B. NOUVELLE LOGIQUE DE CONFIRMATION (Sans alerte)
+window.triggerBulkConfirm = function(action) {
+    const count = selectedClients.size;
+    if (count === 0) return;
+
+    let title = "";
+    let msg = "";
+    let btnClass = "btn-primary";
+
+    if (action === 'hide') {
+        title = "Masquer les clients";
+        msg = `Voulez-vous masquer ces ${count} clients ? Ils ne seront plus visibles dans la liste principale.`;
+    } else if (action === 'show') {
+        title = "Réafficher les clients";
+        msg = `Voulez-vous rendre visibles ces ${count} clients ?`;
+    } else if (action === 'delete') {
+        title = "Suppression définitive";
+        msg = `Attention : Vous allez supprimer ${count} clients. Cette action est irréversible.`;
+        btnClass = "btn-danger";
+    }
+
+    // On ouvre notre belle modale
+    openCustomConfirm(title, msg, btnClass, () => executeBulkAction(action));
+}
+
+// C. FONCTION D'EXÉCUTION (CORRIGÉE)
+async function executeBulkAction(action) {
+    console.group(`🔍 DEBUG: Bulk Action '${action}'`);
+    
+    const ids = Array.from(selectedClients).map(Number);
+    console.log("🎯 IDs sélectionnés:", ids);
+
+    closeConfirmModal();
+
+    try {
+        console.log("🚀 Envoi de la requête PUT...");
+        const res = await fetch('/api/clients/bulk-update', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: ids, action: action })
+        });
+
+        console.log("📡 Statut réponse:", res.status);
+
+        if (res.ok) {
+            const result = await res.json();
+            console.log("✅ Succès:", result);
+            showNotification(`${result.count} clients mis à jour.`, 'success');
+            
+            clearSelection();
+            console.log("🔄 Rechargement des données...");
+            await loadData(); 
+        } else {
+            const err = await res.json();
+            console.error("❌ Erreur API:", err);
+            showNotification(`Erreur : ${err.error}`, "error");
+        }
+    } catch(e) {
+        console.error("💥 CRASH executeBulkAction:", e);
+        showNotification("Erreur de connexion.", "error");
+    } finally {
+        console.groupEnd();
+    }
+}
+
+// D. GESTIONNAIRE DE MODALE GÉNÉRIQUE
+function openCustomConfirm(title, message, confirmBtnClass, callback) {
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-message').textContent = message;
+    
+    const btn = document.getElementById('btn-confirm-action');
+    btn.className = `btn ${confirmBtnClass}`; // Change la couleur (bleu ou rouge)
+    btn.onclick = callback;
+
+    document.getElementById('generic-confirm-modal').classList.add('active');
+}
+
+window.closeConfirmModal = function() {
+    document.getElementById('generic-confirm-modal').classList.remove('active');
+}
+
+// E. MODIFIER VOTRE FONCTION 'toggleClientHidden' EXISTANTE
+// Pour qu'elle utilise aussi la modale au lieu de confirm()
+window.toggleClientHidden = function(id, currentStatus) {
+    const newStatus = currentStatus ? 0 : 1;
+    const action = newStatus ? "masquer" : "réafficher";
+    
+    openCustomConfirm(
+        `${action.charAt(0).toUpperCase() + action.slice(1)} le client`,
+        `Voulez-vous vraiment ${action} ce client ?`,
+        "btn-primary",
+        async () => {
+            closeConfirmModal();
+            try {
+                const res = await fetch(`/api/clients/${id}/toggle-hidden`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_hidden: newStatus })
+                });
+                if (res.ok) {
+                    loadData();
+                    showNotification(`Client ${newStatus ? 'masqué' : 'réaffiché'}.`, 'success');
+                }
+            } catch(e) { console.error(e); }
+        }
+    );
 }
 
 // --- NOUVELLE FONCTION (Ajoutez-la à la fin du fichier ou exposez-la) ---
