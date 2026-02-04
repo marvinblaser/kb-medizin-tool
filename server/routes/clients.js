@@ -498,8 +498,8 @@ router.get('/:id/equipment', requireAuth, (req, res) => {
 
 // ADD EQUIPMENT (POST)
 router.post('/:id/equipment', requireAuth, (req, res) => {
-    // MODIFICATION : Ajout de 'location'
-    const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, location } = req.body;
+    // MODIF : On récupère 'notes'
+    const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, location, notes } = req.body;
     
     let nextDate = null;
     if (last_maintenance_date && maintenance_interval) {
@@ -508,10 +508,11 @@ router.post('/:id/equipment', requireAuth, (req, res) => {
         nextDate = d.toISOString().split('T')[0];
     }
     
-    // MODIFICATION SQL : Ajout de la colonne et du paramètre
-    const sql = `INSERT INTO client_equipment (client_id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, next_maintenance_date, location) VALUES (?,?,?,?,?,?,?,?)`;
+    // MODIF SQL : Ajout de la colonne 'notes' et d'un '?' à la fin
+    const sql = `INSERT INTO client_equipment (client_id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, next_maintenance_date, location, notes) VALUES (?,?,?,?,?,?,?,?,?)`;
     
-    db.run(sql, [req.params.id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, nextDate, location], function(err) {
+    // MODIF RUN : Ajout de 'notes' dans le tableau
+    db.run(sql, [req.params.id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, nextDate, location, notes], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         logActivity(req.session.userId, 'add_equipment', 'client', req.params.id, { equipment_id });
         res.json({ id: this.lastID });
@@ -520,8 +521,8 @@ router.post('/:id/equipment', requireAuth, (req, res) => {
 
 // UPDATE EQUIPMENT (PUT)
 router.put('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
-    // MODIFICATION : Ajout de 'location'
-    const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, location } = req.body;
+    // MODIF : On récupère 'notes'
+    const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, location, notes } = req.body;
     
     let nextDate = null;
     if (last_maintenance_date && maintenance_interval) {
@@ -530,10 +531,11 @@ router.put('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
         nextDate = d.toISOString().split('T')[0];
     }
     
-    // MODIFICATION SQL : Ajout de location=?
-    const sql = `UPDATE client_equipment SET equipment_id=?, serial_number=?, installed_at=?, last_maintenance_date=?, maintenance_interval=?, next_maintenance_date=?, location=? WHERE id=? AND client_id=?`;
+    // MODIF SQL : Ajout de 'notes=?'
+    const sql = `UPDATE client_equipment SET equipment_id=?, serial_number=?, installed_at=?, last_maintenance_date=?, maintenance_interval=?, next_maintenance_date=?, location=?, notes=? WHERE id=? AND client_id=?`;
     
-    db.run(sql, [equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, nextDate, location, req.params.eqId, req.params.clientId], function(err) {
+    // MODIF RUN : Ajout de 'notes' dans le tableau (Attention à l'ordre !)
+    db.run(sql, [equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, nextDate, location, notes, req.params.eqId, req.params.clientId], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });
