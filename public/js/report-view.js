@@ -41,22 +41,22 @@ const TRANSLATIONS = {
         "Re-validation": "Rapport de<br>Re-validation"
     },
     de: {
-        title_main: "Servicebericht",
+        title_main: "Service Rapport",
         label_name: "Name:",
         label_address: "Adresse:",
         label_city: "Ort:",
-        label_contact: "Ansprechpartner:",
+        label_contact: "Gesprochen mit:",
         label_tasks: "Arbeiten:",
-        label_install: "Installation:",
+        label_install: "Anlage:",
         header_intervenants: "Techniker:",
-        header_du: "Vom",
+        header_du: "Von",
         header_au: "Bis",
         header_hours_norm: "Std.<br>Norm.",
         header_hours_sup: "Std.<br>Extra",
         total_upper: "TOTAL",
         section_work: "Ausgeführte Arbeiten:",
-        section_material: "Verbrauchtes Material:",
-        travel_costs: "Wegpauschale:",
+        section_material: "Verwendetes Material:",
+        travel_costs: "Spesenabrechnung:",
         travel_included: "Inkl.",
         total_excl_vat: "Exkl. MWST",
         comments: "Bemerkungen:",
@@ -64,28 +64,28 @@ const TRANSLATIONS = {
         sig_client: "Unterschrift Kunde:",
         date: "Datum:",
 
-        "Mise en marche": "Inbetriebnahme-<br>Protokoll",
+        "Mise en marche": "Inbetriebsetzung-<br>Bericht",
         "Réparation": "Reparatur-<br>Bericht",
         "Réparation / Garantie": "Reparatur / Garantie-<br>Bericht",
-        "Service d'entretien": "Wartungs-<br>Protokoll",
+        "Service d'entretien": "Service<br>Rapport",
         "Contrôle": "Kontroll-<br>Bericht",
-        "Première validation": "Erstvalidierungs-<br>Protokoll",
+        "Première validation": "Erstvalidierung",
         "Montage": "Montage-<br>Bericht",
         "Instruction": "Instruktions-<br>Protokoll",
-        "Re-validation": "Revalidierungs-<br>Protokoll"
+        "Re-validation": "Revalidierung"
     }
 };
 
 const CHECKBOX_LABELS_DE = {
-    "Mise en marche": "Inbetriebnahme",
-    "Réparation": "Reparatur",
-    "Réparation / Garantie": "Reparatur / Garantie",
-    "Service d'entretien": "Wartung",
+    "Mise en marche": "Inbetriebsetzung",
+    "Réparation": "Reparaturen",
+    "Réparation / Garantie": "Garantie-Reparatur",
+    "Service d'entretien": "Service-Wartung",
     "Contrôle": "Kontrolle",
-    "Première validation": "Erstvalidierung",
+    "Première validation": "Erste Validierung",
     "Montage": "Montage",
     "Instruction": "Instruktion",
-    "Re-validation": "Revalidierung"
+    "Re-validation": "Re-Validierung"
 };
 
 let currentLanguage = 'fr'; 
