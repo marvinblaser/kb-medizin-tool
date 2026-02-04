@@ -830,7 +830,6 @@ async function fillReportForm(report) {
         }
     });
     // On met à jour le texte du résumé
-    updateInstallationText();
   }
     
   if (report.technicians)
