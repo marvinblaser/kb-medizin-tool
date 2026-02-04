@@ -392,17 +392,21 @@ async function loadDashboard() {
 }
 
 function setupStatClickHandlers() {
-  // 1. Maintenances Expirées (Rouge)
+  // 1. Maintenances expirées (Rouge) -> Ouvre popup
   document.querySelector(".stat-card.danger").onclick = () =>
     openStatPopup("expired");
 
-  // 2. RDV à fixer / Bientôt (Orange)
+  // 2. RDV à fixer (Orange) -> Ouvre popup
   document.querySelector(".stat-card.warning").onclick = () =>
     openStatPopup("warning");
 
-  // 3. Clients à jour (Vert) -> On affiche ceux qui NE le sont PAS (par soustraction)
-  document.querySelector(".stat-card.success").onclick = () =>
-    openStatPopup("not_ok");
+  // 3. Clients à jour (Vert)
+  // CORRECTION : On retire le clic car il ouvrait un popup vide buggé.
+  const successCard = document.querySelector(".stat-card.success");
+  if(successCard) {
+      successCard.onclick = null; // Désactive le clic
+      successCard.style.cursor = "default"; // Retire le curseur "main"
+  }
 }
 
 // --- GESTION UNIFIÉE DES NOTIFICATIONS (ROUGE) ---
