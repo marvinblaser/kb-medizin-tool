@@ -957,37 +957,61 @@ function addStkTestRow(data = null) {
   container.appendChild(div);
 }
 
+// DANS public/js/reports.js
+
 function addMaterialRow(data = null) {
   const container = document.getElementById("materials-list");
   const div = document.createElement("div");
   div.className = "form-row";
-  div.style.cssText =
-    "display:flex; gap:8px; margin-bottom:10px; align-items:flex-end; background:#fff; padding:10px; border:1px solid var(--border-color); border-radius:6px; flex-wrap:wrap;";
+  div.style.cssText = "display:flex; gap:8px; margin-bottom:10px; align-items:flex-end; background:#fff; padding:10px; border:1px solid var(--border-color); border-radius:6px; flex-wrap:wrap;";
+  
   const discountVal = data ? data.discount || 0 : 0;
   const currentName = data ? data.material_name || "" : "";
-  div.innerHTML = `<div class="form-group" style="width: 140px; margin-bottom:0;"><label>Catalogue</label><select class="material-select" style="font-size:0.85em;"><option value="">-- Choisir --</option>${materials.map(m => {
-    // 1. On crée une étiquette combinée pour que la recherche trouve le CODE ou le NOM
-    const label = m.product_code ? `${m.product_code} - ${m.name}` : m.name;
-
-    return `<option value="${m.id}" 
-        data-name="${escapeHtml(m.name)}" 
-        data-price="${m.unit_price}" 
-        data-code="${m.product_code}" 
-        ${data && data.material_id == m.id ? "selected" : ""}>
-        ${escapeHtml(label)}
-    </option>`;
-}).join("")}</select></div><div class="form-group" style="flex:2; min-width:200px; margin-bottom:0;"><label>Désignation</label><input type="text" class="material-name-input" value="${escapeHtml(
-    currentName
-  )}" /></div><div class="form-group" style="width:80px; margin-bottom:0;"><label>Code</label><input type="text" class="material-code" value="${
-    data ? data.product_code || "" : ""
-  }" readonly style="background:#f3f4f6; font-size:0.85em;" /></div><div class="form-group" style="width:50px; margin-bottom:0;"><label>Qté</label><input type="number" class="material-qty" min="1" value="${
-    data ? data.quantity : 1
-  }" /></div><div class="form-group" style="width:70px; margin-bottom:0;"><label>Prix</label><input type="number" class="material-price" step="0.01" value="${
-    data ? data.unit_price : 0
-  }" /></div><div class="form-group" style="width:50px; margin-bottom:0;"><label>Rab%</label><input type="number" class="material-discount" min="0" max="100" step="1" value="${discountVal}" /></div><div class="form-group" style="width:80px; margin-bottom:0;"><label>Total</label><input type="number" class="material-total" step="0.01" value="${
-    data ? data.total_price : 0
-  }" readonly style="background:#f3f4f6; font-weight:bold;" /></div><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();" style="height:38px; width:38px;"><i class="fas fa-times"></i></button>`;
+  
+  // MODIFICATION ICI : J'ai retiré 'readonly' et 'background:#f3f4f6' sur l'input .material-code
+  div.innerHTML = `
+  <div class="form-group" style="width: 140px; margin-bottom:0;"><label>Catalogue</label>
+    <select class="material-select" style="font-size:0.85em;"><option value="">-- Choisir --</option>${materials.map(m => {
+        const label = m.product_code ? `${m.product_code} - ${m.name}` : m.name;
+        return `<option value="${m.id}" 
+            data-name="${escapeHtml(m.name)}" 
+            data-price="${m.unit_price}" 
+            data-code="${m.product_code}" 
+            ${data && data.material_id == m.id ? "selected" : ""}>
+            ${escapeHtml(label)}
+        </option>`;
+    }).join("")}</select>
+  </div>
+  
+  <div class="form-group" style="flex:2; min-width:200px; margin-bottom:0;"><label>Désignation</label>
+    <input type="text" class="material-name-input" value="${escapeHtml(currentName)}" />
+  </div>
+  
+  <div class="form-group" style="width:80px; margin-bottom:0;"><label>Code</label>
+    <input type="text" class="material-code" value="${data ? data.product_code || "" : ""}" style="font-size:0.85em;" />
+  </div>
+  
+  <div class="form-group" style="width:50px; margin-bottom:0;"><label>Qté</label>
+    <input type="number" class="material-qty" min="1" value="${data ? data.quantity : 1}" />
+  </div>
+  
+  <div class="form-group" style="width:70px; margin-bottom:0;"><label>Prix</label>
+    <input type="number" class="material-price" step="0.01" value="${data ? data.unit_price : 0}" />
+  </div>
+  
+  <div class="form-group" style="width:50px; margin-bottom:0;"><label>Rab%</label>
+    <input type="number" class="material-discount" min="0" max="100" step="1" value="${discountVal}" />
+  </div>
+  
+  <div class="form-group" style="width:80px; margin-bottom:0;"><label>Total</label>
+    <input type="number" class="material-total" step="0.01" value="${data ? data.total_price : 0}" readonly style="background:#f3f4f6; font-weight:bold;" />
+  </div>
+  
+  <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();" style="height:38px; width:38px;"><i class="fas fa-times"></i></button>`;
+  
   container.appendChild(div);
+  
+  // Logique de mise à jour automatique (reste inchangée)
   const sel = div.querySelector(".material-select"),
     nameIn = div.querySelector(".material-name-input"),
     codeIn = div.querySelector(".material-code"),
@@ -995,6 +1019,7 @@ function addMaterialRow(data = null) {
     priceIn = div.querySelector(".material-price"),
     discountIn = div.querySelector(".material-discount"),
     totalIn = div.querySelector(".material-total");
+
   const update = () => {
     const q = parseFloat(qtyIn.value) || 0,
       p = parseFloat(priceIn.value) || 0,
@@ -1002,15 +1027,17 @@ function addMaterialRow(data = null) {
     totalIn.value = (q * p * (1 - d / 100)).toFixed(2);
     updateMaterialsTotal();
   };
+
   sel.addEventListener("change", function () {
     const opt = this.options[this.selectedIndex];
     if (opt.value) {
       priceIn.value = parseFloat(opt.dataset.price).toFixed(2);
-      codeIn.value = opt.dataset.code || "";
+      codeIn.value = opt.dataset.code || ""; // Remplit le code mais reste modifiable ensuite
       nameIn.value = opt.dataset.name || "";
     }
     update();
   });
+
   [qtyIn, priceIn, discountIn].forEach((e) => {
     e.addEventListener("change", update);
     e.addEventListener("input", update);
