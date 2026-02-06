@@ -119,3 +119,63 @@
 
     console.log("✅ Loader Notification (Haut-Droite) activé");
 })();
+
+/* --- GESTION GLOBALE DES NOTIFICATIONS SIDEBAR --- */
+document.addEventListener("DOMContentLoaded", async () => {
+    // Petit délai pour laisser le reste charger
+    setTimeout(updateGlobalSidebar, 100);
+});
+
+async function updateGlobalSidebar() {
+    try {
+        // 1. Récupérer l'utilisateur (pour connaître son rôle)
+        // On utilise fetch avec une option pour ne pas déclencher le gros loader si possible
+        const userRes = await fetch('/api/me');
+        if (!userRes.ok) return; // Pas connecté
+        const userData = await userRes.json();
+        const role = userData.user.role;
+
+        // 2. Récupérer les statistiques des rapports
+        const statsRes = await fetch('/api/reports/stats');
+        if (!statsRes.ok) return;
+        const stats = await statsRes.json();
+
+        // 3. Calculer le nombre de tâches urgentes selon le rôle
+        let count = 0;
+        
+        // Rôles qui doivent VALIDER (Pending -> Validated)
+        const canValidate = ["admin", "validator", "sales_director", "verifier", "verificateur"].includes(role);
+        
+        // Rôles qui doivent ARCHIVER (Validated -> Archived)
+        const canArchive = ["admin", "secretary"].includes(role);
+
+        if (canValidate) count += (stats.pending || 0);
+        if (canArchive) count += (stats.validated || 0);
+
+        // 4. Mettre à jour le badge dans la sidebar
+        // On cible le lien qui pointe vers reports.html
+        const sidebarLink = document.querySelector('aside .sidebar-nav a[href="/reports.html"]');
+        
+        if (sidebarLink) {
+            // On supprime un éventuel badge existant pour éviter les doublons
+            const oldBadge = sidebarLink.querySelector(".sidebar-badge");
+            if (oldBadge) oldBadge.remove();
+
+            if (count > 0) {
+                const badge = document.createElement("span");
+                badge.className = "sidebar-badge";
+                // Style rouge vif pour l'alerte
+                badge.style.cssText = "background:#ef4444; color:white; font-size:0.75rem; padding:2px 8px; border-radius:12px; margin-left:auto; font-weight:800; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);";
+                badge.textContent = count;
+                
+                // Ajustement flex pour que le badge soit tout à droite
+                sidebarLink.style.display = 'flex';
+                sidebarLink.style.alignItems = 'center';
+                sidebarLink.style.justifyContent = 'space-between'; // Sécurité
+                sidebarLink.appendChild(badge);
+            }
+        }
+    } catch (e) {
+        console.warn("Erreur mise à jour sidebar:", e);
+    }
+}

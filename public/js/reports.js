@@ -153,44 +153,100 @@ function updateInstallationText() {
 
 // --- BADGES ---
 async function updateBadges() {
-  try {
-    const res = await fetch("/api/reports/stats");
-    const stats = await res.json();
+    try {
+        // 1. Récupération des données
+        const [statsRes, userRes] = await Promise.all([
+            fetch("/api/reports/stats"),
+            fetch("/api/me")
+        ]);
 
-    // Sidebar Badge
-    const sidebarLink = document.querySelector('a[href="/reports.html"]');
-    if (sidebarLink) {
-      const oldBadge = sidebarLink.querySelector(".sidebar-badge");
-      if (oldBadge) oldBadge.remove();
-      if (stats.pending > 0) {
-        const badge = document.createElement("span");
-        badge.className = "sidebar-badge";
-        badge.style.cssText =
-          "background:var(--color-danger); color:white; font-size:0.75rem; padding:2px 6px; border-radius:10px; margin-left:auto; font-weight:bold;";
-        badge.textContent = stats.pending;
-        sidebarLink.appendChild(badge);
-        sidebarLink.style.display = "flex";
-        sidebarLink.style.alignItems = "center";
-      }
+        if (!statsRes.ok || !userRes.ok) return;
+
+        const stats = await statsRes.json();
+        const userData = await userRes.json();
+        const role = userData.user.role;
+
+        // 2. Rôles
+        const isVerifier = ["admin", "validator", "verifier", "verificateur", "sales_director"].includes(role);
+        const isSecretary = ["admin", "secretary"].includes(role);
+
+        // 3. Mapping Textes -> Status API
+        const textToStatus = {
+            "Brouillons": "draft",
+            "En attente": "pending",
+            "Validés": "validated",
+            "Archivés": "archived",
+            "Refusés": "rejected"
+        };
+
+        // 4. Ciblage : On prend tous les boutons de navigation
+        const buttons = document.querySelectorAll(".nav-text-btn");
+
+        buttons.forEach((btn) => {
+            // --- A. IDENTIFICATION (Lecture du texte sans le badge) ---
+            let labelText = "";
+            btn.childNodes.forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    labelText += node.textContent;
+                }
+            });
+            labelText = labelText.trim();
+
+            const status = textToStatus[labelText];
+            if (!status) return; 
+
+            const count = stats[status] || 0;
+
+            // --- B. NETTOYAGE (Reset complet) ---
+            // 1. On supprime les badges existants pour éviter les doublons
+            btn.querySelectorAll('span').forEach(span => span.remove());
+            
+            // 2. On retire les styles forcés (couleur, gras, et surtout bordure)
+            btn.style.color = "";
+            btn.style.fontWeight = "";
+            btn.style.borderBottom = ""; // IMPORTANT : On efface tout soulignement forcé
+
+            // --- C. LOGIQUE D'URGENCE ---
+            let isUrgent = false;
+            if (status === 'pending' && isVerifier && count > 0) isUrgent = true;
+            if (status === 'validated' && isSecretary && count > 0) isUrgent = true;
+
+            // --- D. CRÉATION DU BADGE ET STYLE ---
+            if (count > 0) {
+                const badge = document.createElement("span");
+                badge.className = "badge"; 
+                badge.textContent = count;
+                
+                // Style commun du badge
+                badge.style.marginLeft = "8px";
+                badge.style.padding = "2px 8px";
+                badge.style.borderRadius = "10px";
+                badge.style.fontSize = "0.75rem";
+                badge.style.fontWeight = "600";
+                badge.style.display = "inline-block";
+                badge.style.lineHeight = "1.2";
+
+                if (isUrgent) {
+                    // STYLE URGENT : Juste le texte en rouge (pas de soulignement !)
+                    btn.style.color = "#dc2626";
+                    btn.style.fontWeight = "700";
+
+                    // Badge Rouge
+                    badge.style.backgroundColor = "#dc2626";
+                    badge.style.color = "white";
+                } else {
+                    // STYLE NORMAL : Badge Gris
+                    badge.style.backgroundColor = "#f1f5f9";
+                    badge.style.color = "#64748b";
+                }
+                
+                btn.appendChild(badge);
+            }
+        });
+
+    } catch (e) {
+        console.error("Erreur updateBadges:", e);
     }
-
-    // Toolbar Badges
-    const setBadge = (id, count, isAlert) => {
-      const el = document.getElementById(`badge-${id}`);
-      if (el) {
-        el.textContent = count;
-        if (isAlert && count > 0) el.classList.add("danger");
-        else el.classList.remove("danger");
-      }
-    };
-
-    setBadge("draft", stats.draft);
-    setBadge("pending", stats.pending, true);
-    setBadge("validated", stats.validated);
-    setBadge("archived", stats.archived);
-  } catch (e) {
-    console.error("Err Badges:", e);
-  }
 }
 
 // --- ONGLETS & AFFICHAGE ---
