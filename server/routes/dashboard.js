@@ -157,52 +157,44 @@ router.get('/clients-to-contact', requireAuth, (req, res) => {
 
 // --- CARTE ---
 router.get('/clients-map', requireAuth, (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
-  
-  const sql = `
-    SELECT 
-      c.id, c.cabinet_name, c.contact_name, c.address, c.city, c.postal_code, c.phone, c.canton,
-      c.latitude, c.longitude,
-      
-      SUM(CASE 
-        WHEN ce.next_maintenance_date < ? 
-        AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL) 
-        THEN 1 ELSE 0 END
-      ) as expired_count,
-      
-      MIN(CASE 
-        WHEN (ec.is_secondary = 0 OR ec.is_secondary IS NULL) 
-        THEN ce.next_maintenance_date END
-      ) as next_date,
+    // La requête vérifie s'il existe un RDV futur dans appointments_history
+    const sql = `
+        SELECT 
+            c.id, c.cabinet_name, c.latitude, c.longitude, c.address, c.postal_code, c.city, c.canton, c.phone, c.contact_name,
+            
+            -- Calcul du statut
+            CASE 
+                -- 1. Priorité : S'il y a un RDV futur -> 'planned'
+                WHEN EXISTS (
+                    SELECT 1 FROM appointments_history ah 
+                    WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')
+                ) THEN 'planned'
+                
+                -- 2. Sinon : On regarde l'équipement le plus urgent
+                WHEN EXISTS (
+                    SELECT 1 FROM client_equipment ce 
+                    WHERE ce.client_id = c.id 
+                    AND ce.next_maintenance_date < date('now')
+                ) THEN 'expired'
+                
+                WHEN EXISTS (
+                    SELECT 1 FROM client_equipment ce 
+                    WHERE ce.client_id = c.id 
+                    AND ce.next_maintenance_date <= date('now', '+60 days')
+                ) THEN 'warning'
+                
+                ELSE 'ok'
+            END as status
 
-      (SELECT count(*) FROM appointments_history ah WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')) as future_rdv
-    
-    FROM clients c
-    LEFT JOIN client_equipment ce ON c.id = ce.client_id
-    LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
-    WHERE (c.is_hidden = 0 OR c.is_hidden IS NULL) -- FILTRE AJOUTÉ
-    GROUP BY c.id
-  `;
+        FROM clients c
+        WHERE (c.is_hidden = 0 OR c.is_hidden IS NULL)
+        AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL
+    `;
 
-  db.all(sql, [today], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    
-    const clients = rows.map(row => {
-      let status = 'ok';
-      if (row.future_rdv > 0) {
-          status = 'ok'; 
-      } else if (row.expired_count > 0) {
-          status = 'expired';
-      } else if (row.next_date) {
-          const days = Math.ceil((new Date(row.next_date) - new Date()) / (1000 * 60 * 60 * 24));
-          if (days >= 0 && days <= 30) {
-              status = 'warning';
-          }
-      }
-      return { ...row, status };
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
     });
-    res.json(clients);
-  });
 });
 
 module.exports = router;

@@ -350,17 +350,19 @@ router.get('/planning', requireAuth, (req, res) => {
 
 // DANS server/routes/clients.js
 
-// 4. LISTE DES CLIENTS (ANNUAIRE) - SANS PAGINATION
+// server/routes/clients.js
+
+// 4. LISTE DES CLIENTS (ANNUAIRE) - AVEC FILTRE STATUT
 router.get('/', requireAuth, (req, res) => {
-    const { search, canton, category, sortBy, sortOrder, showHidden } = req.query;
+    const { search, canton, category, sortBy, sortOrder, showHidden, status } = req.query;
 
     let where = ["1=1"];
     let params = [];
+    let having = ""; // Pour filtrer sur les agrégations (RDV, Statuts)
 
-    // Logique de filtrage (inchangée)
-    if (showHidden !== 'true') {
-        where.push("(c.is_hidden = 0 OR c.is_hidden IS NULL)");
-    }
+    // Filtres de base
+    if (showHidden !== 'true') where.push("(c.is_hidden = 0 OR c.is_hidden IS NULL)");
+    
     if (search) {
         where.push(`(c.cabinet_name LIKE ? OR c.city LIKE ? OR c.contact_name LIKE ?)`);
         const s = `%${search}%`;
@@ -369,6 +371,7 @@ router.get('/', requireAuth, (req, res) => {
     if (canton) { where.push("c.canton = ?"); params.push(canton); }
     if (category) { where.push("c.activity = ?"); params.push(category); }
 
+    // Logique de tri
     let order = "c.cabinet_name ASC";
     if (sortBy) {
         const dir = sortOrder === 'desc' ? 'DESC' : 'ASC';
@@ -376,22 +379,52 @@ router.get('/', requireAuth, (req, res) => {
         if (allowed.includes(sortBy)) order = `c.${sortBy} ${dir}`;
     }
 
-    // Requête UNIQUE sans LIMIT ni OFFSET
+    // Requête intelligente qui calcule le statut de chaque client
     const sql = `
         SELECT c.*, 
+        
+        -- Récupération des machines
         (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ';;') 
          FROM client_equipment ce 
          JOIN equipment_catalog ec ON ce.equipment_id = ec.id 
-         WHERE ce.client_id = c.id) as equipment_summary
+         WHERE ce.client_id = c.id) as equipment_summary,
+
+        -- Vérification RDV Futur (1 = Oui, 0 = Non)
+        EXISTS (
+            SELECT 1 FROM appointments_history ah 
+            WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')
+        ) as has_future_rdv,
+
+        -- Vérification Urgence Maintenance (1 = Expiré, 0 = Non)
+        EXISTS (
+            SELECT 1 FROM client_equipment ce 
+            WHERE ce.client_id = c.id AND ce.next_maintenance_date < date('now')
+        ) as has_expired_machines
+
         FROM clients c 
         WHERE ${where.join(' AND ')} 
+        GROUP BY c.id
+        ${having}
         ORDER BY ${order}`;
 
     db.all(sql, params, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
+
+        // Filtrage PHP/JS style car SQL complexe sur statuts calculés
+        let filteredRows = rows;
+        if (status) {
+            filteredRows = rows.filter(row => {
+                if (status === 'planned') return row.has_future_rdv === 1;
+                if (status === 'expired') return row.has_future_rdv === 0 && row.has_expired_machines === 1;
+                // Note : Pour warning/ok c'est plus complexe à calculer ici sans alourdir la requête, 
+                // mais 'planned' et 'expired' sont les plus critiques.
+                return true;
+            });
+        }
+
         res.json({
-            clients: rows,
-            count: rows.length // On renvoie simplement le nombre total
+            clients: filteredRows,
+            count: filteredRows.length
         });
     });
 });

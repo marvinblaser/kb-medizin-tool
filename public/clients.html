@@ -470,7 +470,12 @@ tr.row-selected { background-color: var(--color-primary-light) !important; }
                 <div class="form-group mb-0"><label>Marque</label><input type="text" id="adv-brand" placeholder="Ex: Atmos"></div>
                 <div class="form-group mb-0"><label>Modèle</label><input type="text" id="adv-model" placeholder="Ex: C31"></div>
                 <div class="form-group mb-0"><label>N° Série</label><input type="text" id="adv-serial" placeholder="S/N..."></div>
-                <div class="form-group mb-0"><label>Statut</label><select id="adv-status"><option value="">Tous</option><option value="expired">Expiré</option><option value="warning">Bientôt</option><option value="ok">À jour</option></select></div>
+                <select id="adv-status">
+                    <option value="">Tous</option>
+                    <option value="planned">Planifié (RDV)</option> <option value="expired">Expiré</option>
+                    <option value="warning">Bientôt</option>
+                    <option value="ok">À jour</option>
+                </select>
             </div>
             <div class="filters-footer">
                 <button class="btn-link-reset" id="clear-filters">Effacer les filtres</button>

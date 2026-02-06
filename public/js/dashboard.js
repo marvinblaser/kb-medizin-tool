@@ -758,18 +758,20 @@ function updateMapMarkers() {
   if (!map) return;
   markers.forEach((m) => map.removeLayer(m));
   markers = [];
+  
   const filtered = allClients.filter(
     (c) => currentFilter === "all" || c.status === currentFilter,
   );
 
   filtered.forEach((client) => {
     const coords = getCoordinatesForClient(client);
-    const color =
-      client.status === "expired"
-        ? "#dc2626"
-        : client.status === "warning"
-          ? "#f59e0b"
-          : "#16a34a";
+    
+    // 1. GESTION DES COULEURS AVEC LE NOUVEAU STATUT "PLANNED"
+    let color = "#16a34a"; // Vert par défaut
+    if (client.status === "expired") color = "#dc2626";
+    else if (client.status === "warning") color = "#f59e0b";
+    else if (client.status === "planned") color = "#3b82f6"; // BLEU pour Planifié
+
     const marker = L.circleMarker(coords, {
       radius: 8,
       fillColor: color,
@@ -779,63 +781,49 @@ function updateMapMarkers() {
       fillOpacity: 0.8,
     }).addTo(map);
 
-    const badgeClass =
-      client.status === "expired"
-        ? "badge-danger"
-        : client.status === "warning"
-          ? "badge-warning"
-          : "badge-success";
-    const badgeText =
-      client.status === "expired"
-        ? "Expiré"
-        : client.status === "warning"
-          ? "Bientôt"
-          : "À jour";
-    const badgeIcon =
-      client.status === "expired"
-        ? "fa-times-circle"
-        : client.status === "warning"
-          ? "fa-exclamation-triangle"
-          : "fa-check-circle";
+    // 2. CONFIGURATION DU BADGE
+    let badgeClass = "badge-success";
+    let badgeText = "À jour";
+    let badgeIcon = "fa-check-circle";
+    let headerBg = "var(--color-success, #16a34a)";
 
-    let headerBg = "var(--color-primary, #005691)";
-    if (client.status === "expired") headerBg = "var(--color-danger, #dc2626)";
-    else if (client.status === "warning")
-      headerBg = "var(--color-warning, #f59e0b)";
-    else if (client.status === "ok" || client.status === "up_to_date")
-      headerBg = "var(--color-success, #16a34a)";
+    if (client.status === "expired") {
+        badgeClass = "badge-danger";
+        badgeText = "Expiré";
+        badgeIcon = "fa-times-circle";
+        headerBg = "var(--color-danger, #dc2626)";
+    } else if (client.status === "warning") {
+        badgeClass = "badge-warning";
+        badgeText = "Bientôt";
+        badgeIcon = "fa-exclamation-triangle";
+        headerBg = "var(--color-warning, #f59e0b)";
+    } else if (client.status === "planned") {
+        badgeClass = "badge-primary"; // On utilisera le bleu du thème
+        badgeText = "RDV Planifié";
+        badgeIcon = "fa-calendar-check";
+        headerBg = "var(--color-primary, #0284c7)";
+    }
 
     const getEqBadge = (date) => {
-      if (!date)
-        return '<span class="badge badge-primary" style="font-size:10px!important;padding:2px 6px;">À définir</span>';
-      const d = new Date(date),
-        diff = Math.ceil(
-          (d - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24),
-        );
-      if (diff < 0)
-        return `<span class="badge badge-danger" style="font-size:10px!important;padding:2px 6px;">Expiré (${Math.abs(diff)}j)</span>`;
-      if (diff <= 30)
-        return `<span class="badge badge-warning" style="font-size:10px!important;padding:2px 6px;">${diff} jours</span>`;
+      if (!date) return '<span class="badge badge-primary" style="font-size:10px!important;padding:2px 6px;">À définir</span>';
+      const d = new Date(date), diff = Math.ceil((d - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+      if (diff < 0) return `<span class="badge badge-danger" style="font-size:10px!important;padding:2px 6px;">Expiré (${Math.abs(diff)}j)</span>`;
+      if (diff <= 30) return `<span class="badge badge-warning" style="font-size:10px!important;padding:2px 6px;">${diff} jours</span>`;
       return `<span class="badge badge-success" style="font-size:10px!important;padding:2px 6px;">OK</span>`;
     };
 
-    const eqHtml =
-      client.equipment && client.equipment.length > 0
+    const eqHtml = client.equipment && client.equipment.length > 0
         ? `<div class="map-equipment-section" style="margin-top:10px; border-top:1px solid #eee; padding-top:10px; max-height: 200px; overflow-y: auto; padding-right: 5px;">
-                 <strong style="font-size:0.8rem; text-transform:uppercase; color:#64748b; display:block; margin-bottom:8px; position: sticky; top: 0; background: white; z-index: 1;">Équipements (${client.equipment.length})</strong>
-                 ${client.equipment
-                   .map(
-                     (e) => `
-                    <div class="map-equipment-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed #f1f5f9;">
-                        <div style="font-size:0.85rem; line-height:1.2;">
-                            <strong style="color:#334155;">${escapeHtml(e.name)}</strong><br/>
-                            <span style="color:#94a3b8;font-size:0.75rem;">${escapeHtml(e.brand || "-")}</span>
-                        </div>
-                        <div>${getEqBadge(e.next_maintenance_date)}</div>
-                    </div>`,
-                   )
-                   .join("")}
-               </div>`
+             <strong style="font-size:0.8rem; text-transform:uppercase; color:#64748b; display:block; margin-bottom:8px; position: sticky; top: 0; background: white; z-index: 1;">Équipements (${client.equipment.length})</strong>
+             ${client.equipment.map(e => `
+                <div class="map-equipment-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed #f1f5f9;">
+                    <div style="font-size:0.85rem; line-height:1.2;">
+                        <strong style="color:#334155;">${escapeHtml(e.name)}</strong><br/>
+                        <span style="color:#94a3b8;font-size:0.75rem;">${escapeHtml(e.brand || "-")}</span>
+                    </div>
+                    <div>${getEqBadge(e.next_maintenance_date)}</div>
+                </div>`).join("")}
+           </div>`
         : `<div class="map-equipment-section" style="margin-top:10px; padding:10px; background:#f8fafc; color:#94a3b8; font-style:italic; font-size:0.85rem; text-align:center; border-radius:4px;">Aucun équipement installé</div>`;
 
     const popupContent = `
@@ -857,15 +845,7 @@ function updateMapMarkers() {
                         <i class="fas fa-map-marker-alt" style="color:var(--color-primary); width:20px;"></i>
                         <span>${escapeHtml(client.address)}, ${client.postal_code ? client.postal_code + " " : ""}${escapeHtml(client.city)}</span>
                     </div>
-                    ${
-                      client.phone
-                        ? `
-                    <div class="map-info-row" style="margin-bottom:15px; display:flex; gap:10px; color:#475569;">
-                        <i class="fas fa-phone" style="color:var(--color-primary); width:20px;"></i>
-                        <a href="tel:${client.phone}" style="color:var(--color-primary); text-decoration:none;">${escapeHtml(client.phone)}</a>
-                    </div>`
-                        : ""
-                    }
+                    ${client.phone ? `<div class="map-info-row" style="margin-bottom:15px; display:flex; gap:10px; color:#475569;"><i class="fas fa-phone" style="color:var(--color-primary); width:20px;"></i><a href="tel:${client.phone}" style="color:var(--color-primary); text-decoration:none;">${escapeHtml(client.phone)}</a></div>` : ""}
                     ${eqHtml}
                     <div style="margin-top:15px; text-align:center;">
                         <button class="btn btn-sm btn-secondary w-100" style="width:100%; justify-content:center;" onclick="openClientFromMap(${client.id})">
@@ -874,11 +854,7 @@ function updateMapMarkers() {
                     </div>
                 </div>
             </div>`;
-    marker.bindPopup(popupContent, {
-      maxWidth: 360,
-      minWidth: 320,
-      className: "kb-map-popup",
-    });
+    marker.bindPopup(popupContent, { maxWidth: 360, minWidth: 320, className: "kb-map-popup" });
     markers.push(marker);
   });
 }
