@@ -752,25 +752,28 @@ function getFormData() {
     })
     .filter((t) => t);
 
-  // 4. MATÉRIEL : Idem, sécurité sur les IDs
-  data.materials = Array.from(
-    document.querySelectorAll("#materials-list .form-row")
-  )
-    .map((r) => {
-        const rawMatId = r.querySelector(".material-select").value;
-        const matId = parseInt(rawMatId);
+    // 4. MATÉRIEL : Idem, sécurité sur les IDs
+    data.materials = Array.from(
+      document.querySelectorAll("#materials-list .form-row")
+    )
+      .map((r) => {
+          const rawMatId = r.querySelector(".material-select").value;
+          const matId = parseInt(rawMatId);
 
-        return {
-            material_id: isNaN(matId) ? null : matId,
-            material_name: r.querySelector(".material-name-input").value,
-            product_code: r.querySelector(".material-code").value,
-            quantity: parseFloat(r.querySelector(".material-qty").value) || 1,
-            unit_price: parseFloat(r.querySelector(".material-price").value) || 0,
-            discount: parseFloat(r.querySelector(".material-discount").value) || 0,
-            total_price: parseFloat(r.querySelector(".material-total").value) || 0,
-        };
-    })
-    .filter((m) => m.material_id !== null || m.material_name !== "");
+          return {
+              material_id: isNaN(matId) ? null : matId,
+              material_name: r.querySelector(".material-name-input").value,
+              product_code: r.querySelector(".material-code").value,
+              quantity: parseFloat(r.querySelector(".material-qty").value) || 1,
+              unit_price: parseFloat(r.querySelector(".material-price").value) || 0,
+              discount: parseFloat(r.querySelector(".material-discount").value) || 0,
+              total_price: parseFloat(r.querySelector(".material-total").value) || 0,
+              
+              // --- AJOUT ICI : On récupère la case cochée ---
+              included: r.querySelector(".material-incl") ? r.querySelector(".material-incl").checked : false
+          };
+      })
+      .filter((m) => m.material_id !== null || m.material_name !== "");
 
   return data;
 }
@@ -959,16 +962,22 @@ function addStkTestRow(data = null) {
 
 // DANS public/js/reports.js
 
+// DANS public/js/reports.js
+
 function addMaterialRow(data = null) {
   const container = document.getElementById("materials-list");
   const div = document.createElement("div");
   div.className = "form-row";
-  div.style.cssText = "display:flex; gap:8px; margin-bottom:10px; align-items:flex-end; background:#fff; padding:10px; border:1px solid var(--border-color); border-radius:6px; flex-wrap:wrap;";
+  
+  // Style dynamique : fond jaune clair si inclus
+  const isIncluded = data && (data.included === 1 || data.included === true);
+  const bgStyle = isIncluded ? "#fffbeb" : "#fff";
+  
+  div.style.cssText = `display:flex; gap:8px; margin-bottom:10px; align-items:flex-end; background:${bgStyle}; padding:10px; border:1px solid var(--border-color); border-radius:6px; flex-wrap:wrap; transition: background 0.2s;`;
   
   const discountVal = data ? data.discount || 0 : 0;
   const currentName = data ? data.material_name || "" : "";
   
-  // MODIFICATION ICI : J'ai retiré 'readonly' et 'background:#f3f4f6' sur l'input .material-code
   div.innerHTML = `
   <div class="form-group" style="width: 140px; margin-bottom:0;"><label>Catalogue</label>
     <select class="material-select" style="font-size:0.85em;"><option value="">-- Choisir --</option>${materials.map(m => {
@@ -999,6 +1008,11 @@ function addMaterialRow(data = null) {
     <input type="number" class="material-price" step="0.01" value="${data ? data.unit_price : 0}" />
   </div>
   
+  <div class="form-group" style="width:40px; margin-bottom:0; text-align:center;">
+    <label style="font-size:0.7em;">Incl.</label>
+    <input type="checkbox" class="material-incl" style="width:18px; height:18px; margin-top:5px; cursor:pointer;" ${isIncluded ? "checked" : ""} />
+  </div>
+
   <div class="form-group" style="width:50px; margin-bottom:0;"><label>Rab%</label>
     <input type="number" class="material-discount" min="0" max="100" step="1" value="${discountVal}" />
   </div>
@@ -1011,20 +1025,28 @@ function addMaterialRow(data = null) {
   
   container.appendChild(div);
   
-  // Logique de mise à jour automatique (reste inchangée)
+  // LOGIQUE DE CALCUL
   const sel = div.querySelector(".material-select"),
     nameIn = div.querySelector(".material-name-input"),
     codeIn = div.querySelector(".material-code"),
     qtyIn = div.querySelector(".material-qty"),
     priceIn = div.querySelector(".material-price"),
+    inclIn = div.querySelector(".material-incl"), // Checkbox
     discountIn = div.querySelector(".material-discount"),
     totalIn = div.querySelector(".material-total");
 
   const update = () => {
-    const q = parseFloat(qtyIn.value) || 0,
-      p = parseFloat(priceIn.value) || 0,
-      d = parseFloat(discountIn.value) || 0;
-    totalIn.value = (q * p * (1 - d / 100)).toFixed(2);
+    const q = parseFloat(qtyIn.value) || 0;
+    const p = parseFloat(priceIn.value) || 0;
+    const d = parseFloat(discountIn.value) || 0;
+    const isIncl = inclIn.checked;
+
+    // Si inclus, on met 0.00 dans le total, sinon calcul normal
+    totalIn.value = isIncl ? "0.00" : (q * p * (1 - d / 100)).toFixed(2);
+    
+    // Changement visuel pour bien voir que c'est inclus
+    div.style.background = isIncl ? "#fffbeb" : "#fff";
+    
     updateMaterialsTotal();
   };
 
@@ -1032,13 +1054,13 @@ function addMaterialRow(data = null) {
     const opt = this.options[this.selectedIndex];
     if (opt.value) {
       priceIn.value = parseFloat(opt.dataset.price).toFixed(2);
-      codeIn.value = opt.dataset.code || ""; // Remplit le code mais reste modifiable ensuite
+      codeIn.value = opt.dataset.code || "";
       nameIn.value = opt.dataset.name || "";
     }
     update();
   });
 
-  [qtyIn, priceIn, discountIn].forEach((e) => {
+  [qtyIn, priceIn, discountIn, inclIn].forEach((e) => {
     e.addEventListener("change", update);
     e.addEventListener("input", update);
   });

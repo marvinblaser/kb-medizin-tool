@@ -291,12 +291,24 @@ const saveReportData = async (req, res, reportId = null) => {
 
         // ÉTAPE 4 : MATÉRIELS
         if (materials && materials.length) {
-            console.log(`5. Insertion Matériels...`);
+            console.log(`5. Insertion Matériels (${materials.length} éléments)...`);
             for (const m of materials) {
-                console.log(`   -> Material ID: ${m.material_id}`);
+                // S'assurer que included est bien un entier (1 ou 0)
+                const isIncluded = (m.included === true || m.included === 1 || m.included === "true") ? 1 : 0;
+                
                 await run(
-                    "INSERT INTO report_materials (report_id, material_id, material_name, product_code, quantity, unit_price, discount, total_price) VALUES (?,?,?,?,?,?,?,?)",
-                    [finalId, m.material_id, m.material_name, m.product_code, m.quantity, m.unit_price, m.discount||0, m.total_price]
+                    "INSERT INTO report_materials (report_id, material_id, material_name, product_code, quantity, unit_price, discount, total_price, included) VALUES (?,?,?,?,?,?,?,?,?)",
+                    [
+                        finalId, 
+                        m.material_id, 
+                        m.material_name, 
+                        m.product_code, 
+                        m.quantity, 
+                        m.unit_price, 
+                        m.discount || 0, 
+                        m.total_price,
+                        isIncluded // <--- NOUVEAU CHAMP SAUVEGARDÉ
+                    ]
                 );
             }
         }

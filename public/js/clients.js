@@ -351,20 +351,37 @@ async function executeBulkAction(action) {
     }
 }
 
-// D. GESTIONNAIRE DE MODALE GÉNÉRIQUE
+// D. GESTIONNAIRE DE MODALE GÉNÉRIQUE (CORRIGÉ)
 function openCustomConfirm(title, message, confirmBtnClass, callback) {
-    document.getElementById('confirm-title').textContent = title;
-    document.getElementById('confirm-message').textContent = message;
-    
-    const btn = document.getElementById('btn-confirm-action');
-    btn.className = `btn ${confirmBtnClass}`; // Change la couleur (bleu ou rouge)
-    btn.onclick = callback;
+    // Correction des IDs pour correspondre à clients.html
+    const titleEl = document.getElementById('confirm-modal-title');
+    const msgEl = document.getElementById('confirm-modal-text');
+    const btn = document.getElementById('confirm-modal-btn');
+    const modal = document.getElementById('confirm-modal');
 
-    document.getElementById('generic-confirm-modal').classList.add('active');
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    
+    if (btn) {
+        // On remplace les classes existantes pour gérer le style (rouge/bleu)
+        btn.className = `btn ${confirmBtnClass}`; 
+        
+        // Important : on supprime les anciens écouteurs pour éviter les doublons d'action
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        newBtn.onclick = () => {
+            if (typeof callback === 'function') callback();
+            closeConfirmModal();
+        };
+    }
+
+    if (modal) modal.classList.add('active');
 }
 
 window.closeConfirmModal = function() {
-    document.getElementById('generic-confirm-modal').classList.remove('active');
+    const modal = document.getElementById('confirm-modal');
+    if (modal) modal.classList.remove('active');
 }
 
 // E. MODIFIER VOTRE FONCTION 'toggleClientHidden' EXISTANTE
@@ -1259,3 +1276,4 @@ window.closeScheduleModal = closeScheduleModal;
 window.confirmSchedule = confirmSchedule;
 window.deleteAppointment = deleteAppointment;
 window.exportData = exportData;
+window.requestBulkAction = window.triggerBulkConfirm;
