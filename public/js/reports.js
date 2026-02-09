@@ -151,6 +151,36 @@ function updateInstallationText() {
   document.getElementById("installation-text").value = selected.join(", ");
 }
 
+// --- UTILITAIRES UX ---
+function toggleSection(header) {
+    header.parentElement.classList.toggle('open');
+    const icon = header.querySelector('.fa-chevron-down');
+    if(icon) icon.style.transform = header.parentElement.classList.contains('open') ? 'rotate(0deg)' : 'rotate(-90deg)';
+}
+
+function scrollToSection(id) {
+    const el = document.getElementById(id);
+    if(el) {
+        // Ouvre la section si fermée
+        el.classList.add('open');
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Initialise le Drag & Drop sur toutes les listes
+function initDragAndDrop() {
+    ['work-list', 'materials-list', 'technicians-list', 'stk-tests-list'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) {
+            new Sortable(el, {
+                handle: '.drag-handle', // On ne peut draguer qu'en tirant la poignée
+                animation: 150,
+                ghostClass: 'sortable-ghost' // Classe ajoutée à l'élément en cours de déplacement
+            });
+        }
+    });
+}
+
 // --- BADGES ---
 async function updateBadges() {
     try {
@@ -589,6 +619,8 @@ async function openReportModal(reportId = null) {
     addWorkRow();
   }
   modal.classList.add("active");
+
+  setTimeout(initDragAndDrop, 100);
 }
 
 function renderWorkflowButtons(r) {
@@ -728,9 +760,13 @@ async function saveReport() {
   const method = reportId ? "PUT" : "POST";
   const url = reportId ? `/api/reports/${reportId}` : "/api/reports";
 
+  // Petit effet de chargement sur le bouton
   const btn = document.querySelector("#workflow-buttons button:first-child");
   const originalText = btn ? btn.innerHTML : "";
-  if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ...';
+  if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ...';
+  }
 
   try {
     const res = await fetch(url, {
@@ -738,22 +774,51 @@ async function saveReport() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
+
     if (res.ok) {
-      const json = await res.json();
+      const json = await res.json(); // Le serveur renvoie { success: true, id: ... }
+      
+      // Mise à jour des listes en arrière-plan
       updateBadges();
       await loadReports();
 
-      if (!reportId && json.id) openReportModal(json.id);
-      else if (reportId) renderWorkflowButtons(json);
+      // --- LE CORRECTIF EST ICI ---
+      // On récupère immédiatement la version à jour du rapport complet
+      // Cela garantit qu'on a le bon 'status' pour réafficher le bouton Enregistrer
+      const freshRes = await fetch(`/api/reports/${json.id}`);
+      const freshReport = await freshRes.json();
+
+      if (!reportId && json.id) {
+          // Si c'était une création, on bascule tout le modal en mode "Édition"
+          openReportModal(json.id);
+      } else {
+          // Si c'était une modif, on régénère juste les boutons avec les données fraîches
+          renderWorkflowButtons(freshReport);
+          
+          // Optionnel : On peut aussi mettre à jour les champs si le serveur a calculé des trucs
+          // fillReportForm(freshReport); 
+      }
+      
+      // Feedback visuel optionnel (Toast ou petit changement de couleur)
+      // Pas d'alerte bloquante pour garder le flux fluide
+
     } else {
       const err = await res.json();
       alert("Erreur: " + err.error);
+      
+      // En cas d'erreur, on remet le bouton comme avant
+      if (btn) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+      }
     }
   } catch (e) {
     console.error(e);
+    if (btn) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
   }
-
-  if (btn) btn.innerHTML = originalText;
 }
 
 function closeReportModal() {
@@ -998,30 +1063,21 @@ function loadMaterials() {
 function addTechnicianRow(data = null) {
   const container = document.getElementById("technicians-list");
   const div = document.createElement("div");
-  div.className = "form-row";
-  div.style.cssText = "display:flex; gap:10px; margin-bottom:10px; align-items:flex-end; background:#fff; padding:8px; border:1px solid var(--border-color); border-radius:6px;";
+  div.className = "draggable-item grid-cols-tech";
   
   const isChecked = data && data.included ? "checked" : "";
 
   div.innerHTML = `
-  <div class="form-group" style="flex:1; margin-bottom:0;"><label>Nom</label>
-    <select class="technician-select"><option value="">--</option>${technicians.map(t => `<option value="${t.id}" ${data && data.technician_id == t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}</select>
-  </div>
-  <div class="form-group" style="width:140px; margin-bottom:0;"><label>Date</label>
-    <input type="date" class="tech-date" value="${data ? data.work_date : new Date().toISOString().split("T")[0]}" />
-  </div>
-  <div class="form-group" style="width:70px; margin-bottom:0;"><label>Norm.</label>
-    <input type="number" class="tech-hours-normal" step="0.5" value="${data ? data.hours_normal : 0}" />
-  </div>
-  <div class="form-group" style="width:70px; margin-bottom:0;"><label>Sup.</label>
-    <input type="number" class="tech-hours-extra" step="0.5" value="${data ? data.hours_extra : 0}" />
-  </div>
-  <div class="form-group" style="width:50px; margin-bottom:0; text-align:center;">
-    <label style="font-size:0.8em;">Incl.</label>
-    <input type="checkbox" class="tech-included" style="margin-top:5px;" ${isChecked}>
-  </div>
-  <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" style="height:38px; width:38px;"><i class="fas fa-times"></i></button>`;
-  // AJOUTER CECI pour écouter les changements :
+    <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
+    <div><select class="technician-select" style="width:100%"><option value="">--</option>${technicians.map(t => `<option value="${t.id}" ${data && data.technician_id == t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}</select></div>
+    <div><input type="date" class="tech-date" value="${data ? data.work_date : new Date().toISOString().split("T")[0]}" style="width:100%" /></div>
+    <div><input type="number" class="tech-hours-normal" step="0.5" value="${data ? data.hours_normal : 0}" style="width:100%" /></div>
+    <div><input type="number" class="tech-hours-extra" step="0.5" value="${data ? data.hours_extra : 0}" style="width:100%" /></div>
+    <div style="text-align:center;"><input type="checkbox" class="tech-included" style="width:16px; height:16px;" ${isChecked}></div>
+    <div style="text-align:right;"><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); calculateTotal();"><i class="fas fa-times"></i></button></div>
+  `;
+
+  // Listeners pour recalcule total
   const inputs = div.querySelectorAll('input');
   inputs.forEach(input => {
       input.addEventListener('change', calculateTotal);
@@ -1029,19 +1085,19 @@ function addTechnicianRow(data = null) {
   });
 
   container.appendChild(div);
-  // Pour recalculer immédiatement si on charge des données existantes
   setTimeout(calculateTotal, 100);
 }
 
 function addWorkRow(text = "") {
   const container = document.getElementById("work-list");
   const div = document.createElement("div");
-  div.className = "form-row";
-  div.style.cssText =
-    "display:flex; gap:10px; margin-bottom:8px; align-items:center;";
-  div.innerHTML = `<input type="text" class="work-line-input" value="${escapeHtml(
-    text
-  )}" placeholder="Description du travail..." style="flex:1;" /><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" tabindex="-1"><i class="fas fa-times"></i></button>`;
+  div.className = "work-item draggable-item"; // draggable-item active le style
+  
+  div.innerHTML = `
+    <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
+    <input type="text" class="work-line-input" value="${escapeHtml(text)}" placeholder="Description du travail..." style="flex:1; border:none; outline:none;" />
+    <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()" tabindex="-1"><i class="fas fa-times"></i></button>
+  `;
   container.appendChild(div);
 }
 
@@ -1064,78 +1120,66 @@ function addStkTestRow(data = null) {
   container.appendChild(div);
 }
 
-// DANS public/js/reports.js
 
-// DANS public/js/reports.js
+// public/js/reports.js
 
 function addMaterialRow(data = null) {
   const container = document.getElementById("materials-list");
   const div = document.createElement("div");
-  div.className = "form-row";
   
-  // Style dynamique : fond jaune clair si inclus
+  // On applique la grille + le style draggable
+  div.className = "draggable-item grid-cols-material"; 
+  
   const isIncluded = data && (data.included === 1 || data.included === true);
-  const bgStyle = isIncluded ? "#fffbeb" : "#fff";
-  
-  div.style.cssText = `display:flex; gap:8px; margin-bottom:10px; align-items:flex-end; background:${bgStyle}; padding:10px; border:1px solid var(--border-color); border-radius:6px; flex-wrap:wrap; transition: background 0.2s;`;
-  
+  div.style.background = isIncluded ? "#fffbeb" : "#fff";
+
   const discountVal = data ? data.discount || 0 : 0;
   const currentName = data ? data.material_name || "" : "";
+  const productCode = data ? data.product_code || "" : "";
   
+  // Notez l'ajout de "text-right" pour les inputs numériques
   div.innerHTML = `
-  <div class="form-group" style="width: 140px; margin-bottom:0;"><label>Catalogue</label>
-    <select class="material-select" style="font-size:0.85em;"><option value="">-- Choisir --</option>${materials.map(m => {
-        const label = m.product_code ? `${m.product_code} - ${m.name}` : m.name;
-        return `<option value="${m.id}" 
-            data-name="${escapeHtml(m.name)}" 
-            data-price="${m.unit_price}" 
-            data-code="${m.product_code}" 
-            ${data && data.material_id == m.id ? "selected" : ""}>
-            ${escapeHtml(label)}
-        </option>`;
-    }).join("")}</select>
-  </div>
+    <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
+    
+    <div>
+        <select class="material-select" style="width:100%;"><option value="">--</option>${materials.map(m => {
+            const label = m.product_code ? `${m.product_code}` : m.name;
+            return `<option value="${m.id}" 
+                data-name="${escapeHtml(m.name)}" 
+                data-price="${m.unit_price}" 
+                data-code="${m.product_code}" 
+                ${data && data.material_id == m.id ? "selected" : ""}>
+                ${escapeHtml(label)}
+            </option>`;
+        }).join("")}</select>
+    </div>
   
-  <div class="form-group" style="flex:2; min-width:200px; margin-bottom:0;"><label>Désignation</label>
-    <input type="text" class="material-name-input" value="${escapeHtml(currentName)}" />
-  </div>
+    <div><input type="text" class="material-name-input" value="${escapeHtml(currentName)}" /></div>
+    
+    <div><input type="text" class="material-code" value="${escapeHtml(productCode)}" /></div>
+    
+    <div><input type="number" class="material-qty text-right" min="1" value="${data ? data.quantity : 1}" /></div>
+    
+    <div><input type="number" class="material-price text-right" step="0.01" value="${data ? data.unit_price : 0}" /></div>
+    
+    <div class="text-center"><input type="checkbox" class="material-incl" style="width:18px; height:18px; cursor:pointer;" ${isIncluded ? "checked" : ""} /></div>
+    
+    <div><input type="number" class="material-discount text-right" min="0" max="100" step="1" value="${discountVal}" /></div>
+    
+    <div><input type="number" class="material-total text-right" step="0.01" value="${data ? data.total_price : 0}" readonly style="background:transparent; font-weight:bold; border:none;" /></div>
   
-  <div class="form-group" style="width:80px; margin-bottom:0;"><label>Code</label>
-    <input type="text" class="material-code" value="${data ? data.product_code || "" : ""}" style="font-size:0.85em;" />
-  </div>
-  
-  <div class="form-group" style="width:50px; margin-bottom:0;"><label>Qté</label>
-    <input type="number" class="material-qty" min="1" value="${data ? data.quantity : 1}" />
-  </div>
-  
-  <div class="form-group" style="width:70px; margin-bottom:0;"><label>Prix</label>
-    <input type="number" class="material-price" step="0.01" value="${data ? data.unit_price : 0}" />
-  </div>
-  
-  <div class="form-group" style="width:40px; margin-bottom:0; text-align:center;">
-    <label style="font-size:0.7em;">Incl.</label>
-    <input type="checkbox" class="material-incl" style="width:18px; height:18px; margin-top:5px; cursor:pointer;" ${isIncluded ? "checked" : ""} />
-  </div>
-
-  <div class="form-group" style="width:50px; margin-bottom:0;"><label>Rab%</label>
-    <input type="number" class="material-discount" min="0" max="100" step="1" value="${discountVal}" />
-  </div>
-  
-  <div class="form-group" style="width:80px; margin-bottom:0;"><label>Total</label>
-    <input type="number" class="material-total" step="0.01" value="${data ? data.total_price : 0}" readonly style="background:#f3f4f6; font-weight:bold;" />
-  </div>
-  
-  <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();" style="height:38px; width:38px;"><i class="fas fa-times"></i></button>`;
+    <div class="text-right"><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();"><i class="fas fa-times"></i></button></div>
+  `;
   
   container.appendChild(div);
   
-  // LOGIQUE DE CALCUL
+  // --- RE-ATTACHEMENT DES EVENTS (Identique à avant) ---
   const sel = div.querySelector(".material-select"),
     nameIn = div.querySelector(".material-name-input"),
     codeIn = div.querySelector(".material-code"),
     qtyIn = div.querySelector(".material-qty"),
     priceIn = div.querySelector(".material-price"),
-    inclIn = div.querySelector(".material-incl"), // Checkbox
+    inclIn = div.querySelector(".material-incl"),
     discountIn = div.querySelector(".material-discount"),
     totalIn = div.querySelector(".material-total");
 
@@ -1144,13 +1188,8 @@ function addMaterialRow(data = null) {
     const p = parseFloat(priceIn.value) || 0;
     const d = parseFloat(discountIn.value) || 0;
     const isIncl = inclIn.checked;
-
-    // Si inclus, on met 0.00 dans le total, sinon calcul normal
     totalIn.value = isIncl ? "0.00" : (q * p * (1 - d / 100)).toFixed(2);
-    
-    // Changement visuel pour bien voir que c'est inclus
     div.style.background = isIncl ? "#fffbeb" : "#fff";
-    
     updateMaterialsTotal();
   };
 

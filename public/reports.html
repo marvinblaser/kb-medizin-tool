@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
   <link href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
   
   <style>
     /* --- CONFIGURATION GLOBALE --- */
@@ -206,6 +207,160 @@
         position: relative;
         z-index: 2; /* Passe au-dessus du clic de la ligne */
     }
+
+    /* --- NOUVEAU MODAL UX --- */
+    .modal-body {
+        display: flex; /* Sidebar + Contenu */
+        padding: 0;
+        background: #f8fafc;
+        height: 100%;
+        overflow: hidden; /* C'est le contenu qui scrolle, pas le body entier */
+    }
+
+    /* 1. Sidebar de Navigation */
+    .modal-sidebar {
+        width: 220px;
+        background: white;
+        border-right: 1px solid var(--border-color);
+        padding: 1.5rem 0;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        flex-shrink: 0;
+        overflow-y: auto;
+    }
+    .sidebar-link {
+        padding: 10px 20px;
+        color: var(--neutral-600);
+        font-weight: 500;
+        cursor: pointer;
+        display: flex; align-items: center; gap: 10px;
+        transition: all 0.2s;
+        border-left: 3px solid transparent;
+    }
+    .sidebar-link:hover, .sidebar-link.active {
+        background: #f1f5f9;
+        color: var(--color-primary);
+    }
+    .sidebar-link.active { border-left-color: var(--color-primary); }
+
+    /* 2. Zone de Contenu Principale */
+    .modal-main-content {
+        flex: 1;
+        padding: 2rem;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+    }
+
+    /* 3. Sections Accordéon */
+    .ux-section {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+    .ux-section-header {
+        padding: 1rem 1.5rem;
+        background: white;
+        font-weight: 700;
+        color: var(--neutral-800);
+        display: flex; justify-content: space-between; align-items: center;
+        cursor: pointer;
+        border-bottom: 1px solid transparent;
+        transition: background 0.2s;
+    }
+    .ux-section-header:hover { background: #f8fafc; }
+    .ux-section.open .ux-section-header {
+        border-bottom: 1px solid var(--border-color-light);
+        background: #f8fafc;
+    }
+    .ux-section-body {
+        display: none;
+        padding: 1.5rem;
+    }
+    .ux-section.open .ux-section-body { display: block; }
+
+    /* 4. Grilles (Matériel / Tech) */
+    .grid-header {
+        display: grid;
+        font-weight: 700;
+        color: var(--neutral-500);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        padding: 0 10px 5px 40px; /* 40px left pour la poignée de drag */
+        margin-bottom: 5px;
+        border-bottom: 2px solid var(--border-color-light);
+    }
+    
+    /* Lignes Draggables */
+    .draggable-item {
+        display: grid;
+        align-items: center;
+        background: white;
+        border: 1px solid var(--border-color-light);
+        border-radius: 6px;
+        margin-bottom: 8px;
+        padding: 8px;
+        padding-left: 0;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .draggable-item:hover {
+        border-color: var(--neutral-400);
+        box-shadow: var(--shadow-sm);
+    }
+    .drag-handle {
+        cursor: grab;
+        color: var(--neutral-400);
+        display: flex; justify-content: center; align-items: center;
+        width: 30px;
+        height: 100%;
+    }
+    .drag-handle:hover { color: var(--neutral-800); }
+    
+    /* --- CORRECTIF LARGEUR MODAL --- */
+    /* On force le modal à être plus large pour que le tableau respire */
+    .modal-content {
+        width: 95vw !important;      /* 95% de la largeur de l'écran */
+        max-width: 1400px !important; /* Maximum raisonnable */
+    }
+
+    /* --- NOUVELLE GRILLE MATÉRIEL (Alignée) --- */
+    .grid-cols-material {
+        display: grid;
+        /* Définition précise des 10 colonnes */
+        /* Grip | Cat | Nom | Code | Qté | Prix | Incl | Rab | Total | Del */
+        grid-template-columns: 
+            30px      /* Poignée */
+            220px     /* Catalogue (Plus large pour lire) */
+            1fr       /* Désignation (Prend tout le reste de la place) */
+            100px     /* Code */
+            70px      /* Qté */
+            90px      /* Prix */
+            50px      /* Incl */
+            60px      /* Rab */
+            100px     /* Total */
+            40px;     /* Suppr */
+        gap: 12px;    /* Espace entre les colonnes */
+        align-items: center;
+    }
+    /* Config Tech (6 colonnes) */
+    .grid-cols-tech {
+        grid-template-columns: 30px 1fr 140px 70px 70px 50px 40px;
+        gap: 10px;
+    }
+    /* Config Work (Simple) */
+    .work-item { display: flex; align-items: center; gap: 10px; padding: 6px; background: white; border: 1px solid var(--border-color-light); border-radius: 6px; margin-bottom: 6px; }
+    /* Classes utilitaires pour aligner les textes (Headers + Inputs) */
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    
+    /* Pour que les inputs prennent toute la largeur de leur case */
+    .grid-cols-material input, 
+    .grid-cols-material select {
+        width: 100%;
+    }
 </style>
 </head>
 <body>
@@ -323,141 +478,135 @@
           </div>
       </div>
       
-      <div class="modal-body" style="background-color: var(--neutral-50);">
+      <div class="modal-body" style="padding:0; display:flex;">
+    
+    <nav class="modal-sidebar">
+        <div class="sidebar-link active" onclick="scrollToSection('sec-info')"><i class="fas fa-info-circle"></i> Général</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-client')"><i class="fas fa-building"></i> Client</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-tech')"><i class="fas fa-tools"></i> Techniciens</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-work')"><i class="fas fa-clipboard-list"></i> Travaux</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-stk')"><i class="fas fa-bolt"></i> Tests STK</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-material')"><i class="fas fa-box-open"></i> Matériel</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-travel')"><i class="fas fa-car"></i> Déplacement</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-close')"><i class="fas fa-check-double"></i> Clôture</div>
+    </nav>
+
+    <div class="modal-main-content" id="main-scroll-area">
         
-        <div id="rejection-msg-box" class="rejection-alert" style="display: none;">
+        <div id="rejection-msg-box" class="rejection-alert" style="display: none; margin-bottom: 20px;">
             <i class="fas fa-exclamation-circle fa-lg"></i>
-            <div>
-                <strong>Rapport refusé</strong><br>
-                <span id="rejection-reason-text" style="font-size: 0.9rem;"></span>
-            </div>
+            <div><strong>Rapport refusé</strong><br><span id="rejection-reason-text"></span></div>
+        </div>
+        
+        <div style="background:white; padding:1rem; border:1px solid var(--border-color); border-radius:8px; margin-bottom:2rem; display:flex; justify-content:space-between; align-items:center;">
+             <div style="display:flex; align-items:center; gap:10px;">
+                 <strong>État :</strong> <span id="current-status-badge" class="badge badge-secondary">Brouillon</span>
+             </div>
+             <div id="validator-info" style="font-size:0.85rem; color:var(--neutral-500);"></div>
         </div>
 
         <form id="report-form">
-          <input type="hidden" id="report-id" />
-          
-          <div style="background:white; padding:1rem; border:1px solid var(--border-color); border-radius:var(--radius-lg); margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow-sm);">
-             <div style="display:flex; align-items:center; gap:10px;">
-                 <strong>État actuel :</strong> 
-                 <span id="current-status-badge" class="badge badge-secondary">Brouillon</span>
-             </div>
-             <div id="validator-info" style="font-size:0.85rem; color:var(--neutral-500);"></div>
-          </div>
+            <input type="hidden" id="report-id" />
 
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-info-circle"></i> Informations Générales</h3>
-            <div class="form-row">
-              <div class="form-group" style="flex: 1;">
-                <label>Langue</label>
-                <select id="report-language">
-                    <option value="fr" selected>Français 🇫🇷</option>
-                    <option value="de">Allemand 🇩🇪</option>
-                </select>
-              </div>
-
-              <div class="form-group" style="flex: 2;">
-                <label>Type de travaux *</label>
-                <select id="report-type" multiple required data-placeholder="Sélectionner les travaux...">
-                    <option value="Mise en marche">Mise en marche</option>
-                    <option value="Service d'entretien">Service d'entretien</option>
-                    <option value="Montage">Montage</option>
-                    <option value="Réparation">Réparation</option>
-                    <option value="Contrôle">Contrôle</option>
-                    <option value="Instruction">Instruction</option>
-                    <option value="Réparation / Garantie">Réparation / Garantie</option>
-                    <option value="Première validation">Première validation</option>
-                    <option value="Re-validation">Re-validation</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                  <label>Titre personnalisé (Optionnel)</label>
-                  <input type="text" id="report-custom-title" placeholder="Ex: Maintenance Annuelle 2024" oninput="updateReportTitleHeader()">
-                  <small style="color:#64748b; font-size:0.8em;">Laissez vide pour utiliser le titre automatique.</small>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-building"></i> Client & Lieu</h3>
-            <div class="form-group"><label>Sélection Client *</label><select id="client-select" required><option value="">-- Rechercher --</option></select></div>
-            
-            <div style="background: var(--neutral-50); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color-light);">
-                <div class="form-row">
-                    <div class="form-group"><label>Cabinet</label><input type="text" id="cabinet-name" required /></div>
-                    <div class="form-group"><label>Interlocuteur</label><input type="text" id="interlocutor" /></div>
+            <div id="sec-info" class="ux-section open">
+                <div class="ux-section-header" onclick="toggleSection(this)">
+                    <span><i class="fas fa-info-circle"></i> Informations Générales</span> <i class="fas fa-chevron-down"></i>
                 </div>
-                <div class="form-group"><label>Adresse</label><input type="text" id="address" required /></div>
-                <div class="form-row">
-                <div class="form-group"><label>NPA</label><input type="text" id="postal-code" /></div>
-                <div class="form-group" style="flex:2"><label>Ville</label><input type="text" id="city" required /></div>
+                <div class="ux-section-body">
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;"><label>Langue</label><select id="report-language"><option value="fr">Français 🇫🇷</option><option value="de">Allemand 🇩🇪</option></select></div>
+                        <div class="form-group" style="flex:1;"><label>Titre (Optionnel)</label><input type="text" id="report-custom-title" placeholder="Ex: Maintenance Annuelle"></div>
+                    </div>
+                    <div class="form-group"><label>Type de travaux *</label><select id="report-type" multiple required><option value="Mise en marche">Mise en marche</option><option value="Service d'entretien">Service d'entretien</option><option value="Réparation">Réparation</option><option value="Contrôle">Contrôle</option><option value="Réparation / Garantie">Réparation / Garantie</option><option value="Première validation">Première validation</option><option value="Montage">Montage</option><option value="Instruction">Instruction</option><option value="Re-validation">Re-validation</option></select></div>
                 </div>
             </div>
-          </div>
 
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-server"></i> Installation Concernée</h3>
-            <div class="form-group">
-                <div id="client-equipment-list" style="max-height: 180px; overflow-y: auto; padding: 0.75rem; background: var(--neutral-50); border: 1px solid var(--border-color); border-radius: var(--radius-md);"></div>
-            </div>
-            <div class="form-group">
-                <label>Résumé affiché sur le rapport :</label>
-                <textarea id="installation-text" rows="2" style="font-weight:500; color:var(--neutral-800);"></textarea>
-            </div>
-          </div>
-
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-tools"></i> Détails Intervention</h3>
-            
-            <label style="margin-bottom:0.5rem; display:block; font-weight:600;">Intervenants & Heures</label>
-            <div id="technicians-list" style="margin-bottom: 1rem;"></div>
-            <button type="button" class="btn btn-sm btn-secondary" id="add-technician-btn"><i class="fas fa-plus"></i> Ajouter Technicien</button>
-            
-            <div style="margin-top: 2rem;">
-                <label style="margin-bottom:0.5rem; display:block; font-weight:600;">Travaux accomplis (Lignes)</label>
-                <div id="work-list" style="margin-bottom: 1rem;"></div>
-                <button type="button" class="btn btn-sm btn-secondary" id="add-work-btn"><i class="fas fa-plus"></i> Ajouter Ligne</button>
-            </div>
-          </div>
-
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-box-open"></i> Matériel & Tests</h3>
-            
-            <label style="font-weight:600;">Tests STK / Sécurité</label>
-            <div id="stk-tests-list" style="margin-bottom:1rem;"></div>
-            <button type="button" class="btn btn-sm btn-secondary" id="add-stk-test-btn"><i class="fas fa-plus"></i> Ajouter Test</button>
-
-            <div style="margin-top: 2rem;">
-                <label style="font-weight:600;">Pièces Détachées & Matériel</label>
-                <div id="materials-list" style="margin-bottom:1rem;"></div>
-                <button type="button" class="btn btn-sm btn-secondary" id="add-material-btn"><i class="fas fa-plus"></i> Ajouter Matériel</button>
-                <div style="text-align: right; margin-top: 10px; font-weight: 700; font-size:1.1rem; color:var(--color-primary);">
-                    Total Matériel: <span id="materials-total">0.00</span> CHF
+            <div id="sec-client" class="ux-section open">
+                <div class="ux-section-header" onclick="toggleSection(this)"><span><i class="fas fa-building"></i> Client & Lieu</span> <i class="fas fa-chevron-down"></i></div>
+                <div class="ux-section-body">
+                    <div class="form-group"><label>Sélection Client *</label><select id="client-select" required><option value="">-- Rechercher --</option></select></div>
+                    <div style="background:var(--neutral-50); padding:1rem; border-radius:6px;">
+                        <div class="form-row"><div class="form-group"><label>Cabinet</label><input type="text" id="cabinet-name" required /></div><div class="form-group"><label>Interlocuteur</label><input type="text" id="interlocutor" /></div></div>
+                        <div class="form-group"><label>Adresse</label><input type="text" id="address" required /></div>
+                        <div class="form-row"><div class="form-group"><label>NPA</label><input type="text" id="postal-code" /></div><div class="form-group" style="flex:2"><label>Ville</label><input type="text" id="city" required /></div></div>
+                    </div>
+                    <div class="form-group" style="margin-top:1rem;"><label>Installation (Résumé) :</label><textarea id="installation-text" rows="2"></textarea></div>
+                    <div class="form-group"><div id="client-equipment-list" style="max-height:150px; overflow-y:auto; border:1px solid #ddd; padding:5px; border-radius:4px;"></div></div>
                 </div>
             </div>
-          </div>
 
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-car"></i> Déplacement</h3>
-            <div class="form-row">
-              <div class="form-group" style="flex:2;"><label>Ville Départ</label><input type="text" id="travel-city" /></div>
-              <div class="form-group"><label>Canton</label><select id="travel-canton"><option value="">--</option><option value="AG">AG</option><option value="BE">BE</option><option value="BL">BL</option><option value="BS">BS</option><option value="FR">FR</option><option value="GE">GE</option><option value="JU">JU</option><option value="LU">LU</option><option value="NE">NE</option><option value="SG">SG</option><option value="SO">SO</option><option value="SZ">SZ</option><option value="TG">TG</option><option value="TI">TI</option><option value="VD">VD</option><option value="VS">VS</option><option value="ZG">ZG</option><option value="ZH">ZH</option></select></div>
-              <div class="form-group"><label>Prix (CHF)</label><input type="number" id="travel-costs" step="0.01" /></div>
-              <div class="form-group" style="display:flex; align-items:flex-end; padding-bottom:12px;">
-                  <div class="checkbox-group"><input type="checkbox" id="travel-incl" /><label for="travel-incl">Inclus</label></div>
-              </div>
+            <div id="sec-tech" class="ux-section open">
+                <div class="ux-section-header" onclick="toggleSection(this)"><span><i class="fas fa-tools"></i> Techniciens</span> <i class="fas fa-chevron-down"></i></div>
+                <div class="ux-section-body">
+                    <div class="grid-header grid-cols-tech">
+                        <div></div><div>Nom</div><div>Date</div><div>Heures</div><div>Sup.</div><div>Incl.</div><div></div>
+                    </div>
+                    <div id="technicians-list"></div>
+                    <button type="button" class="btn btn-sm btn-secondary" id="add-technician-btn" style="margin-top:10px;"><i class="fas fa-plus"></i> Ajouter Technicien</button>
+                </div>
             </div>
-          </div>
 
-          <div class="form-section">
-            <h3 class="form-section-title"><i class="fas fa-check-double"></i> Clôture</h3>
-            <div class="form-group"><label>Remarques / Notes internes</label><textarea id="remarks" rows="2"></textarea></div>
-            <div class="form-row">
-              <div class="form-group"><label>Date Signature Technicien</label><input type="date" id="tech-signature-date" /></div>
+            <div id="sec-work" class="ux-section open">
+                <div class="ux-section-header" onclick="toggleSection(this)"><span><i class="fas fa-clipboard-list"></i> Travaux Accomplis</span> <i class="fas fa-chevron-down"></i></div>
+                <div class="ux-section-body">
+                    <div id="work-list"></div>
+                    <button type="button" class="btn btn-sm btn-secondary" id="add-work-btn"><i class="fas fa-plus"></i> Ajouter Ligne</button>
+                </div>
             </div>
-          </div>
+
+            <div id="sec-stk" class="ux-section open">
+                <div class="ux-section-header" onclick="toggleSection(this)"><span><i class="fas fa-bolt"></i> Tests STK</span> <i class="fas fa-chevron-down"></i></div>
+                <div class="ux-section-body">
+                    <div id="stk-tests-list"></div>
+                    <button type="button" class="btn btn-sm btn-secondary" id="add-stk-test-btn"><i class="fas fa-plus"></i> Ajouter Test</button>
+                </div>
+            </div>
+
+            <div id="sec-material" class="ux-section open">
+                <div class="ux-section-header" onclick="toggleSection(this)"><span><i class="fas fa-box-open"></i> Matériel & Pièces</span> <i class="fas fa-chevron-down"></i></div>
+                <div class="ux-section-body">
+                    <div class="grid-header grid-cols-material">
+                      <div></div> <div>Catalogue</div>
+                      <div>Désignation</div>
+                      <div>Code</div>
+                      <div class="text-right">Qté</div> <div class="text-right">Prix</div>
+                      <div class="text-center">Incl.</div>
+                      <div class="text-right">Rab%</div>
+                      <div class="text-right">Total</div>
+                      <div></div> </div>
+                    <div id="materials-list"></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                        <button type="button" class="btn btn-sm btn-secondary" id="add-material-btn"><i class="fas fa-plus"></i> Ajouter Matériel</button>
+                        <div style="font-weight:700; font-size:1.1rem; color:var(--color-primary);">Total Matériel: <span id="materials-total">0.00</span> CHF</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sec-travel" class="ux-section open">
+                <div class="ux-section-header" onclick="toggleSection(this)"><span><i class="fas fa-car"></i> Déplacement</span> <i class="fas fa-chevron-down"></i></div>
+                <div class="ux-section-body">
+                    <div class="form-row">
+                        <div class="form-group" style="flex:2;"><label>Ville Départ</label><input type="text" id="travel-city" /></div>
+                        <div class="form-group"><label>Canton</label><select id="travel-canton"><option value="">--</option><option value="AG">AG</option><option value="BE">BE</option><option value="BL">BL</option><option value="BS">BS</option><option value="FR">FR</option><option value="GE">GE</option><option value="JU">JU</option><option value="LU">LU</option><option value="NE">NE</option><option value="SG">SG</option><option value="SO">SO</option><option value="SZ">SZ</option><option value="TG">TG</option><option value="TI">TI</option><option value="VD">VD</option><option value="VS">VS</option><option value="ZG">ZG</option><option value="ZH">ZH</option></select></div>
+                        <div class="form-group"><label>Prix (CHF)</label><input type="number" id="travel-costs" step="0.01" /></div>
+                        <div class="form-group" style="display:flex; align-items:flex-end; padding-bottom:12px;"><div class="checkbox-group"><input type="checkbox" id="travel-incl" /><label for="travel-incl">Inclus</label></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sec-close" class="ux-section open">
+                <div class="ux-section-header" onclick="toggleSection(this)"><span><i class="fas fa-check-double"></i> Clôture</span> <i class="fas fa-chevron-down"></i></div>
+                <div class="ux-section-body">
+                    <div class="form-group"><label>Remarques / Notes internes</label><textarea id="remarks" rows="2"></textarea></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Date Signature Technicien</label><input type="date" id="tech-signature-date" /></div>
+                    </div>
+                </div>
+            </div>
+
         </form>
-      </div>
+        <div style="height: 100px;"></div> </div>
+</div>
 
       <div class="modal-footer">
         <div style="flex:1;"></div> <button class="btn btn-secondary" onclick="closeReportModal()">Fermer</button>
