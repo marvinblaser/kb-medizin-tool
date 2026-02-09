@@ -4,73 +4,79 @@
     <meta charset="UTF-8">
     <title>Rapport de Service</title>
     <style>
-        :root { 
-            --border-black: 1px solid #000; 
-            --header-bg: #dae3f3;
-            --kb-blue: #2e528f;
-        }
-        body { margin: 0; padding: 20px; background: #555; font-family: "Segoe UI", Arial, sans-serif; font-size: 13px; color: #000; line-height: 1.25; }
-        @page { size: A4; margin: 0; }
-        .page-container { width: 210mm; min-height: 297mm; background: white; margin: 0 auto; padding: 10mm; position: relative; box-sizing: border-box; }
-        .main-border { border: 2px solid #000; display: flex; flex-direction: column; }
-        
-        /* HEADER */
-        .header { display: flex; height: 80px; border-bottom: 1px solid #000; }
-        .logo-section { width: 45%; padding: 5px 15px; display: flex; align-items: center; border-right: 1px solid #000; }
-        .logo-section img { max-height: 65px; max-width: 100%; object-fit: contain; }
-        .title-section { width: 55%; background: var(--header-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; text-align: center; text-transform: uppercase; }
-        
-        /* SECTIONS */
-        .client-section { padding: 6px 10px; border-bottom: 1px solid #000; line-height: 1.4; }
-        .info-row { display: flex; } 
-        .info-label { width: 110px; font-weight: 600; font-size: 12px; color: #333; } 
-        .info-value { font-weight: 700; flex: 1; font-size: 13px; } 
-        
-        .tasks-section { border-bottom: 1px solid #000; padding: 6px 10px; display: flex; align-items: flex-start; }
-        .tasks-label { width: 110px; font-weight: 700; font-size: 13px; padding-top: 2px; }
-        .tasks-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 10px; }
-        .cb-item { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; }
-        .cb-box { width: 14px; height: 14px; border: 1px solid #000; display: inline-block; background: #fff; flex-shrink: 0; }
-        .cb-box.checked { background: #000; }
+    :root { 
+        --border-black: 1px solid #000; 
+        --header-bg: #dae3f3;
+        --kb-blue: #2e528f;
+    }
+    /* Police réduite à 12px et interligne resserré */
+    body { margin: 0; padding: 20px; background: #555; font-family: "Segoe UI", Arial, sans-serif; font-size: 12px; color: #000; line-height: 1.2; }
+    @page { size: A4; margin: 0; }
+    
+    /* Marges de page réduites (10mm -> 8mm) */
+    .page-container { width: 210mm; min-height: 297mm; background: white; margin: 0 auto; padding: 8mm; position: relative; box-sizing: border-box; }
+    .main-border { border: 2px solid #000; display: flex; flex-direction: column; }
+    
+    /* Header plus compact (80px -> 68px) */
+    .header { display: flex; height: 68px; border-bottom: 1px solid #000; }
+    .logo-section { width: 45%; padding: 4px 12px; display: flex; align-items: center; border-right: 1px solid #000; }
+    .logo-section img { max-height: 55px; max-width: 100%; object-fit: contain; }
+    .title-section { width: 55%; background: var(--header-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; text-align: center; text-transform: uppercase; }
+    
+    /* Sections plus serrées (Padding 6px -> 4px) */
+    .client-section { padding: 4px 8px; border-bottom: 1px solid #000; line-height: 1.3; }
+    .info-row { display: flex; } 
+    .info-label { width: 110px; font-weight: 600; font-size: 11px; color: #333; } 
+    .info-value { font-weight: 700; flex: 1; font-size: 12px; } 
+    
+    .tasks-section { border-bottom: 1px solid #000; padding: 4px 8px; display: flex; align-items: flex-start; }
+    .tasks-label { width: 110px; font-weight: 700; font-size: 12px; padding-top: 2px; }
+    .tasks-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px 8px; } /* Gap réduit */
+    .cb-item { display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; }
+    .cb-box { width: 12px; height: 12px; border: 1px solid #000; display: inline-block; background: #fff; flex-shrink: 0; }
+    .cb-box.checked { background: #000; }
 
-        .install-section { border-bottom: 1px solid #000; padding: 6px 10px; font-weight: 700; font-size: 13px; display: flex; align-items: center; }
-        .install-label { margin-right: 10px; font-weight: 700; }
-        .install-value { font-weight: 600; flex: 1; }
-        
-        /* TECH TABLE */
-        .tech-section { border-bottom: 1px solid #000; display: flex; }
-        .tech-table { width: 100%; border-collapse: collapse; font-size: 11px; border: none; margin: 0; table-layout: fixed; }
-        .tech-table th, .tech-table td { border: 1px solid #000; padding: 3px 2px; text-align: center; vertical-align: middle; }
-        .tech-table tr th:first-child, .tech-table tr td:first-child { border-left: none; }
-        .tech-table tr:first-child th { border-top: none; }
-        .tech-table tr:last-child td { border-bottom: none; }
-        .tech-table tr td:last-child, .tech-table tr th:last-child { border-right: none; }
-        .tech-header-bg { background: #f5f5f5; font-weight: 700; }
-        
-        /* MAIN GRID */
-        .main-grid { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
-        .main-grid td { border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 3px 4px; vertical-align: top; }
-        .main-grid tr:last-child td { border-bottom: none; } 
-        .main-grid td:last-child { border-right: none; }
-        .col-align-right { text-align: right !important; padding-right: 6px !important; }
-        .col-desc { font-weight: normal; }
-        .section-header { font-weight: 700; text-decoration: underline; font-size: 13px; padding-top: 4px; }
+    .install-section { border-bottom: 1px solid #000; padding: 4px 8px; font-weight: 700; font-size: 12px; display: flex; align-items: center; }
+    .install-label { margin-right: 10px; font-weight: 700; }
+    .install-value { font-weight: 600; flex: 1; }
+    
+    /* Tableaux plus compacts */
+    .tech-section { border-bottom: 1px solid #000; display: flex; }
+    .tech-table { width: 100%; border-collapse: collapse; font-size: 10px; border: none; margin: 0; table-layout: fixed; }
+    .tech-table th, .tech-table td { border: 1px solid #000; padding: 2px; text-align: center; vertical-align: middle; }
+    .tech-table tr th:first-child, .tech-table tr td:first-child { border-left: none; }
+    .tech-table tr:first-child th { border-top: none; }
+    .tech-table tr:last-child td { border-bottom: none; }
+    .tech-table tr td:last-child, .tech-table tr th:last-child { border-right: none; }
+    .tech-header-bg { background: #f5f5f5; font-weight: 700; }
+    
+    .main-grid { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+    .main-grid td { border-right: 1px solid #000; border-bottom: 1px solid #000; padding: 2px 4px; vertical-align: top; }
+    .main-grid tr:last-child td { border-bottom: none; } 
+    .main-grid td:last-child { border-right: none; }
+    .col-align-right { text-align: right !important; padding-right: 6px !important; }
+    .col-desc { font-weight: normal; }
+    .section-header { font-weight: 700; text-decoration: underline; font-size: 12px; padding-top: 3px; }
 
-        /* TOTAL */
-        .total-section { border-top: 2px solid #000; display: flex; height: 28px; align-items: center; font-weight: 700; font-size: 14px; }
-        .total-label { flex: 1; padding-left: 10px; text-transform: uppercase; }
-        
-        .comments { border-top: 1px solid #000; min-height: 100px; padding: 8px; font-size: 12px; }
-        .footer-container { margin-top: 30px; display: flex; justify-content: space-between; padding: 0 30px; }
-        .sig-box { width: 40%; }
-        .sig-row { display: flex; align-items: baseline; margin-bottom: 30px; font-size: 12px; }
-        .sig-val { flex: 1; font-weight: bold; margin-left: 10px; }
-        .sig-line { border-top: 1px solid #000; padding-top: 4px; text-align: center; }
+    /* Total */
+    .total-section { border-top: 2px solid #000; display: flex; height: 24px; align-items: center; font-weight: 700; font-size: 13px; }
+    .total-label { flex: 1; padding-left: 10px; text-transform: uppercase; }
+    
+    .comments { border-top: 1px solid #000; min-height: 80px; padding: 6px; font-size: 11px; }
+    .footer-container { margin-top: 15px; display: flex; justify-content: space-between; padding: 0 20px; }
+    .sig-box { width: 40%; }
+    .sig-row { display: flex; align-items: baseline; margin-bottom: 20px; font-size: 11px; }
+    .sig-val { flex: 1; font-weight: bold; margin-left: 10px; }
+    .sig-line { border-top: 1px solid #000; padding-top: 2px; text-align: center; }
 
-        .fab-save { position: fixed; bottom: 30px; right: 30px; background: #28a745; color: white; border: none; border-radius: 50px; padding: 15px 25px; font-size: 16px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
-        [contenteditable]:focus { background: #fffacd; outline: none; }
-        @media print { body { background: white; padding: 0; } .page-container { box-shadow: none; margin: 0; } button { display: none; } }
-    </style>
+    .fab-save { position: fixed; bottom: 30px; right: 30px; background: #28a745; color: white; border: none; border-radius: 50px; padding: 15px 25px; font-size: 16px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+    [contenteditable]:focus { background: #fffacd; outline: none; }
+    @media print { 
+        body { background: white; padding: 0; } 
+        .page-container { box-shadow: none; margin: 0; width: 100%; height: 100%; padding: 5mm; } 
+        button { display: none; } 
+    }
+</style>
     <link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
 </head>
 <body>

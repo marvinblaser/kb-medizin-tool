@@ -283,16 +283,22 @@ async function loadReport(id) {
         
         let totalMat = 0;
         (data.materials||[]).forEach(m => {
+             // Détection "Inclus" (Compatible avec le nouveau champ BDD ou l'ancienne logique)
+             const isInc = (m.included === 1 || m.included === true || m.included === "true") 
+                        || (m.total_price === 0 && m.unit_price > 0);
+
              let displayTotal = fmt(m.total_price);
-             if (m.total_price === 0 && m.unit_price > 0) displayTotal = TRANSLATIONS[currentLanguage].travel_included;
-             else totalMat += m.total_price;
-             grid.innerHTML += fullRow(m.quantity, m.product_code, m.material_name, fmt(m.unit_price), displayTotal);
+             let displayUnit = fmt(m.unit_price);
+
+             if (isInc) {
+                 displayTotal = TRANSLATIONS[currentLanguage].travel_included; // Affiche "Incl."
+                 displayUnit = ""; // <--- FIX: On force le vide pour le prix unitaire
+             } else {
+                 totalMat += m.total_price;
+             }
+             
+             grid.innerHTML += fullRow(m.quantity, m.product_code, m.material_name, displayUnit, displayTotal);
         });
-        
-        if(!data.materials || data.materials.length === 0) {
-             grid.innerHTML += fullRow('', '', '', '', '');
-             grid.innerHTML += fullRow('', '', '', '', '');
-        }
 
         // 4. Frais de déplacement
         grid.innerHTML += emptyRowWithLines();
