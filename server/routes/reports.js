@@ -136,11 +136,22 @@ router.get('/:id', requireAuth, async (req, res) => {
             all("SELECT * FROM report_materials WHERE report_id = ?", [id]),
             all("SELECT equipment_id FROM report_equipment WHERE report_id = ?", [id])
         ]);
+        // --- AJOUTER CECI ---
+        const stk_rows = await all(
+            "SELECT device_name, price, is_included FROM report_stk_tests WHERE report_id = ?", 
+            [id]);
+
+            const formattedStk = stk_rows.map(row => ({
+            test_name: "Test de sécurité électrique obligatoire i.O - " + row.device_name,
+            price: row.price,
+            included: row.is_included === 1 // Conversion 1 -> true
+        }));
 
         report.technicians = techs; 
         report.stk_tests = stks; 
         report.materials = mats;
         report.equipment_ids = eqs.map(e => e.equipment_id).filter(id => id != null);
+        report.stk_tests = formattedStk; // <-- On remplace les stk_tests par la version formatée
         
         res.json(report);
     } catch (e) {
@@ -309,6 +320,21 @@ const saveReportData = async (req, res, reportId = null) => {
                         m.total_price,
                         isIncluded // <--- NOUVEAU CHAMP SAUVEGARDÉ
                     ]
+                );
+            }
+        }
+
+        await run("DELETE FROM report_stk_tests WHERE report_id = ?", [finalId]);
+
+        // 2. On insère les nouvelles lignes reçues du frontend
+        if (req.body.stk_tests && Array.isArray(req.body.stk_tests)) {
+            for (const stk of req.body.stk_tests) {
+                // On nettoie le nom si nécessaire (optionnel, selon ta préférence)
+                const deviceName = stk.test_name.replace("Test de sécurité électrique obligatoire i.O - ", "");
+                
+                await run(
+                    "INSERT INTO report_stk_tests (report_id, device_name, price, is_included) VALUES (?, ?, ?, ?)",
+                    [finalId, deviceName, stk.price, stk.included ? 1 : 0]
                 );
             }
         }
