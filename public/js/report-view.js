@@ -297,21 +297,31 @@ async function loadReport(id) {
                  totalMat += m.total_price;
              }
              
-             grid.innerHTML += fullRow(m.quantity, m.product_code, m.material_name, displayUnit, displayTotal);
+             // On ajoute le 'x' à côté de la quantité
+            const qtyDisplay = m.quantity ? `${m.quantity}x` : '';
+            grid.innerHTML += fullRow(qtyDisplay, m.product_code, m.material_name, displayUnit, displayTotal);
         });
 
         // 4. Frais de déplacement
         grid.innerHTML += emptyRowWithLines();
-        let travelDisplay = fmt(data.travel_costs);
+        
         const travelInc = (data.travel_included === 1 || data.travel_included === true || data.travel_included === "true");
-        if(travelInc) travelDisplay = TRANSLATIONS[currentLanguage].travel_included;
+        
+        let travelDisplay = fmt(data.travel_costs); // Colonne Total (Droite)
+        let travelUnit = fmt(data.travel_costs);    // Colonne Prix (Gauche)
+
+        if(travelInc) {
+            travelDisplay = TRANSLATIONS[currentLanguage].travel_included; // Affiche "Incl."
+            travelUnit = ""; // <--- FIX : On vide la colonne prix si c'est inclus
+        }
         
         const travelLabel = TRANSLATIONS[currentLanguage].travel_costs;
         const travelText = `<b>${travelLabel}</b> <span style="margin-left:10px;">${data.travel_location||''}</span>`;
+        
         grid.innerHTML += `
             <tr>
                 <td class="col-desc" colspan="3" style="text-align:left; border-right:1px solid #000; padding:2px 4px;">${travelText}</td>
-                <td class="col-price col-align-right" style="border-right:1px solid #000;">${fmt(data.travel_costs)}</td>
+                <td class="col-price col-align-right" style="border-right:1px solid #000;">${travelUnit}</td>
                 <td class="col-total col-align-right">${travelDisplay}</td>
             </tr>`;
 
