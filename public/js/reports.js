@@ -752,6 +752,8 @@ function getFormData() {
   const data = {
     // 1. CLIENT : On s'assure que c'est un nombre entier ou null
     client_id: parseInt(document.getElementById("client-select").value) || null,
+
+    title: document.getElementById("report-custom-title").value.trim(),
     
     language: document.getElementById("report-language").value,
     work_type: workTypeString || "", 
@@ -836,6 +838,7 @@ function getFormData() {
 
 async function fillReportForm(report) {
   document.getElementById("report-id").value = report.id;
+  document.getElementById("report-custom-title").value = report.title || "";
   
   // --- MODIFICATION : Cocher les multiples cases ---
   const typeString = report.work_type || "";
@@ -1274,38 +1277,45 @@ function updatePagination(p) {
   document.getElementById("next-page").disabled = p.page === p.totalPages;
 }
 function updateReportTitleHeader() {
+  const customTitle = document.getElementById("report-custom-title").value.trim();
   const typeSelect = document.getElementById("report-type");
   const titleElement = document.getElementById("report-modal-title");
   const reportId = document.getElementById("report-id").value;
   
-  // --- MODIFICATION : Gestion du titre dynamique multiple ---
-  const selectedOptions = Array.from(typeSelect.selectedOptions);
   let typeText = "Rapport";
 
-  if (selectedOptions.length === 1) {
-      // Un seul choix
-      typeText = "Rapport de " + selectedOptions[0].text;
-  } else if (selectedOptions.length > 1) {
-      // Plusieurs choix
-      if (selectedOptions.length > 2) {
-           // Si plus de 2, on résume pour ne pas casser l'affichage
-           typeText = `Rapport (${selectedOptions.length} types de travaux)`;
-      } else {
-           // Sinon on affiche "Maintenance + Réparation"
-           const names = selectedOptions.map(o => o.text).join(' + ');
-           typeText = "Rapport de " + names;
+  if (customTitle) {
+      // Si un titre personnalisé est entré, on l'utilise directement
+      typeText = customTitle;
+  } else {
+      // Sinon, logique automatique existante
+      const selectedOptions = Array.from(typeSelect.selectedOptions);
+      if (selectedOptions.length === 1) {
+          typeText = "Rapport de " + selectedOptions[0].text;
+      } else if (selectedOptions.length > 1) {
+          if (selectedOptions.length > 2) {
+               typeText = `Rapport (${selectedOptions.length} types de travaux)`;
+          } else {
+               const names = selectedOptions.map(o => o.text).join(' + ');
+               typeText = "Rapport de " + names;
+          }
       }
   }
-  // ---------------------------------------------------------
 
+  // Affichage final avec l'icône et le numéro
   if (reportId) {
     const currentTitle = titleElement.innerText;
-    const match = currentTitle.match(/\d{4}-\d{4}/);
-    if (match)
-      titleElement.innerHTML = `<i class="fas fa-file-alt"></i> ${typeText} <span style="font-size:0.8em; opacity:0.7;">(${match[0]})</span>`;
-    else titleElement.innerHTML = `<i class="fas fa-file-alt"></i> ${typeText}`;
-  } else
-    titleElement.innerHTML = `<i class="fas fa-plus-circle"></i> ${typeText}`;
+    const match = currentTitle.match(/\d{4}-\d{4}/); // Récupère le numéro type "2024-0001" s'il est déjà affiché
+    // Note: Si le numéro n'est pas dans le titre HTML actuel, il faudra peut-être le récupérer autrement, 
+    // mais ta logique précédente se basait sur le DOM, donc on garde ça.
+    
+    let numberSuffix = "";
+    if (match) numberSuffix = ` <span style="font-size:0.8em; opacity:0.7;">(${match[0]})</span>`;
+    
+    titleElement.innerHTML = `<i class="fas fa-file-alt"></i> ${escapeHtml(typeText)}${numberSuffix}`;
+  } else {
+    titleElement.innerHTML = `<i class="fas fa-plus-circle"></i> ${escapeHtml(typeText)}`;
+  }
 }
 
 // --- CALCUL DU TOTAL GLOBAL ---

@@ -233,8 +233,9 @@ router.put('/:id', requireAuth, async (req, res) => {
 });
 
 const saveReportData = async (req, res, reportId = null) => {
+    // 1. On récupère le champ 'title' ici
     const { 
-        client_id, language = 'fr', work_type, status, cabinet_name, address, postal_code, city, interlocutor, 
+        client_id, title, language = 'fr', work_type, status, cabinet_name, address, postal_code, city, interlocutor, 
         installation, remarks, travel_costs = 0, travel_included = 0, travel_location, 
         technician_signature_date, work_accomplished, technicians, stk_tests, materials, equipment_ids 
     } = req.body;
@@ -247,15 +248,25 @@ const saveReportData = async (req, res, reportId = null) => {
         await run("BEGIN TRANSACTION");
 
         let finalId = reportId;
-        const reportParams = [client_id, language, work_type, currentStatus, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included?1:0, travel_location, technician_signature_date, work_accomplished];
+        
+        // 2. On ajoute 'title' dans le tableau des paramètres (juste après client_id par exemple)
+        const reportParams = [
+            client_id, 
+            title, // <--- AJOUTÉ ICI
+            language, work_type, currentStatus, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included?1:0, travel_location, technician_signature_date, work_accomplished
+        ];
 
         // ÉTAPE 1 : RAPPORT
         console.log("1. Sauvegarde Rapport (Parent)...");
         if (reportId) {
-            const sqlUpdate = `UPDATE reports SET client_id=?, language=?, work_type=?, status=?, cabinet_name=?, address=?, postal_code=?, city=?, interlocutor=?, installation=?, remarks=?, travel_costs=?, travel_included=?, travel_location=?, technician_signature_date=?, work_accomplished=? WHERE id=?`;
+            // 3. On modifie la requête UPDATE pour inclure title=?
+            const sqlUpdate = `UPDATE reports SET client_id=?, title=?, language=?, work_type=?, status=?, cabinet_name=?, address=?, postal_code=?, city=?, interlocutor=?, installation=?, remarks=?, travel_costs=?, travel_included=?, travel_location=?, technician_signature_date=?, work_accomplished=? WHERE id=?`;
+            
             await run(sqlUpdate, [...reportParams, reportId]);
         } else {
-            const sqlInsert = `INSERT INTO reports (client_id, language, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, author_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+            // 4. On modifie la requête INSERT pour inclure title et un ? supplémentaire
+            const sqlInsert = `INSERT INTO reports (client_id, title, language, work_type, status, cabinet_name, address, postal_code, city, interlocutor, installation, remarks, travel_costs, travel_included, travel_location, technician_signature_date, work_accomplished, author_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+            
             const result = await run(sqlInsert, [...reportParams, userId]);
             finalId = result.lastID;
         }

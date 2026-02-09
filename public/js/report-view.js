@@ -141,12 +141,27 @@ async function loadReport(id) {
         // 2. Initialisation Données
         currentWorkType = data.work_type || "";
         
+        // A. On coche visuellement les cases (pour info)
         if(data.work_type) {
             const types = data.work_type.split(',').map(s => s.trim());
             types.forEach(type => {
                 const el = document.getElementById(`cb-${type}`);
                 if(el) el.classList.add('checked');
             });
+        }
+
+        // B. Gestion Intelligente du Titre
+        if (data.title && data.title.trim() !== "") {
+            // CAS 1 : Un titre personnalisé existe -> On l'utilise
+            const titleEl = document.getElementById('report-title');
+            if (titleEl) {
+                titleEl.innerText = data.title;
+                // Important : on retire l'attribut de traduction pour éviter qu'il ne soit écrasé
+                titleEl.removeAttribute('data-t'); 
+            }
+        } else if (data.work_type) {
+            // CAS 2 : Pas de titre perso -> On génère le titre auto (Mise en marche + Réparation...)
+            const types = data.work_type.split(',').map(s => s.trim());
             updateTitleFromList(types);
         }
 
