@@ -349,39 +349,59 @@ function renderReports(reports) {
 function generateReportRow(r, badges, names) {
   const installationText = r.installation || "-";
   const installationDisplay =
-    installationText.length > 60
-      ? installationText.substring(0, 60) + "..."
+    installationText.length > 50
+      ? installationText.substring(0, 50) + "..."
       : installationText;
   
   const canDelete = true; 
 
+  // Définition de la classe de couleur selon le statut
+  let statusClass = "row-status-draft"; // Par défaut
+  if (r.status === 'pending') statusClass = "row-status-pending";
+  if (r.status === 'validated') statusClass = "row-status-validated";
+  if (r.status === 'archived') statusClass = "row-status-archived";
+
+  // Notez le onclick sur le <tr> et le event.stopPropagation() sur les boutons
   return `
-      <tr>
-        <td style="font-weight:600; color:var(--color-primary);">${escapeHtml(
-          r.report_number
-        )}</td>
-        <td>${escapeHtml(r.work_type)}</td>
-        <td><strong>${escapeHtml(r.cabinet_name)}</strong></td>
-        <td title="${escapeHtml(installationText)}">
-            <div style="font-size:0.9rem; color:var(--neutral-600);">${escapeHtml(
-              installationDisplay
-            )}</div>
+      <tr class="${statusClass}" onclick="openReportModal(${r.id})">
+        
+        <td>
+            <div class="cell-report-id">${escapeHtml(r.report_number)}</div>
         </td>
-        <td>${formatDate(r.created_at)}</td>
+
+        <td>
+            <span class="cell-meta-info" style="font-weight:500;">${escapeHtml(r.work_type)}</span>
+        </td>
+
+        <td>
+            <span class="cell-client-name">${escapeHtml(r.cabinet_name)}</span>
+            <span class="cell-meta-info">${escapeHtml(r.city || '')}</span>
+        </td>
+
+        <td title="${escapeHtml(installationText)}">
+            <div class="cell-meta-info">${escapeHtml(installationDisplay)}</div>
+        </td>
+
+        <td>
+            <span class="cell-meta-info">${formatDate(r.created_at)}</span>
+        </td>
+
         <td><span class="${badges[r.status]}">${names[r.status]}</span></td>
+
         <td style="text-align:right;">
           <div class="table-actions">
-            <button class="btn-icon-sm btn-icon-primary" onclick="window.open('/report-view.html?id=${
-              r.id
-            }','_blank')" title="PDF"><i class="fas fa-file-pdf"></i></button>
-            <button class="btn-icon-sm btn-icon-primary" onclick="openReportModal(${
-              r.id
-            })" title="Ouvrir"><i class="fas fa-edit"></i></button>
-            ${
-              canDelete
-                ? `<button class="btn-icon-sm btn-icon-danger" onclick="openDeleteModal(${r.id})" title="Supprimer"><i class="fas fa-trash"></i></button>`
-                : ""
-            }
+            <button class="btn-icon-sm btn-icon-primary" 
+                    onclick="event.stopPropagation(); window.open('/report-view.html?id=${r.id}','_blank')" 
+                    title="PDF">
+                <i class="fas fa-file-pdf"></i>
+            </button>
+            
+            ${ canDelete ? `
+            <button class="btn-icon-sm btn-icon-danger" 
+                    onclick="event.stopPropagation(); openDeleteModal(${r.id})" 
+                    title="Supprimer">
+                <i class="fas fa-trash"></i>
+            </button>` : "" }
           </div>
         </td>
       </tr>`;

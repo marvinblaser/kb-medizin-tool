@@ -164,6 +164,48 @@
     
     .pagination { margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; }
     .pagination-info { font-size: 0.9rem; color: var(--neutral-500); }
+
+    /* --- NOUVEAU STYLE UX TABLEAU --- */
+    
+    /* 1. Ligne Cliquable & Interactive */
+    .erp-table tbody tr {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-left: 4px solid transparent; /* Prépare la bordure de couleur */
+    }
+    .erp-table tbody tr:hover {
+        background-color: #f1f5f9; /* Gris très clair au survol */
+        transform: translateX(2px); /* Petit effet de mouvement */
+    }
+
+    /* 2. Code Couleur Latéral (Status) */
+    .row-status-draft { border-left-color: #cbd5e1 !important; } /* Gris */
+    .row-status-pending { border-left-color: #ef4444 !important; } /* Rouge */
+    .row-status-validated { border-left-color: #10b981 !important; } /* Vert */
+    .row-status-archived { border-left-color: #3b82f6 !important; } /* Bleu */
+
+    /* 3. Typographie Hiérarchisée */
+    .cell-report-id {
+        font-weight: 700;
+        color: var(--color-primary);
+        font-family: var(--font-family-mono);
+    }
+    .cell-client-name {
+        font-weight: 700;
+        color: var(--neutral-800);
+        font-size: 0.95rem;
+        display: block;
+    }
+    .cell-meta-info {
+        font-size: 0.85rem;
+        color: var(--neutral-500);
+    }
+    
+    /* Empêcher le clic de traverser les boutons d'action */
+    .table-actions button {
+        position: relative;
+        z-index: 2; /* Passe au-dessus du clic de la ligne */
+    }
 </style>
 </head>
 <body>
