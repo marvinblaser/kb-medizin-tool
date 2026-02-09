@@ -1,14 +1,13 @@
+// public/js/init-selects.js
 import SlimSelect from 'https://unpkg.com/slim-select@2.8.2/dist/slimselect.es.js';
 
-// Registre pour suivre nos selects : Map<Element HTML, { instance: SlimSelect, count: nombre_options }>
+// Registre pour suivre nos selects
 const registry = new Map();
 
-// 1. Fonction pour transformer un select en SlimSelect
+// 1. Initialisation d'un select
 const initSelect = (element) => {
-    // Si déjà transformé ou caché, on ignore
     if (element.dataset.ssid || element.classList.contains('hidden')) return;
 
-    // Création
     const slim = new SlimSelect({
         select: element,
         settings: {
@@ -21,56 +20,88 @@ const initSelect = (element) => {
         }
     });
 
-    // On l'ajoute au registre avec son nombre d'options actuel
     registry.set(element, {
         instance: slim,
         count: element.options.length
     });
 };
 
-// 2. Fonction de vérification (Le "Polling")
-// Cette fonction tourne en boucle doucement pour voir si des choses ont changé
+// 2. Vérification des changements (Polling)
 const checkUpdates = () => {
     registry.forEach((data, element) => {
-        // Si l'élément n'existe plus dans la page, on arrête de le suivre
         if (!document.body.contains(element)) {
             registry.delete(element);
+            data.instance.destroy();
             return;
         }
-
-        // LE TEST CRUCIAL : Est-ce que le nombre d'options a changé ?
-        // (Exemple : reports.js vient de charger les 570 clients)
-        if (element.options.length !== data.count) {
-            
-            // Mise à jour des données dans SlimSelect
-            const newData = Array.from(element.options).map(option => ({
-                text: option.text,
-                value: option.value,
-                selected: option.selected,
-                placeholder: option.value === '',
-                style: option.style.cssText,
-                class: option.className
-            }));
-            
-            data.instance.setData(newData);
-            
-            // On met à jour le compteur pour ne pas refaire le travail pour rien
-            data.count = element.options.length;
+        // Si le nombre d'options a changé (ex: chargement des clients terminé)
+        if (data.count !== element.options.length) {
+            updateSlimData(element, data);
         }
     });
 };
 
+// Fonction interne pour rafraîchir les données de SlimSelect
+const updateSlimData = (element, data) => {
+    const newData = Array.from(element.options).map(option => ({
+        text: option.text,
+        value: option.value,
+        selected: option.selected,
+        placeholder: option.value === '',
+        style: option.style.cssText,
+        class: option.className
+    }));
+    data.instance.setData(newData);
+    data.count = element.options.length;
+};
+
+// 3. FONCTION GLOBALE ROBUSTE (C'est ici que la magie opère)
+window.setSlimSelect = (idOrElement, value) => {
+    const element = typeof idOrElement === 'string' ? document.getElementById(idOrElement) : idOrElement;
+    if (!element) return;
+
+    // --- CORRECTION MAJEURE : CONVERSION EN STRING ---
+    // SlimSelect a besoin de chaînes de caractères ("12"), pas de nombres (12).
+    let safeValue = value;
+    if (value === null || value === undefined) {
+        safeValue = "";
+    } else if (Array.isArray(value)) {
+        safeValue = value.map(v => String(v)); // Convertit [1, 2] en ["1", "2"]
+    } else {
+        safeValue = String(value); // Convertit 12 en "12"
+    }
+
+    // A. Mise à jour de la valeur native (HTML)
+    if (Array.isArray(safeValue)) {
+        Array.from(element.options).forEach(opt => {
+            opt.selected = safeValue.includes(opt.value);
+        });
+    } else {
+        element.value = safeValue;
+    }
+
+    // B. Mise à jour de l'interface SlimSelect
+    const entry = registry.get(element);
+    if (entry && entry.instance) {
+        // 1. On force SlimSelect à relire la liste des options (au cas où elle vient d'être chargée)
+        updateSlimData(element, entry);
+        
+        // 2. On applique la valeur convertie en texte
+        // Petit délai de sécurité pour laisser le temps au DOM de respirer
+        setTimeout(() => {
+            entry.instance.setSelected(safeValue);
+        }, 10);
+    }
+};
+
+// Démarrage
 document.addEventListener("DOMContentLoaded", () => {
-    // A. Initialisation au démarrage
     document.querySelectorAll('select').forEach(initSelect);
 
-    // B. Détection des NOUVEAUX selects (ex: bouton "Ajouter Matériel")
-    // On garde un observer simple UNIQUEMENT pour détecter l'apparition de nouveaux blocs HTML.
-    // Il ne regarde pas l'intérieur des selects, donc aucun risque de boucle.
     const newNodesObserver = new MutationObserver((mutations) => {
         mutations.forEach(m => {
             m.addedNodes.forEach(node => {
-                if (node.nodeType === 1) { // Si c'est une balise HTML
+                if (node.nodeType === 1) { 
                     if (node.tagName === 'SELECT') initSelect(node);
                     else node.querySelectorAll('select').forEach(initSelect);
                 }
@@ -79,7 +110,5 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     newNodesObserver.observe(document.body, { childList: true, subtree: true });
 
-    // C. LANCEMENT DU POLLING (Toutes les 500ms)
-    // C'est ça qui remplace le mouchard buggé.
     setInterval(checkUpdates, 500);
 });

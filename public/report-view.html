@@ -76,6 +76,37 @@
         .page-container { box-shadow: none; margin: 0; width: 100%; height: 100%; padding: 5mm; } 
         button { display: none; } 
     }
+    @media print { 
+        body { 
+            background: white; 
+            padding: 0; 
+            /* FORCE L'IMPRESSION DES COULEURS DE FOND */
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        } 
+        
+        /* On s'assure que le bandeau reste bleu */
+        .title-section {
+            background-color: #dae3f3 !important;
+            -webkit-print-color-adjust: exact !important;
+        }
+
+        /* On s'assure que les cases cochées restent noires */
+        .cb-box.checked {
+            background-color: #000 !important;
+            -webkit-print-color-adjust: exact !important;
+        }
+
+        .page-container { 
+            box-shadow: none; 
+            margin: 0; 
+            width: 100%; 
+            height: 100%; 
+            padding: 5mm; 
+        } 
+        
+        button { display: none; } 
+    }
 </style>
     <link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
 </head>

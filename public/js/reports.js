@@ -840,19 +840,36 @@ async function fillReportForm(report) {
   document.getElementById("report-id").value = report.id;
   document.getElementById("report-custom-title").value = report.title || "";
   
-  // --- MODIFICATION : Cocher les multiples cases ---
+  // 1. TYPE DE TRAVAUX (Multiple)
   const typeString = report.work_type || "";
-  const typesArray = typeString.split(', '); // On sépare la chaîne par virgule
-  const typeSelect = document.getElementById("report-type");
+  const typesArray = typeString.split(',').map(s => s.trim()).filter(s => s !== "");
   
-  // On parcourt chaque option pour voir si elle doit être cochée
-  Array.from(typeSelect.options).forEach(opt => {
-      opt.selected = typesArray.includes(opt.value);
-  });
-  // ------------------------------------------------
+  if (window.setSlimSelect) {
+      window.setSlimSelect("report-type", typesArray);
+  } else {
+      const typeSelect = document.getElementById("report-type");
+      Array.from(typeSelect.options).forEach(opt => {
+          opt.selected = typesArray.includes(opt.value);
+      });
+  }
 
-  document.getElementById("report-language").value = report.language || "fr";
-  document.getElementById("client-select").value = report.client_id || "";
+  // 2. LANGUE
+  const lang = report.language || "fr";
+  if (window.setSlimSelect) {
+      window.setSlimSelect("report-language", lang);
+  } else {
+      document.getElementById("report-language").value = lang;
+  }
+
+  // 3. CLIENT
+  const clientId = report.client_id || "";
+  if (window.setSlimSelect) {
+      window.setSlimSelect("client-select", clientId);
+  } else {
+      document.getElementById("client-select").value = clientId;
+  }
+
+  // Remplissage des champs texte classiques
   document.getElementById("cabinet-name").value = report.cabinet_name;
   document.getElementById("address").value = report.address;
   document.getElementById("postal-code").value = report.postal_code || "";
@@ -861,15 +878,27 @@ async function fillReportForm(report) {
   document.getElementById("installation-text").value = report.installation || "";
   document.getElementById("remarks").value = report.remarks || "";
   
+  // 4. LIEU & CANTON
   if (report.travel_location) {
+    // On essaie d'extraire "Ville (CT)"
     const match = report.travel_location.match(/^(.*)\s\(([A-Z]{2})\)$/);
     if (match) {
       document.getElementById("travel-city").value = match[1];
-      document.getElementById("travel-canton").value = match[2];
+      
+      // -- CORRECTION CANTON --
+      const canton = match[2];
+      if (window.setSlimSelect) {
+          window.setSlimSelect("travel-canton", canton);
+      } else {
+          document.getElementById("travel-canton").value = canton;
+      }
     } else {
+      // Cas où le format n'est pas respecté (vieilles données)
       document.getElementById("travel-city").value = report.travel_location;
     }
   }
+  
+  // On relance le calcul du coût de déplacement car on vient de changer le canton
   updateTravelCost();
   
   if (report.travel_costs)
@@ -881,19 +910,17 @@ async function fillReportForm(report) {
   
   if (report.client_id) await loadClientEquipmentForReport(report.client_id);
   
+  // Équipements (Checkboxes)
   if (report.equipment_ids) {
-    // On convertit les IDs reçus en texte pour la comparaison
     const idsToCheck = report.equipment_ids.map(id => String(id));
-    
-    // On parcourt toutes les cases présentes dans le formulaire
     document.querySelectorAll('.eq-cb').forEach(cb => {
         if (idsToCheck.includes(String(cb.value))) {
             cb.checked = true;
         }
     });
-    // On met à jour le texte du résumé
   }
     
+  // Listes dynamiques (Elles se gèrent toutes seules car le HTML est généré avec "selected")
   if (report.technicians)
     report.technicians.forEach((t) => addTechnicianRow(t));
   if (report.stk_tests) report.stk_tests.forEach((t) => addStkTestRow(t));
@@ -904,8 +931,6 @@ async function fillReportForm(report) {
   else addWorkRow();
   
   updateMaterialsTotal();
-  
-  // On met à jour le titre avec la nouvelle logique
   updateReportTitleHeader();
   calculateTotal();
 }
