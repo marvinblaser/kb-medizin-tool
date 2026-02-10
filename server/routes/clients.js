@@ -523,9 +523,9 @@ router.delete('/:id', requireAuth, (req, res) => {
 // GET EQUIPMENT
 router.get('/:id/equipment', requireAuth, (req, res) => {
     const today = new Date().toISOString().split('T')[0];
-    // On sélectionne ce.* donc la colonne 'location' sera incluse automatiquement
     const sql = `
-        SELECT ce.*, ec.name, ec.brand, ec.model, ec.type,
+        SELECT ce.*, ec.name, ec.brand, ec.model, ec.type, 
+        ec.is_secondary, -- <--- AJOUTER CETTE LIGNE
         (ec.name || ' ' || COALESCE(ec.model, '')) as final_name,
         ec.brand as final_brand,
         (julianday(ce.next_maintenance_date) - julianday('${today}')) as days_remaining
@@ -533,7 +533,7 @@ router.get('/:id/equipment', requireAuth, (req, res) => {
         JOIN equipment_catalog ec ON ce.equipment_id = ec.id
         WHERE ce.client_id = ?
         ORDER BY ce.location ASC, ce.next_maintenance_date ASC
-    `; // J'ai ajouté un tri par location pour que ce soit propre
+    `;
     db.all(sql, [req.params.id], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);

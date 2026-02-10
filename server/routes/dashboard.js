@@ -164,23 +164,29 @@ router.get('/clients-map', requireAuth, (req, res) => {
             
             -- Calcul du statut
             CASE 
-                -- 1. Priorité : S'il y a un RDV futur -> 'planned'
+                -- 1. Priorité : S'il y a un RDV futur -> 'planned' (Bleu)
                 WHEN EXISTS (
                     SELECT 1 FROM appointments_history ah 
                     WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')
                 ) THEN 'planned'
                 
-                -- 2. Sinon : On regarde l'équipement le plus urgent
+                -- 2. Sinon : On regarde l'équipement le plus urgent (SAUF SECONDAIRES)
                 WHEN EXISTS (
                     SELECT 1 FROM client_equipment ce 
+                    JOIN equipment_catalog ec ON ce.equipment_id = ec.id
                     WHERE ce.client_id = c.id 
                     AND ce.next_maintenance_date < date('now')
+                    AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL) -- Exclure secondaires
                 ) THEN 'expired'
                 
+                -- 3. Bientôt : Délai passé de 60 à 30 jours
                 WHEN EXISTS (
                     SELECT 1 FROM client_equipment ce 
+                    JOIN equipment_catalog ec ON ce.equipment_id = ec.id
                     WHERE ce.client_id = c.id 
-                    AND ce.next_maintenance_date <= date('now', '+60 days')
+                    AND ce.next_maintenance_date < date('now', '+30 days') -- CORRECTION 30 JOURS
+                    AND ce.next_maintenance_date >= date('now')
+                    AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL) -- Exclure secondaires
                 ) THEN 'warning'
                 
                 ELSE 'ok'

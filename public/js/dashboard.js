@@ -766,11 +766,11 @@ function updateMapMarkers() {
   filtered.forEach((client) => {
     const coords = getCoordinatesForClient(client);
     
-    // 1. GESTION DES COULEURS AVEC LE NOUVEAU STATUT "PLANNED"
-    let color = "#16a34a"; // Vert par défaut
+    // 1. GESTION DES COULEURS
+    let color = "#16a34a"; // Vert
     if (client.status === "expired") color = "#dc2626";
     else if (client.status === "warning") color = "#f59e0b";
-    else if (client.status === "planned") color = "#3b82f6"; // BLEU pour Planifié
+    else if (client.status === "planned") color = "#3b82f6";
 
     const marker = L.circleMarker(coords, {
       radius: 8,
@@ -798,24 +798,39 @@ function updateMapMarkers() {
         badgeIcon = "fa-exclamation-triangle";
         headerBg = "var(--color-warning, #f59e0b)";
     } else if (client.status === "planned") {
-        badgeClass = "badge-primary"; // On utilisera le bleu du thème
+        badgeClass = "badge-primary";
         badgeText = "RDV Planifié";
         badgeIcon = "fa-calendar-check";
         headerBg = "var(--color-primary, #0284c7)";
     }
 
+    // --- CORRECTION DU CALCUL DE DATE ---
     const getEqBadge = (date) => {
       if (!date) return '<span class="badge badge-primary" style="font-size:10px!important;padding:2px 6px;">À définir</span>';
-      const d = new Date(date), diff = Math.ceil((d - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+      
+      const d = new Date(date);
+      d.setHours(0,0,0,0); // Force minuit local pour éviter le décalage UTC
+      
+      const now = new Date();
+      now.setHours(0,0,0,0); // Force minuit local aujourd'hui
+      
+      const diff = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
+      
       if (diff < 0) return `<span class="badge badge-danger" style="font-size:10px!important;padding:2px 6px;">Expiré (${Math.abs(diff)}j)</span>`;
-      if (diff <= 30) return `<span class="badge badge-warning" style="font-size:10px!important;padding:2px 6px;">${diff} jours</span>`;
+      
+      // On met STRICTEMENT inférieur à 30 pour être raccord avec le serveur
+      if (diff < 30) return `<span class="badge badge-warning" style="font-size:10px!important;padding:2px 6px;">${diff} jours</span>`;
+      
       return `<span class="badge badge-success" style="font-size:10px!important;padding:2px 6px;">OK</span>`;
     };
 
-    const eqHtml = client.equipment && client.equipment.length > 0
+    // On masque les équipements secondaires
+    const visibleEquipment = (client.equipment || []).filter(e => e.is_secondary !== 1);
+
+    const eqHtml = visibleEquipment.length > 0
         ? `<div class="map-equipment-section" style="margin-top:10px; border-top:1px solid #eee; padding-top:10px; max-height: 200px; overflow-y: auto; padding-right: 5px;">
-             <strong style="font-size:0.8rem; text-transform:uppercase; color:#64748b; display:block; margin-bottom:8px; position: sticky; top: 0; background: white; z-index: 1;">Équipements (${client.equipment.length})</strong>
-             ${client.equipment.map(e => `
+             <strong style="font-size:0.8rem; text-transform:uppercase; color:#64748b; display:block; margin-bottom:8px; position: sticky; top: 0; background: white; z-index: 1;">Équipements (${visibleEquipment.length})</strong>
+             ${visibleEquipment.map(e => `
                 <div class="map-equipment-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed #f1f5f9;">
                     <div style="font-size:0.85rem; line-height:1.2;">
                         <strong style="color:#334155;">${escapeHtml(e.name)}</strong><br/>
@@ -824,7 +839,9 @@ function updateMapMarkers() {
                     <div>${getEqBadge(e.next_maintenance_date)}</div>
                 </div>`).join("")}
            </div>`
-        : `<div class="map-equipment-section" style="margin-top:10px; padding:10px; background:#f8fafc; color:#94a3b8; font-style:italic; font-size:0.85rem; text-align:center; border-radius:4px;">Aucun équipement installé</div>`;
+        : `<div class="map-equipment-section" style="margin-top:10px; padding:10px; background:#f8fafc; color:#94a3b8; font-style:italic; font-size:0.85rem; text-align:center; border-radius:4px;">
+                ${(client.equipment && client.equipment.length > 0) ? "Aucun équipement principal" : "Aucun équipement installé"}
+           </div>`;
 
     const popupContent = `
             <div class="map-popup" style="font-family: 'Inter', sans-serif;">
