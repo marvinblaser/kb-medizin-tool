@@ -15,6 +15,7 @@ let reportToDelete = null;
 let clients = [],
   technicians = [],
   materials = [];
+  let isProgrammaticChange = false; // <--- AJOUTEZ CETTE VARIABLE
 
 document.addEventListener("DOMContentLoaded", async () => {
   await checkAuth();
@@ -93,11 +94,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Listener Client Select
-  document
-    .getElementById("client-select")
-    .addEventListener("change", function () {
+ document.getElementById("client-select").addEventListener("change", function () {
+      // Si c'est le code qui change la valeur (lors de l'ouverture du rapport), on ne fait RIEN.
+      if (isProgrammaticChange) {
+          console.log("⚡ Changement client ignoré (Mode édition)");
+          return; 
+      }
+      console.log("🖱️ Changement client manuel détecté");
       handleClientChange(this.value);
-    });
+  });
 
   document
     .getElementById("add-technician-btn")
@@ -886,16 +891,17 @@ function getFormData() {
 }
 
 async function fillReportForm(report) {
-  // 1. Initialisation des IDs et Titres
+  console.log("📂 Ouverture du rapport :", report.id);
+  
+  // 1. Initialisation
   document.getElementById("report-id").value = report.id;
   document.getElementById("report-custom-title").value = report.title || "";
   
-  // Work Type (Multi-select)
+  // Selects multiples (Type & Langue)
   const typeString = report.work_type || "";
   const typesArray = typeString.split(',').map(s => s.trim()).filter(s => s !== "");
   if (window.setSlimSelect) window.setSlimSelect("report-type", typesArray);
   
-  // Langue
   const lang = report.language || "fr";
   if (window.setSlimSelect) window.setSlimSelect("report-language", lang);
 
@@ -904,32 +910,40 @@ async function fillReportForm(report) {
   // =========================================================
   const clientId = report.client_id || "";
   
-  // A. On sélectionne le client (ceci peut déclencher un chargement automatique)
+  // A. On lève le bouclier pour empêcher handleClientChange de tout casser
+  isProgrammaticChange = true; 
+  
   if (window.setSlimSelect) {
       window.setSlimSelect("client-select", clientId);
   } else {
       document.getElementById("client-select").value = clientId;
   }
 
-  // B. On FORCE le chargement de la liste et on ATTEND qu'il soit fini (await)
-  // C'est cette ligne qui corrige le bug des cases décochées
-  if (clientId && typeof loadClientEquipmentForReport === 'function') {
+  // B. On charge manuellement la liste des équipements (avec catégories)
+  if (clientId) {
+      console.log("⏳ Chargement équipements pour client :", clientId);
       await loadClientEquipmentForReport(clientId);
   }
 
-  // C. Maintenant que la liste est sûre d'être affichée, on coche les cases
+  // C. On coche les cases
   if (report.equipment_ids && Array.isArray(report.equipment_ids)) {
-    
-    // CONVERSION IMPORTANTE : On transforme tout en texte
+    console.log("✅ Coche des équipements IDs :", report.equipment_ids);
     const idsToCheck = report.equipment_ids.map(id => String(id));
     
     document.querySelectorAll('.eq-cb').forEach(cb => {
-        // On compare texte contre texte
         if (idsToCheck.includes(String(cb.value))) {
             cb.checked = true;
         }
     });
+  } else {
+      console.warn("⚠️ Aucune donnée 'equipment_ids' trouvée dans le rapport");
   }
+
+  // D. On baisse le bouclier après un court délai (pour laisser le temps à SlimSelect de finir)
+  setTimeout(() => {
+      isProgrammaticChange = false;
+      console.log("🛡️ Bouclier désactivé (Prêt pour modif manuelle)");
+  }, 200);
   // =========================================================
 
   // 3. Reste du formulaire (Adresses, etc.)
@@ -969,7 +983,6 @@ async function fillReportForm(report) {
     report.work_accomplished.split("\n").forEach((line) => addWorkRow(line));
   else addWorkRow();
   
-  // Init Drag & Drop et Totaux
   if (typeof initDragAndDrop === 'function') setTimeout(initDragAndDrop, 100);
   updateMaterialsTotal();
   updateReportTitleHeader();
@@ -1067,34 +1080,32 @@ function addStkTestRow(data = null) {
   div.style.gap = "10px";
 
   const isChecked = data && (data.included === 1 || data.included === true) ? "checked" : "";
-  const price = data ? data.price : 0;
   
-  // Si on charge une donnée existante, on enlève le préfixe pour ne pas l'avoir en double dans l'input
-  // Le préfixe est : "Test de sécurité électrique obligatoire i.O - "
+  // FIX PRIX : 75 par défaut, sinon le prix enregistré
+  const price = data ? data.price : 75; 
+  
+  // Gestion du préfixe texte
   let name = data ? (data.device_name || data.test_name) : "";
   const prefix = "Test de sécurité électrique obligatoire i.O - ";
-  
-  // Nettoyage si le nom contient déjà le préfixe (cas des vieilles données)
-  if (name.startsWith(prefix)) {
+  if (name && name.startsWith(prefix)) {
       name = name.substring(prefix.length);
   }
 
   div.innerHTML = `
     <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
-    
     <div style="flex:1; display:flex; align-items:center;">
-        <span style="background:#e9ecef; padding:5px 10px; border:1px solid #ddd; border-right:none; border-radius:4px 0 0 4px; font-size:0.9em; color:#555;">
+        <span style="background:#e9ecef; padding:6px 10px; border:1px solid #ddd; border-right:none; border-radius:4px 0 0 4px; font-size:0.85em; color:#555; height:34px; line-height:20px; white-space:nowrap;">
             Test sécu. élec. i.O - 
         </span>
         <input type="text" class="stk-name" value="${escapeHtml(name)}" placeholder="Nom de l'appareil..." 
-               style="flex:1; border:1px solid #ddd; padding:5px; border-radius:0 4px 4px 0;">
+               style="flex:1; border:1px solid #ddd; padding:5px; border-radius:0 4px 4px 0; height:34px;">
     </div>
-
     <div style="width:100px">
-        <input type="number" class="stk-price text-right" step="0.01" value="${price}" placeholder="Prix" style="width:100%">
+        <input type="number" class="stk-price text-right" step="0.01" value="${price}" 
+               readonly style="width:100%; background-color:#e9ecef; color:#555; cursor:not-allowed;">
     </div>
     <div class="text-center" style="width:50px">
-        <input type="checkbox" class="stk-incl" ${isChecked} title="Inclus">
+        <input type="checkbox" class="stk-incl" ${isChecked} title="Inclus" style="width:18px; height:18px;">
     </div>
     <div style="width:30px; text-align:right;">
         <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.parentElement.remove()"><i class="fas fa-times"></i></button>
@@ -1103,23 +1114,24 @@ function addStkTestRow(data = null) {
   container.appendChild(div);
 }
 
-// IMPORTANT : Il faut aussi mettre à jour la fonction de récupération pour rajouter le préfixe avant d'envoyer au serveur
 function getStkTestsData() {
     const rows = document.querySelectorAll('.stk-item'); 
     return Array.from(rows).map(row => {
         const userInput = row.querySelector('.stk-name').value.trim();
-        // On rajoute le préfixe automatiquement lors de la sauvegarde
+        // On reconstruit le nom complet pour la BDD
         const fullName = userInput ? `Test de sécurité électrique obligatoire i.O - ${userInput}` : "";
 
         return {
-            test_name: fullName, // C'est ça qui part en BDD
-            device_name: userInput, // On garde le nom court au cas où
+            test_name: fullName, 
+            device_name: userInput,
             price: parseFloat(row.querySelector('.stk-price').value) || 0,
             included: row.querySelector('.stk-incl').checked
         };
-    }).filter(t => t.device_name !== ""); // On ne sauvegarde que si l'utilisateur a écrit quelque chose
+    }).filter(t => t.device_name !== ""); 
 }
 
+
+// public/js/reports.js
 
 // public/js/reports.js
 
@@ -1127,7 +1139,7 @@ function addMaterialRow(data = null) {
   const container = document.getElementById("materials-list");
   const div = document.createElement("div");
   
-  // On applique la grille + le style draggable
+  // Structure de la ligne
   div.className = "draggable-item grid-cols-material"; 
   
   const isIncluded = data && (data.included === 1 || data.included === true);
@@ -1136,73 +1148,118 @@ function addMaterialRow(data = null) {
   const discountVal = data ? data.discount || 0 : 0;
   const currentName = data ? data.material_name || "" : "";
   const productCode = data ? data.product_code || "" : "";
-  
-  // Notez l'ajout de "text-right" pour les inputs numériques
+  const qty = data ? data.quantity : 1;
+  const price = data ? data.unit_price : 0;
+  const total = data ? data.total_price : 0;
+
+  // Construction HTML
   div.innerHTML = `
     <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
     
     <div>
-        <select class="material-select" style="width:100%;"><option value="">--</option>${materials.map(m => {
-            const label = m.product_code ? `${m.product_code}` : m.name;
-            return `<option value="${m.id}" 
-                data-name="${escapeHtml(m.name)}" 
-                data-price="${m.unit_price}" 
-                data-code="${m.product_code}" 
-                ${data && data.material_id == m.id ? "selected" : ""}>
-                ${escapeHtml(label)}
-            </option>`;
-        }).join("")}</select>
+        <select class="material-select" style="width:100%;">
+            <option value="">-- Rechercher --</option>
+            ${materials.map(m => {
+                const label = m.product_code ? `${m.product_code} - ${m.name}` : m.name;
+                return `<option value="${m.id}" 
+                    data-name="${escapeHtml(m.name)}" 
+                    data-price="${m.unit_price}" 
+                    data-code="${m.product_code}" 
+                    ${data && data.material_id == m.id ? "selected" : ""}>
+                    ${escapeHtml(label)}
+                </option>`;
+            }).join("")}
+        </select>
     </div>
   
-    <div><input type="text" class="material-name-input" value="${escapeHtml(currentName)}" /></div>
+    <div><input type="text" class="material-name-input" value="${escapeHtml(currentName)}" placeholder="Désignation" /></div>
+    <div><input type="text" class="material-code" value="${escapeHtml(productCode)}" placeholder="Code" /></div>
+    <div><input type="number" class="material-qty text-right" min="1" value="${qty}" /></div>
+    <div><input type="number" class="material-price text-right" step="0.01" value="${price}" /></div>
     
-    <div><input type="text" class="material-code" value="${escapeHtml(productCode)}" /></div>
-    
-    <div><input type="number" class="material-qty text-right" min="1" value="${data ? data.quantity : 1}" /></div>
-    
-    <div><input type="number" class="material-price text-right" step="0.01" value="${data ? data.unit_price : 0}" /></div>
-    
-    <div class="text-center"><input type="checkbox" class="material-incl" style="width:18px; height:18px; cursor:pointer;" ${isIncluded ? "checked" : ""} /></div>
+    <div class="text-center">
+        <input type="checkbox" class="material-incl" style="width:18px; height:18px; cursor:pointer;" ${isIncluded ? "checked" : ""} />
+    </div>
     
     <div><input type="number" class="material-discount text-right" min="0" max="100" step="1" value="${discountVal}" /></div>
-    
-    <div><input type="number" class="material-total text-right" step="0.01" value="${data ? data.total_price : 0}" readonly style="background:transparent; font-weight:bold; border:none;" /></div>
+    <div><input type="number" class="material-total text-right" step="0.01" value="${total}" readonly style="background:transparent; font-weight:bold; border:none;" /></div>
   
-    <div class="text-right"><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); updateMaterialsTotal();"><i class="fas fa-times"></i></button></div>
+    <div class="text-right">
+        <button type="button" class="btn-icon-sm btn-icon-danger delete-mat-btn">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
   `;
   
   container.appendChild(div);
   
-  // --- RE-ATTACHEMENT DES EVENTS (Identique à avant) ---
-  const sel = div.querySelector(".material-select"),
-    nameIn = div.querySelector(".material-name-input"),
-    codeIn = div.querySelector(".material-code"),
-    qtyIn = div.querySelector(".material-qty"),
-    priceIn = div.querySelector(".material-price"),
-    inclIn = div.querySelector(".material-incl"),
-    discountIn = div.querySelector(".material-discount"),
-    totalIn = div.querySelector(".material-total");
+  // --- LOGIQUE JAVASCRIPT ---
 
+  // 1. Récupération des éléments
+  const sel = div.querySelector(".material-select");
+  const nameIn = div.querySelector(".material-name-input");
+  const codeIn = div.querySelector(".material-code");
+  const qtyIn = div.querySelector(".material-qty");
+  const priceIn = div.querySelector(".material-price");
+  const inclIn = div.querySelector(".material-incl");
+  const discountIn = div.querySelector(".material-discount");
+  const totalIn = div.querySelector(".material-total");
+  const delBtn = div.querySelector(".delete-mat-btn");
+
+  // 2. Initialisation SlimSelect
+  new SlimSelect({
+      select: sel,
+      settings: {
+          showSearch: true,
+          placeholderText: 'Rechercher...',
+          searchText: 'Aucun résultat',
+          searchPlaceholder: 'Nom ou Code...',
+      },
+      events: {
+          // Utilisation de l'événement natif de SlimSelect pour plus de fiabilité
+          afterChange: (newVal) => {
+              // newVal est un tableau d'objets [{value, text, ...}]
+              if (newVal && newVal.length > 0) {
+                  const val = newVal[0].value;
+                  // On retrouve l'option originale dans le DOM pour lire les data-attributes
+                  const originalOption = sel.querySelector(`option[value="${val}"]`);
+                  
+                  if (originalOption) {
+                      priceIn.value = parseFloat(originalOption.dataset.price || 0).toFixed(2);
+                      codeIn.value = originalOption.dataset.code || "";
+                      nameIn.value = originalOption.dataset.name || "";
+                      update(); // On lance le calcul
+                  }
+              }
+          }
+      }
+  });
+
+  // 3. Fonction de calcul
   const update = () => {
     const q = parseFloat(qtyIn.value) || 0;
     const p = parseFloat(priceIn.value) || 0;
     const d = parseFloat(discountIn.value) || 0;
     const isIncl = inclIn.checked;
+    
+    // Calcul du total
     totalIn.value = isIncl ? "0.00" : (q * p * (1 - d / 100)).toFixed(2);
+    
+    // Changement visuel de la ligne
     div.style.background = isIncl ? "#fffbeb" : "#fff";
+    
+    // Mise à jour du total global du rapport
     updateMaterialsTotal();
   };
 
-  sel.addEventListener("change", function () {
-    const opt = this.options[this.selectedIndex];
-    if (opt.value) {
-      priceIn.value = parseFloat(opt.dataset.price).toFixed(2);
-      codeIn.value = opt.dataset.code || "";
-      nameIn.value = opt.dataset.name || "";
-    }
-    update();
+  // 4. Gestion de la Suppression (CORRIGÉE)
+  // On utilise .closest() pour trouver le parent principal de la ligne, peu importe où est le bouton
+  delBtn.addEventListener("click", () => {
+      div.remove(); // On supprime directement la div conteneur créée au début
+      updateMaterialsTotal(); // On recalcule le total global
   });
 
+  // 5. Ajout des écouteurs pour le calcul automatique
   [qtyIn, priceIn, discountIn, inclIn].forEach((e) => {
     e.addEventListener("change", update);
     e.addEventListener("input", update);
@@ -1221,7 +1278,12 @@ function updateMaterialsTotal() {
 // Mise à jour du Chargement Équipements Client (Pour être sûr d'avoir la classe .eq-cb)
 async function loadClientEquipmentForReport(clientId) {
     const container = document.getElementById('client-equipment-list');
-    container.innerHTML = '<div style="color:#666; font-style:italic;">Chargement...</div>';
+    
+    // Petit loader propre
+    container.innerHTML = `
+        <div style="padding:20px; text-align:center; color:#94a3b8;">
+            <i class="fas fa-circle-notch fa-spin"></i> Chargement du parc...
+        </div>`;
     
     try {
         const res = await fetch(`/api/clients/${clientId}/equipment`);
@@ -1229,42 +1291,79 @@ async function loadClientEquipmentForReport(clientId) {
         
         container.innerHTML = '';
         if(equipments.length === 0) {
-            container.innerHTML = '<div style="color:#999;">Aucun équipement lié à ce client.</div>';
+            container.innerHTML = `
+                <div style="padding:15px; text-align:center; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:6px; color:#64748b;">
+                    <i class="fas fa-box-open"></i> Aucun équipement pour ce client.
+                </div>`;
             return;
         }
 
         // 1. Groupement par catégorie
         const groups = {};
         equipments.forEach(eq => {
-            // Si pas de catégorie, on met "Autre" ou "Général"
-            const cat = eq.category || "Général";
+            const cat = eq.category && eq.category.trim() !== "" ? eq.category : "Non catégorisé";
             if (!groups[cat]) groups[cat] = [];
             groups[cat].push(eq);
         });
 
-        // 2. Affichage par groupe
-        // On trie les clés pour avoir les catégories par ordre alphabétique
+        // 2. Affichage par groupe (Tri alphabétique des catégories)
         Object.keys(groups).sort().forEach(category => {
             
-            // Titre de catégorie
+            // --- A. LE HEADER DE CATÉGORIE (Séparation) ---
             const catHeader = document.createElement('div');
-            catHeader.style.cssText = "background:#f1f5f9; padding:4px 8px; font-weight:bold; font-size:0.85em; color:#475569; margin-top:8px; border-radius:4px;";
-            catHeader.innerText = category.toUpperCase();
+            // Style : Fond gris léger, Texte majuscule, Petit, Gras
+            catHeader.style.cssText = `
+                background: #f1f5f9; 
+                color: #475569; 
+                padding: 6px 10px; 
+                font-size: 0.75rem; 
+                font-weight: 700; 
+                letter-spacing: 0.05em; 
+                text-transform: uppercase; 
+                border-radius: 4px; 
+                margin-top: 12px; 
+                margin-bottom: 4px;
+                border: 1px solid #e2e8f0;
+            `;
+            catHeader.innerHTML = `<i class="fas fa-layer-group" style="margin-right:6px; opacity:0.5;"></i> ${escapeHtml(category)}`;
             container.appendChild(catHeader);
 
-            // Liste des équipements de cette catégorie
+            // --- B. LES ÉLÉMENTS ---
             groups[category].forEach(eq => {
                 const div = document.createElement('div');
-                div.style.padding = '4px 8px';
-                div.style.borderBottom = '1px solid #eee';
                 
+                // Style de la ligne : Bordure subtile en bas, padding confortable
+                div.style.cssText = `
+                    padding: 6px 8px;
+                    border-bottom: 1px solid #f8fafc;
+                    transition: background 0.15s;
+                `;
+                
+                // Effet de survol (via JS simple)
+                div.onmouseover = () => div.style.backgroundColor = "#f8fafc";
+                div.onmouseout = () => div.style.backgroundColor = "transparent";
+
+                // Texte pour le champ "Installation"
+                const txtForInput = `${eq.brand || ''} ${eq.name} (${eq.serial_number || '-'})`;
+
                 div.innerHTML = `
-                    <label style="display:flex; align-items:center; gap:10px; font-size:0.9em; cursor:pointer; margin:0;">
-                        <input type="checkbox" class="eq-cb" value="${eq.id}"> 
-                        <div>
-                            <span style="font-weight:600;">${escapeHtml(eq.brand || '')}</span> 
-                            <span>${escapeHtml(eq.name)}</span> 
-                            <span style="color:#999; font-size:0.85em;">(S/N: ${escapeHtml(eq.serial_number || '-')})</span>
+                    <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin:0; width:100%;">
+                        
+                        <div style="padding-top:2px;">
+                            <input type="checkbox" class="eq-cb" value="${eq.id}" 
+                                   data-txt="${escapeHtml(txtForInput)}" 
+                                   onchange="updateInstallationText()"
+                                   style="width:16px; height:16px; cursor:pointer;">
+                        </div>
+
+                        <div style="line-height:1.3;">
+                            <div style="color:#1e293b; font-size:0.9rem;">
+                                <span style="font-weight:700;">${escapeHtml(eq.brand || '')}</span> 
+                                <span>${escapeHtml(eq.name)}</span>
+                            </div>
+                            <div style="color:#94a3b8; font-size:0.75rem; font-family:var(--font-family-mono, monospace);">
+                                S/N: ${escapeHtml(eq.serial_number || 'N/A')}
+                            </div>
                         </div>
                     </label>
                 `;
@@ -1274,7 +1373,7 @@ async function loadClientEquipmentForReport(clientId) {
 
     } catch(e) {
         console.error(e);
-        container.innerHTML = '<div style="color:red;">Erreur chargement équipements</div>';
+        container.innerHTML = '<div style="color:#ef4444; padding:10px;">Erreur chargement équipements</div>';
     }
 }
 
