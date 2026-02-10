@@ -1298,20 +1298,21 @@ async function loadClientEquipmentForReport(clientId) {
             return;
         }
 
-        // 1. Groupement par catégorie
+        // 1. Groupement par LOCATION (C'était l'erreur, avant c'était category)
         const groups = {};
         equipments.forEach(eq => {
-            const cat = eq.category && eq.category.trim() !== "" ? eq.category : "Non catégorisé";
+            // CORRECTION ICI : On utilise 'location' qui vient de la BDD
+            const cat = eq.location && eq.location.trim() !== "" ? eq.location : "Général";
+            
             if (!groups[cat]) groups[cat] = [];
             groups[cat].push(eq);
         });
 
-        // 2. Affichage par groupe (Tri alphabétique des catégories)
+        // 2. Affichage par groupe (Tri alphabétique des salles)
         Object.keys(groups).sort().forEach(category => {
             
             // --- A. LE HEADER DE CATÉGORIE (Séparation) ---
             const catHeader = document.createElement('div');
-            // Style : Fond gris léger, Texte majuscule, Petit, Gras
             catHeader.style.cssText = `
                 background: #f1f5f9; 
                 color: #475569; 
@@ -1325,6 +1326,7 @@ async function loadClientEquipmentForReport(clientId) {
                 margin-bottom: 4px;
                 border: 1px solid #e2e8f0;
             `;
+            // On affiche le nom de la salle (ex: SALLE 1)
             catHeader.innerHTML = `<i class="fas fa-layer-group" style="margin-right:6px; opacity:0.5;"></i> ${escapeHtml(category)}`;
             container.appendChild(catHeader);
 
@@ -1332,18 +1334,15 @@ async function loadClientEquipmentForReport(clientId) {
             groups[category].forEach(eq => {
                 const div = document.createElement('div');
                 
-                // Style de la ligne : Bordure subtile en bas, padding confortable
                 div.style.cssText = `
                     padding: 6px 8px;
                     border-bottom: 1px solid #f8fafc;
                     transition: background 0.15s;
                 `;
                 
-                // Effet de survol (via JS simple)
                 div.onmouseover = () => div.style.backgroundColor = "#f8fafc";
                 div.onmouseout = () => div.style.backgroundColor = "transparent";
 
-                // Texte pour le champ "Installation"
                 const txtForInput = `${eq.brand || ''} ${eq.name} (${eq.serial_number || '-'})`;
 
                 div.innerHTML = `
