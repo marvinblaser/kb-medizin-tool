@@ -827,134 +827,112 @@ function closeReportModal() {
 }
 
 function getFormData() {
-  const tCity = document.getElementById("travel-city").value.trim();
-  const tCanton = document.getElementById("travel-canton").value;
+    // 1. RÉCUPÉRATION CRITIQUE DES ÉQUIPEMENTS COCHÉS
+    // On sélectionne toutes les cases .eq-cb qui sont cochées (:checked)
+    const equipmentIds = Array.from(document.querySelectorAll('.eq-cb:checked'))
+                              .map(cb => cb.value);
 
-  // Récupération des types
-  const selectedTypes = Array.from(document.getElementById("report-type").selectedOptions).map(opt => opt.value);
-  const workTypeString = selectedTypes.join(', ');
+    // 2. Récupération du Type de Travaux (Multi-select)
+    // On gère le cas où c'est un select multiple standard ou SlimSelect
+    const typeSelect = document.getElementById("report-type");
+    let workType = [];
+    if (typeSelect) {
+        workType = Array.from(typeSelect.selectedOptions).map(opt => opt.value);
+    }
 
-  const data = {
-    // 1. CLIENT : On s'assure que c'est un nombre entier ou null
-    client_id: parseInt(document.getElementById("client-select").value) || null,
+    // 3. Construction de l'objet de données complet
+    const data = {
+        // IDs et Infos de base
+        client_id: parseInt(document.getElementById("client-select").value) || null,
+        title: document.getElementById("report-custom-title").value.trim(),
+        language: document.getElementById("report-language").value || 'fr',
+        
+        // Champs formatés
+        work_type: workType.join(", "), // On envoie une chaîne "Mise en marche, Réparation"
+        status: "draft", // Par défaut (sera géré par le backend ou le bouton)
+        
+        // Coordonnées Client (Champs textes)
+        cabinet_name: document.getElementById("cabinet-name").value,
+        address: document.getElementById("address").value,
+        postal_code: document.getElementById("postal-code").value,
+        city: document.getElementById("city").value,
+        interlocutor: document.getElementById("interlocutor").value,
+        
+        // Corps du rapport
+        installation: document.getElementById("installation-text").value,
+        remarks: document.getElementById("remarks").value,
+        
+        // Déplacement
+        travel_location: `${document.getElementById("travel-city").value} (${document.getElementById("travel-canton").value})`,
+        travel_costs: parseFloat(document.getElementById("travel-costs").value) || 0,
+        travel_included: document.getElementById("travel-incl").checked, // true/false
+        
+        // Dates
+        technician_signature_date: document.getElementById("tech-signature-date").value,
 
-    title: document.getElementById("report-custom-title").value.trim(),
-    
-    language: document.getElementById("report-language").value,
-    work_type: workTypeString || "", 
-    
-    cabinet_name: document.getElementById("cabinet-name").value,
-    address: document.getElementById("address").value,
-    postal_code: document.getElementById("postal-code").value,
-    city: document.getElementById("city").value,
-    interlocutor: document.getElementById("interlocutor").value,
-    installation: document.getElementById("installation-text").value,
-    remarks: document.getElementById("remarks").value,
-    travel_costs: parseFloat(document.getElementById("travel-costs").value) || 0,
-    travel_included: document.getElementById("travel-incl").checked,
-    travel_location: tCanton ? `${tCity} (${tCanton})` : tCity,
-    technician_signature_date: document.getElementById("tech-signature-date").value,
-    work_accomplished: Array.from(document.querySelectorAll(".work-line-input"))
-      .map((i) => i.value.trim())
-      .filter((v) => v)
-      .join("\n"),
-    
-    // 2. ÉQUIPEMENT : On convertit tout en nombres entiers
-    equipment_ids: Array.from(document.querySelectorAll(".eq-cb:checked"))
-        .map((cb) => parseInt(cb.value)) // Force le nombre
-        .filter(id => !isNaN(id)),       // Retire les erreurs éventuelles
-  };
+        // --- LISTES DYNAMIQUES (Supposant que vous avez ces fonctions helpers) ---
+        technicians: typeof getTechniciansData === 'function' ? getTechniciansData() : [],
+        stk_tests: typeof getStkTestsData === 'function' ? getStkTestsData() : [],
+        materials: typeof getMaterialsData === 'function' ? getMaterialsData() : [],
+        
+        // Travaux accomplis (Conversion du texte en lignes si nécessaire)
+        work_accomplished: typeof getWorkData === 'function' ? getWorkData() : [],
 
-  // 3. TECHNICIENS : On nettoie et on convertit
-  data.technicians = Array.from(
-    document.querySelectorAll("#technicians-list .form-row")
-  )
-    .map((r) => ({
-      technician_id: r.querySelector(".technician-select").value || null,
-      technician_name: r.querySelector(".technician-select").selectedOptions[0]?.text,
-      work_date: r.querySelector(".tech-date").value,
-      hours_normal: parseFloat(r.querySelector(".tech-hours-normal").value) || 0,
-      hours_extra: parseFloat(r.querySelector(".tech-hours-extra").value) || 0,
-      // NOUVEAU : On récupère l'état coché
-      included: r.querySelector(".tech-included").checked
-    }))
-    .filter((t) => t.technician_id !== null && t.technician_id !== 0);
+        // --- LE CHAMP CRUCIAL QUI MANQUAIT ---
+        equipment_ids: equipmentIds 
+    };
 
-  const prefixSTK = "Test de sécurité électrique obligatoire i.O - ";
-  data.stk_tests = Array.from(
-    document.querySelectorAll("#stk-tests-list .form-row")
-  )
-    .map((r) => {
-      const val = r.querySelector(".stk-input-name").value.trim();
-      if (!val) return null;
-      return {
-        test_name: prefixSTK + val,
-        price: parseFloat(r.querySelector(".stk-price").value) || 0,
-        included: r.querySelector(".stk-incl").checked,
-      };
-    })
-    .filter((t) => t);
-
-    // 4. MATÉRIEL : Idem, sécurité sur les IDs
-    data.materials = Array.from(
-      document.querySelectorAll("#materials-list .form-row")
-    )
-      .map((r) => {
-          const rawMatId = r.querySelector(".material-select").value;
-          const matId = parseInt(rawMatId);
-
-          return {
-              material_id: isNaN(matId) ? null : matId,
-              material_name: r.querySelector(".material-name-input").value,
-              product_code: r.querySelector(".material-code").value,
-              quantity: parseFloat(r.querySelector(".material-qty").value) || 1,
-              unit_price: parseFloat(r.querySelector(".material-price").value) || 0,
-              discount: parseFloat(r.querySelector(".material-discount").value) || 0,
-              total_price: parseFloat(r.querySelector(".material-total").value) || 0,
-              
-              // --- AJOUT ICI : On récupère la case cochée ---
-              included: r.querySelector(".material-incl") ? r.querySelector(".material-incl").checked : false
-          };
-      })
-      .filter((m) => m.material_id !== null || m.material_name !== "");
-
-  return data;
+    return data;
 }
 
 async function fillReportForm(report) {
+  // 1. Initialisation des IDs et Titres
   document.getElementById("report-id").value = report.id;
   document.getElementById("report-custom-title").value = report.title || "";
   
-  // 1. TYPE DE TRAVAUX (Multiple)
+  // Work Type (Multi-select)
   const typeString = report.work_type || "";
   const typesArray = typeString.split(',').map(s => s.trim()).filter(s => s !== "");
+  if (window.setSlimSelect) window.setSlimSelect("report-type", typesArray);
   
-  if (window.setSlimSelect) {
-      window.setSlimSelect("report-type", typesArray);
-  } else {
-      const typeSelect = document.getElementById("report-type");
-      Array.from(typeSelect.options).forEach(opt => {
-          opt.selected = typesArray.includes(opt.value);
-      });
-  }
-
-  // 2. LANGUE
+  // Langue
   const lang = report.language || "fr";
-  if (window.setSlimSelect) {
-      window.setSlimSelect("report-language", lang);
-  } else {
-      document.getElementById("report-language").value = lang;
-  }
+  if (window.setSlimSelect) window.setSlimSelect("report-language", lang);
 
-  // 3. CLIENT
+  // =========================================================
+  // 2. GESTION CRITIQUE : CLIENT & ÉQUIPEMENTS
+  // =========================================================
   const clientId = report.client_id || "";
+  
+  // A. On sélectionne le client (ceci peut déclencher un chargement automatique)
   if (window.setSlimSelect) {
       window.setSlimSelect("client-select", clientId);
   } else {
       document.getElementById("client-select").value = clientId;
   }
 
-  // Remplissage des champs texte classiques
+  // B. On FORCE le chargement de la liste et on ATTEND qu'il soit fini (await)
+  // C'est cette ligne qui corrige le bug des cases décochées
+  if (clientId && typeof loadClientEquipmentForReport === 'function') {
+      await loadClientEquipmentForReport(clientId);
+  }
+
+  // C. Maintenant que la liste est sûre d'être affichée, on coche les cases
+  if (report.equipment_ids && Array.isArray(report.equipment_ids)) {
+    
+    // CONVERSION IMPORTANTE : On transforme tout en texte
+    const idsToCheck = report.equipment_ids.map(id => String(id));
+    
+    document.querySelectorAll('.eq-cb').forEach(cb => {
+        // On compare texte contre texte
+        if (idsToCheck.includes(String(cb.value))) {
+            cb.checked = true;
+        }
+    });
+  }
+  // =========================================================
+
+  // 3. Reste du formulaire (Adresses, etc.)
   document.getElementById("cabinet-name").value = report.cabinet_name;
   document.getElementById("address").value = report.address;
   document.getElementById("postal-code").value = report.postal_code || "";
@@ -963,51 +941,27 @@ async function fillReportForm(report) {
   document.getElementById("installation-text").value = report.installation || "";
   document.getElementById("remarks").value = report.remarks || "";
   
-  // 4. LIEU & CANTON
+  // Lieu & Canton
   if (report.travel_location) {
-    // On essaie d'extraire "Ville (CT)"
     const match = report.travel_location.match(/^(.*)\s\(([A-Z]{2})\)$/);
     if (match) {
       document.getElementById("travel-city").value = match[1];
-      
-      // -- CORRECTION CANTON --
-      const canton = match[2];
-      if (window.setSlimSelect) {
-          window.setSlimSelect("travel-canton", canton);
-      } else {
-          document.getElementById("travel-canton").value = canton;
-      }
+      if (window.setSlimSelect) window.setSlimSelect("travel-canton", match[2]);
     } else {
-      // Cas où le format n'est pas respecté (vieilles données)
       document.getElementById("travel-city").value = report.travel_location;
     }
   }
   
-  // On relance le calcul du coût de déplacement car on vient de changer le canton
   updateTravelCost();
   
-  if (report.travel_costs)
-    document.getElementById("travel-costs").value = report.travel_costs;
+  if (report.travel_costs) document.getElementById("travel-costs").value = report.travel_costs;
   document.getElementById("travel-incl").checked = report.travel_included || false;
   
   if (report.technician_signature_date)
     document.getElementById("tech-signature-date").value = report.technician_signature_date.split("T")[0];
   
-  if (report.client_id) await loadClientEquipmentForReport(report.client_id);
-  
-  // Équipements (Checkboxes)
-  if (report.equipment_ids) {
-    const idsToCheck = report.equipment_ids.map(id => String(id));
-    document.querySelectorAll('.eq-cb').forEach(cb => {
-        if (idsToCheck.includes(String(cb.value))) {
-            cb.checked = true;
-        }
-    });
-  }
-    
-  // Listes dynamiques (Elles se gèrent toutes seules car le HTML est généré avec "selected")
-  if (report.technicians)
-    report.technicians.forEach((t) => addTechnicianRow(t));
+  // Listes dynamiques
+  if (report.technicians) report.technicians.forEach((t) => addTechnicianRow(t));
   if (report.stk_tests) report.stk_tests.forEach((t) => addStkTestRow(t));
   if (report.materials) report.materials.forEach((m) => addMaterialRow(m));
   
@@ -1015,6 +969,8 @@ async function fillReportForm(report) {
     report.work_accomplished.split("\n").forEach((line) => addWorkRow(line));
   else addWorkRow();
   
+  // Init Drag & Drop et Totaux
+  if (typeof initDragAndDrop === 'function') setTimeout(initDragAndDrop, 100);
   updateMaterialsTotal();
   updateReportTitleHeader();
   calculateTotal();
@@ -1101,23 +1057,67 @@ function addWorkRow(text = "") {
   container.appendChild(div);
 }
 
+// Mise à jour de addStkTestRow pour qu'elle corresponde au style "Grid/Drag"
 function addStkTestRow(data = null) {
   const container = document.getElementById("stk-tests-list");
   const div = document.createElement("div");
-  div.className = "form-row";
-  div.style.cssText =
-    "display:flex; gap:10px; margin-bottom:10px; align-items:center; background:#f9fafb; padding:10px; border-radius:6px; border:1px solid #e5e7eb;";
+  div.className = "draggable-item stk-item";
+  div.style.display = "flex";
+  div.style.alignItems = "center";
+  div.style.gap = "10px";
+
+  const isChecked = data && (data.included === 1 || data.included === true) ? "checked" : "";
+  const price = data ? data.price : 0;
+  
+  // Si on charge une donnée existante, on enlève le préfixe pour ne pas l'avoir en double dans l'input
+  // Le préfixe est : "Test de sécurité électrique obligatoire i.O - "
+  let name = data ? (data.device_name || data.test_name) : "";
   const prefix = "Test de sécurité électrique obligatoire i.O - ";
-  let val = "";
-  if (data && data.test_name) val = data.test_name.replace(prefix, "");
-  div.innerHTML = `<div style="flex:1; display:flex; align-items:center; gap:10px;"><span style="font-size:0.8rem; font-weight:600; white-space:nowrap; color:var(--neutral-600);">${prefix}</span><input type="text" class="stk-input-name" value="${escapeHtml(
-    val
-  )}" placeholder="Désignation appareil" required style="flex:1;" /></div><div style="width:120px; display:flex; align-items:center; gap:5px;"><input type="number" class="stk-price" step="0.01" value="${
-    data ? data.price : 75.0
-  }" style="text-align:right;" /><span style="font-size:0.8rem;">CHF</span></div><div style="width:80px; text-align:center;"><label style="font-size:0.8rem; cursor:pointer;"><input type="checkbox" class="stk-incl" ${
-    data && data.included ? "checked" : ""
-  }> Incl.</label></div><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>`;
+  
+  // Nettoyage si le nom contient déjà le préfixe (cas des vieilles données)
+  if (name.startsWith(prefix)) {
+      name = name.substring(prefix.length);
+  }
+
+  div.innerHTML = `
+    <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
+    
+    <div style="flex:1; display:flex; align-items:center;">
+        <span style="background:#e9ecef; padding:5px 10px; border:1px solid #ddd; border-right:none; border-radius:4px 0 0 4px; font-size:0.9em; color:#555;">
+            Test sécu. élec. i.O - 
+        </span>
+        <input type="text" class="stk-name" value="${escapeHtml(name)}" placeholder="Nom de l'appareil..." 
+               style="flex:1; border:1px solid #ddd; padding:5px; border-radius:0 4px 4px 0;">
+    </div>
+
+    <div style="width:100px">
+        <input type="number" class="stk-price text-right" step="0.01" value="${price}" placeholder="Prix" style="width:100%">
+    </div>
+    <div class="text-center" style="width:50px">
+        <input type="checkbox" class="stk-incl" ${isChecked} title="Inclus">
+    </div>
+    <div style="width:30px; text-align:right;">
+        <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.parentElement.remove()"><i class="fas fa-times"></i></button>
+    </div>
+  `;
   container.appendChild(div);
+}
+
+// IMPORTANT : Il faut aussi mettre à jour la fonction de récupération pour rajouter le préfixe avant d'envoyer au serveur
+function getStkTestsData() {
+    const rows = document.querySelectorAll('.stk-item'); 
+    return Array.from(rows).map(row => {
+        const userInput = row.querySelector('.stk-name').value.trim();
+        // On rajoute le préfixe automatiquement lors de la sauvegarde
+        const fullName = userInput ? `Test de sécurité électrique obligatoire i.O - ${userInput}` : "";
+
+        return {
+            test_name: fullName, // C'est ça qui part en BDD
+            device_name: userInput, // On garde le nom court au cas où
+            price: parseFloat(row.querySelector('.stk-price').value) || 0,
+            included: row.querySelector('.stk-incl').checked
+        };
+    }).filter(t => t.device_name !== ""); // On ne sauvegarde que si l'utilisateur a écrit quelque chose
 }
 
 
@@ -1218,92 +1218,64 @@ function updateMaterialsTotal() {
   calculateTotal();
 }
 
+// Mise à jour du Chargement Équipements Client (Pour être sûr d'avoir la classe .eq-cb)
 async function loadClientEquipmentForReport(clientId) {
-  try {
-    const res = await fetch(`/api/clients/${clientId}/equipment`);
-    const eqs = await res.json();
-    const container = document.getElementById("client-equipment-list");
+    const container = document.getElementById('client-equipment-list');
+    container.innerHTML = '<div style="color:#666; font-style:italic;">Chargement...</div>';
     
-    // Nettoyage du conteneur
-    container.innerHTML = '';
-
-    if (eqs.length === 0) {
-      container.innerHTML = '<p style="color:#94a3b8; font-style:italic; padding:10px;">Aucun équipement enregistré pour ce client.</p>';
-      return;
-    }
-
-    // 1. REGROUPEMENT PAR "LOCATION" (La catégorie définie dans la fiche client)
-    const groups = {};
-    eqs.forEach(e => {
-        // Si pas d'emplacement, on met "Général / Non défini"
-        const loc = e.location ? e.location.trim() : "Général / Non défini";
-        if (!groups[loc]) groups[loc] = [];
-        groups[loc].push(e);
-    });
-
-    // 2. TRI ALPHABÉTIQUE DES CATÉGORIES
-    const sortedLocations = Object.keys(groups).sort();
-
-    let html = '';
-
-    // 3. GÉNÉRATION DU HTML STRUCTURÉ
-    sortedLocations.forEach(loc => {
-        const items = groups[loc];
+    try {
+        const res = await fetch(`/api/clients/${clientId}/equipment`);
+        const equipments = await res.json();
         
-        // A. L'En-tête de catégorie (Gris, en gras)
-        html += `
-        <div style="
-            background: #f1f5f9; 
-            color: #475569; 
-            padding: 5px 10px; 
-            border-radius: 4px; 
-            font-size: 0.8rem; 
-            font-weight: 700; 
-            margin-top: 12px; 
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            border-left: 3px solid var(--color-primary);
-        ">
-            ${escapeHtml(loc)}
-        </div>`;
+        container.innerHTML = '';
+        if(equipments.length === 0) {
+            container.innerHTML = '<div style="color:#999;">Aucun équipement lié à ce client.</div>';
+            return;
+        }
 
-        // B. La liste des machines de cette catégorie
-        items.forEach(e => {
-            // Construction du nom d'affichage
-            let display = e.final_name || e.name;
-            if (!display || display === "undefined") {
-              display = (e.final_brand || e.brand || "") + " " + (e.final_device_type || e.device_type || e.type || "");
-            }
-            
-            const serial = e.serial_number ? `S/N: ${escapeHtml(e.serial_number)}` : "";
-            
-            // Ligne checkbox avec mise en page soignée
-            html += `
-            <div style="margin-bottom:6px; display:flex; align-items:flex-start; padding-left: 8px;">
-                <input type="checkbox" class="eq-cb" id="rep-eq-${e.id}" value="${e.id}" 
-                    data-txt="${escapeHtml(display + " " + serial).trim()}" 
-                    style="width:16px; height:16px; margin-right:10px; margin-top: 3px; cursor: pointer; accent-color: var(--color-primary);">
-                
-                <label for="rep-eq-${e.id}" style="cursor:pointer; font-size:0.9rem; line-height:1.4;">
-                    <span style="font-weight:600; color:var(--neutral-800);">${escapeHtml(display)}</span> 
-                    <br><span style="color:#64748b; font-size:0.8rem;">${serial}</span>
-                </label>
-            </div>`;
+        // 1. Groupement par catégorie
+        const groups = {};
+        equipments.forEach(eq => {
+            // Si pas de catégorie, on met "Autre" ou "Général"
+            const cat = eq.category || "Général";
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(eq);
         });
-    });
 
-    container.innerHTML = html;
+        // 2. Affichage par groupe
+        // On trie les clés pour avoir les catégories par ordre alphabétique
+        Object.keys(groups).sort().forEach(category => {
+            
+            // Titre de catégorie
+            const catHeader = document.createElement('div');
+            catHeader.style.cssText = "background:#f1f5f9; padding:4px 8px; font-weight:bold; font-size:0.85em; color:#475569; margin-top:8px; border-radius:4px;";
+            catHeader.innerText = category.toUpperCase();
+            container.appendChild(catHeader);
 
-    // Réattachement des écouteurs pour la mise à jour automatique du champ texte "Résumé"
-    container.querySelectorAll(".eq-cb").forEach((cb) => {
-      cb.addEventListener("change", updateInstallationText);
-    });
+            // Liste des équipements de cette catégorie
+            groups[category].forEach(eq => {
+                const div = document.createElement('div');
+                div.style.padding = '4px 8px';
+                div.style.borderBottom = '1px solid #eee';
+                
+                div.innerHTML = `
+                    <label style="display:flex; align-items:center; gap:10px; font-size:0.9em; cursor:pointer; margin:0;">
+                        <input type="checkbox" class="eq-cb" value="${eq.id}"> 
+                        <div>
+                            <span style="font-weight:600;">${escapeHtml(eq.brand || '')}</span> 
+                            <span>${escapeHtml(eq.name)}</span> 
+                            <span style="color:#999; font-size:0.85em;">(S/N: ${escapeHtml(eq.serial_number || '-')})</span>
+                        </div>
+                    </label>
+                `;
+                container.appendChild(div);
+            });
+        });
 
-  } catch (e) {
-    console.error("Erreur chargement équipement:", e);
-    document.getElementById("client-equipment-list").innerHTML = '<p style="color:red; padding:10px;">Erreur de chargement des équipements.</p>';
-  }
+    } catch(e) {
+        console.error(e);
+        container.innerHTML = '<div style="color:red;">Erreur chargement équipements</div>';
+    }
 }
 
 function updateTravelCost() {
@@ -1443,4 +1415,65 @@ function calculateTotal() {
     const totalEl = document.getElementById('total-price');
     if(totalEl) totalEl.textContent = total.toFixed(2);
     else console.log("Total calculé : " + total.toFixed(2));
+}
+
+// ============================================================
+// FONCTIONS D'EXTRACTION DE DONNÉES (COMPATIBLE NOUVEAU DESIGN)
+// ============================================================
+
+// 1. Récupération des Techniciens
+function getTechniciansData() {
+    // CORRECTION : On cible uniquement '.draggable-item' pour ignorer l'en-tête
+    const rows = document.querySelectorAll('.draggable-item.grid-cols-tech'); 
+    
+    return Array.from(rows).map(row => {
+        const sel = row.querySelector('.technician-select');
+        // Sécurité supplémentaire : si pas de select trouvé, on ignore la ligne
+        if (!sel) return null; 
+
+        return {
+            technician_id: sel.value,
+            technician_name: sel.options[sel.selectedIndex]?.text || "",
+            work_date: row.querySelector('.tech-date').value,
+            hours_normal: parseFloat(row.querySelector('.tech-hours-normal').value) || 0,
+            hours_extra: parseFloat(row.querySelector('.tech-hours-extra').value) || 0,
+            included: row.querySelector('.tech-included').checked
+        };
+    })
+    .filter(t => t !== null && t.technician_id); // On nettoie les résultats nuls
+}
+
+// 2. Récupération du Matériel (Pièces détachées)
+function getMaterialsData() {
+    // CORRECTION : On cible uniquement '.draggable-item' pour ignorer l'en-tête
+    const rows = document.querySelectorAll('.draggable-item.grid-cols-material');
+    
+    return Array.from(rows).map(row => {
+        const sel = row.querySelector('.material-select');
+        const nameInput = row.querySelector('.material-name-input');
+        
+        if (!sel || !nameInput) return null;
+
+        // On récupère l'ID si c'est un article du catalogue, sinon null
+        const matId = sel.value || null;
+        
+        return {
+            material_id: matId,
+            material_name: nameInput.value || (sel.options[sel.selectedIndex]?.text) || "",
+            product_code: row.querySelector('.material-code').value,
+            quantity: parseFloat(row.querySelector('.material-qty').value) || 0,
+            unit_price: parseFloat(row.querySelector('.material-price').value) || 0,
+            discount: parseFloat(row.querySelector('.material-discount').value) || 0,
+            total_price: parseFloat(row.querySelector('.material-total').value) || 0,
+            included: row.querySelector('.material-incl').checked
+        };
+    })
+    .filter(m => m !== null && (m.material_name || m.product_code));
+}
+
+// 3. Récupération des Travaux (Converti en texte)
+function getWorkData() {
+    const inputs = document.querySelectorAll('.work-line-input');
+    const lines = Array.from(inputs).map(input => input.value.trim()).filter(val => val !== "");
+    return lines.join("\n"); // On renvoie une seule chaîne de caractères avec des sauts de ligne
 }

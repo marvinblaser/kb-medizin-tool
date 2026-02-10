@@ -131,11 +131,12 @@ router.get('/:id', requireAuth, async (req, res) => {
         if (!report) return res.status(404).json({ error: "Introuvable" });
 
         const [techs, stks, mats, eqs] = await Promise.all([
-            all("SELECT * FROM report_technicians WHERE report_id = ?", [id]),
-            all("SELECT * FROM report_stk_tests WHERE report_id = ?", [id]),
-            all("SELECT * FROM report_materials WHERE report_id = ?", [id]),
-            all("SELECT equipment_id FROM report_equipment WHERE report_id = ?", [id])
-        ]);
+    all("SELECT * FROM report_technicians WHERE report_id = ?", [id]),
+    all("SELECT * FROM report_stk_tests WHERE report_id = ?", [id]),
+    all("SELECT * FROM report_materials WHERE report_id = ?", [id]),
+    // Vérifiez que cette ligne existe bien :
+    all("SELECT equipment_id FROM report_equipment WHERE report_id = ?", [id])
+]);
         // --- AJOUTER CECI ---
         const stk_rows = await all(
             "SELECT device_name, price, is_included FROM report_stk_tests WHERE report_id = ?", 
