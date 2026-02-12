@@ -1279,7 +1279,6 @@ function updateMaterialsTotal() {
 async function loadClientEquipmentForReport(clientId) {
     const container = document.getElementById('client-equipment-list');
     
-    // Petit loader propre
     container.innerHTML = `
         <div style="padding:20px; text-align:center; color:#94a3b8;">
             <i class="fas fa-circle-notch fa-spin"></i> Chargement du parc...
@@ -1298,20 +1297,18 @@ async function loadClientEquipmentForReport(clientId) {
             return;
         }
 
-        // 1. Groupement par LOCATION (C'était l'erreur, avant c'était category)
+        // 1. Groupement par LOCATION (Salle)
         const groups = {};
         equipments.forEach(eq => {
-            // CORRECTION ICI : On utilise 'location' qui vient de la BDD
             const cat = eq.location && eq.location.trim() !== "" ? eq.location : "Général";
-            
             if (!groups[cat]) groups[cat] = [];
             groups[cat].push(eq);
         });
 
-        // 2. Affichage par groupe (Tri alphabétique des salles)
+        // 2. Affichage par groupe
         Object.keys(groups).sort().forEach(category => {
             
-            // --- A. LE HEADER DE CATÉGORIE (Séparation) ---
+            // Header de catégorie
             const catHeader = document.createElement('div');
             catHeader.style.cssText = `
                 background: #f1f5f9; 
@@ -1326,24 +1323,25 @@ async function loadClientEquipmentForReport(clientId) {
                 margin-bottom: 4px;
                 border: 1px solid #e2e8f0;
             `;
-            // On affiche le nom de la salle (ex: SALLE 1)
             catHeader.innerHTML = `<i class="fas fa-layer-group" style="margin-right:6px; opacity:0.5;"></i> ${escapeHtml(category)}`;
             container.appendChild(catHeader);
 
-            // --- B. LES ÉLÉMENTS ---
+            // Liste des éléments
             groups[category].forEach(eq => {
                 const div = document.createElement('div');
-                
                 div.style.cssText = `
                     padding: 6px 8px;
                     border-bottom: 1px solid #f8fafc;
                     transition: background 0.15s;
                 `;
-                
                 div.onmouseover = () => div.style.backgroundColor = "#f8fafc";
                 div.onmouseout = () => div.style.backgroundColor = "transparent";
 
-                const txtForInput = `${eq.brand || ''} ${eq.name} (${eq.serial_number || '-'})`;
+                // --- MODIFICATION ICI : Format [Nom] S/N : [Série] ---
+                // On ne met plus eq.brand au début
+                const serialDisp = eq.serial_number || '-';
+                const txtForInput = `${eq.name} S/N : ${serialDisp}`;
+                // -----------------------------------------------------
 
                 div.innerHTML = `
                     <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin:0; width:100%;">
@@ -1572,6 +1570,13 @@ function getMaterialsData() {
 // 3. Récupération des Travaux (Converti en texte)
 function getWorkData() {
     const inputs = document.querySelectorAll('.work-line-input');
-    const lines = Array.from(inputs).map(input => input.value.trim()).filter(val => val !== "");
-    return lines.join("\n"); // On renvoie une seule chaîne de caractères avec des sauts de ligne
+    
+    const lines = Array.from(inputs).map(input => {
+        const val = input.value.trim();
+        // ASTUCE : Si la ligne est vide, on renvoie un espace insécable ("\u00A0")
+        // Cela force le PDF à afficher une ligne de hauteur normale.
+        return val === "" ? "\u00A0" : val;
+    });
+    
+    return lines.join("\n"); 
 }

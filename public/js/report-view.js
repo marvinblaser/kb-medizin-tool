@@ -376,7 +376,15 @@ async function saveReport() {
 
 // --- HELPERS ---
 function fullRow(qty, code, desc, price, total) { return `<tr><td class="txt-center">${qty||''}</td><td class="txt-center">${code||''}</td><td>${desc||''}</td><td class="col-price col-align-right">${price||''}</td><td class="col-total col-align-right">${total||''}</td></tr>`; }
-function textOnlyRow(text) { return `<tr><td colspan="3" style=\"border-right:1px solid #000;\">${text||''}</td><td style=\"border-right:1px solid #000;\"></td><td></td></tr>`; }
+// public/js/report-view.js (Tout en bas du fichier)
+
+function textOnlyRow(text) { 
+    // CORRECTION HAUTEUR : Si le texte est vide, on force un espace insécable (&nbsp;)
+    // Cela empêche la ligne de s'écraser visuellement
+    const content = (text && text.trim() !== "") ? text : "&nbsp;";
+    
+    return `<tr><td colspan="3" style="border-right:1px solid #000;">${content}</td><td style="border-right:1px solid #000;"></td><td></td></tr>`; 
+}
 function mergedDataRow(text, price, total) { return `<tr><td colspan="3" style=\"border-right:1px solid #000;\">${text||''}</td><td class="col-price col-align-right" style=\"border-right:1px solid #000;\">${price||''}</td><td class="col-total col-align-right">${total||''}</td></tr>`; }
 function sectionHeaderRow(title) { return `<tr><td colspan="3" class="section-header" style=\"border-right:1px solid #000;\">${title}</td><td style=\"border-right:1px solid #000;\"></td><td></td></tr>`; }
 function emptyRowWithLines() { return `<tr><td colspan="3" style="height:15px; border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td></td></tr>`; }
