@@ -241,15 +241,15 @@ async function loadReport(id) {
             laborInfoEl.innerText = "";
 
             if (totalTheoreticalValue > 0) {
-                // Colonne 1 : On affiche TOUJOURS la valeur du travail (Ex: 160.00)
-                laborPriceEl.innerText = fmt(totalTheoreticalValue);
+                // --- CORRECTION ICI ---
+                // AVANT : laborPriceEl.innerText = fmt(totalTheoreticalValue); (Affichait 400.00)
+                // APRÈS : On affiche le TARIF HORAIRE fixe (160.00)
+                laborPriceEl.innerText = fmt(HOURLY_RATE);
                 
-                // Colonne 2 :
+                // Colonne 2 (Reste inchangée : affiche le total à payer OU "Incl.")
                 if (totalLaborCost > 0) {
-                    // Si facturé : On affiche le montant facturé (Ex: 160.00)
                     laborInfoEl.innerText = fmt(totalLaborCost);
                 } else {
-                    // Si tout est inclus (Coût facturé = 0) : On affiche "Incl."
                     laborInfoEl.innerText = TRANSLATIONS[currentLanguage].travel_included;
                 }
             }
