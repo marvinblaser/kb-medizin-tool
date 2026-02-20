@@ -267,13 +267,26 @@ async function loadReport(id) {
         while(lines.length < 3) lines.push(''); 
         lines.forEach(line => grid.innerHTML += textOnlyRow(line));
 
-        // 2. STK
+// 2. STK
         if(data.stk_tests && data.stk_tests.length > 0) {
             grid.innerHTML += emptyRowWithLines();
+            
+            // Les préfixes dans les deux langues
+            const stkPrefixFr = "Test de sécurité électrique obligatoire i.O - ";
+            const stkPrefixDe = "Obligatorische elektrische Sicherheitsprüfung i.O - ";
+
             data.stk_tests.forEach(t => {
                 const isInc = (t.included === 1 || t.included === true || t.included === "true");
                 const showTotal = isInc ? TRANSLATIONS[currentLanguage].travel_included : fmt(t.price);
-                grid.innerHTML += mergedDataRow(t.test_name, fmt(t.price), showTotal);
+                
+                let testName = t.test_name || "";
+                
+                // Si la langue est l'allemand, on remplace la phrase d'introduction
+                if (currentLanguage === 'de' && testName.includes(stkPrefixFr)) {
+                    testName = testName.replace(stkPrefixFr, stkPrefixDe);
+                }
+                
+                grid.innerHTML += mergedDataRow(testName, fmt(t.price), showTotal);
             });
         }
 

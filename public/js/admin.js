@@ -260,6 +260,10 @@ async function openEquipmentModal(id=null) {
   form.reset(); 
   document.getElementById('equipment-id').value = ''; 
   
+  // 1. On vide le champ allemand par défaut (en cas de nouveau modèle)
+  const nameDeInput = document.getElementById('equipment-name-de');
+  if (nameDeInput) nameDeInput.value = '';
+
   // Reset de la case à cocher
   const checkSec = document.getElementById('equipment-secondary');
   if(checkSec) checkSec.checked = false;
@@ -273,6 +277,10 @@ async function openEquipmentModal(id=null) {
       if(e){ 
           document.getElementById('equipment-id').value = e.id; 
           document.getElementById('equipment-name').value = e.name; 
+          
+          // 2. C'EST SEULEMENT ICI QUE "e" EXISTE ! On remplit le champ allemand :
+          if (nameDeInput) nameDeInput.value = e.name_de || '';
+          
           document.getElementById('equipment-brand').value = e.brand; 
           document.getElementById('equipment-type').value = e.type; 
           document.getElementById('equipment-device-type').value = e.device_type || ''; 
@@ -292,9 +300,13 @@ async function saveEquipment() {
   // Récupération de la valeur de la case
   const checkSec = document.getElementById('equipment-secondary');
   const isSecondary = checkSec && checkSec.checked ? 1 : 0;
+  
+  // Récupération du champ allemand
+  const nameDeInput = document.getElementById('equipment-name-de');
 
   const data = {
       name: document.getElementById('equipment-name').value, 
+      name_de: nameDeInput ? nameDeInput.value : null, // Envoi du nom en allemand
       brand: document.getElementById('equipment-brand').value, 
       type: document.getElementById('equipment-type').value, 
       device_type: document.getElementById('equipment-device-type').value,

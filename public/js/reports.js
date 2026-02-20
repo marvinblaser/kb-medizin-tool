@@ -68,6 +68,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     .getElementById("report-type")
     .addEventListener("change", updateReportTitleHeader);
 
+    document.getElementById("report-language").addEventListener("change", function () {
+      const clientId = document.getElementById("client-select").value;
+      if (clientId) {
+          loadClientEquipmentForReport(clientId);
+      }
+  });
+
   document.getElementById("global-search").addEventListener(
     "input",
     debounce(() => loadReports(), 300)
@@ -1305,7 +1312,11 @@ async function loadClientEquipmentForReport(clientId) {
             groups[cat].push(eq);
         });
 
-        // 2. Affichage par groupe
+        // 2. On regarde la langue choisie dans le formulaire
+        const langSelect = document.getElementById("report-language");
+        const lang = langSelect ? langSelect.value : 'fr';
+
+        // 3. Affichage par groupe
         Object.keys(groups).sort().forEach(category => {
             
             // Header de catégorie
@@ -1337,11 +1348,11 @@ async function loadClientEquipmentForReport(clientId) {
                 div.onmouseover = () => div.style.backgroundColor = "#f8fafc";
                 div.onmouseout = () => div.style.backgroundColor = "transparent";
 
-                // --- MODIFICATION ICI : Format [Nom] S/N : [Série] ---
-                // On ne met plus eq.brand au début
+                // --- LOGIQUE DE TRADUCTION ICI (eq est bien défini) ---
+                const finalEqName = (lang === 'de' && eq.name_de) ? eq.name_de : eq.name;
                 const serialDisp = eq.serial_number || '-';
-                const txtForInput = `${eq.name} S/N : ${serialDisp}`;
-                // -----------------------------------------------------
+                const txtForInput = `${finalEqName} S/N : ${serialDisp}`;
+                // ------------------------------------------------------
 
                 div.innerHTML = `
                     <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin:0; width:100%;">
@@ -1356,10 +1367,10 @@ async function loadClientEquipmentForReport(clientId) {
                         <div style="line-height:1.3;">
                             <div style="color:#1e293b; font-size:0.9rem;">
                                 <span style="font-weight:700;">${escapeHtml(eq.brand || '')}</span> 
-                                <span>${escapeHtml(eq.name)}</span>
+                                <span>${escapeHtml(finalEqName)}</span>
                             </div>
                             <div style="color:#94a3b8; font-size:0.75rem; font-family:var(--font-family-mono, monospace);">
-                                S/N: ${escapeHtml(eq.serial_number || 'N/A')}
+                                S/N: ${escapeHtml(serialDisp)}
                             </div>
                         </div>
                     </label>

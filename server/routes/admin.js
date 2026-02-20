@@ -32,31 +32,16 @@ const uploadAvatar = multer({
 });
 const uploadFile = multer({ storage: multer.memoryStorage() });
 
-// --- FONCTION NETTOYAGE PRIX (Spécial Suisse/Europe) ---
+// --- FONCTION NETTOYAGE PRIX ---
 const parsePrice = (raw) => {
     if (raw === null || raw === undefined || raw === '') return 0;
-    
-    // On force la conversion en texte pour traiter la virgule nous-mêmes
     let str = String(raw).trim();
-    
-    // CAS 1 : Format "3,90" ou "29,8000" (Virgule présente)
     if (str.includes(',')) {
-        // On supprime d'abord les points (qui seraient des séparateurs de milliers ex: 1.200,50)
         str = str.replace(/\./g, '');
-        // On remplace la virgule par un point pour le système
         str = str.replace(',', '.');
     } 
-    
-    // CAS 2 : Format "3.90" (Déjà un point)
-    // Rien à faire de spécial, sauf nettoyer les caractères non numériques
-    
-    // Nettoyage final : on ne garde que chiffres, point et moins.
-    // Cela enlève les 'CHF', les espaces, les apostrophes, etc.
     str = str.replace(/[^0-9.-]/g, '');
-    
     const val = parseFloat(str);
-    
-    // Arrondi strict à 2 décimales
     return isNaN(val) ? 0 : Math.round(val * 100) / 100;
 };
 
@@ -64,7 +49,6 @@ const parsePrice = (raw) => {
 //               MATERIALS
 // ==========================================
 
-// 1. SUPPRIMER TOUT
 router.delete('/materials/all', requireAdmin, (req, res) => {
     db.serialize(() => {
         db.run("DELETE FROM materials");
@@ -74,18 +58,12 @@ router.delete('/materials/all', requireAdmin, (req, res) => {
     });
 });
 
-// 2. IMPORT (Correction : Lecture en mode RAW)
 router.post('/materials/import', requireAdmin, uploadFile.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: "Aucun fichier fourni" });
-
     try {
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
-        
-        // IMPORTANT : { raw: false } force la lecture des données telles qu'elles sont affichées (Text)
-        // Cela empêche xlsx de convertir "3,900" en "3900" automatiquement.
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { raw: false });
-
         if (!data || data.length === 0) return res.json({ success: true, count: 0 });
 
         db.serialize(() => {
@@ -97,56 +75,33 @@ router.post('/materials/import', requireAdmin, uploadFile.single('file'), (req, 
             data.forEach((row, index) => {
                 const normalized = {};
                 Object.keys(row).forEach(k => normalized[k.trim().toLowerCase()] = row[k]);
-
                 const code = normalized['code produit'] || normalized['code'] || normalized['product_code'];
                 const designation = normalized['désignation'] || normalized['designation'] || normalized['nom'] || normalized['name'];
                 const priceRaw = normalized['prix'] || normalized['price'] || normalized['unit_price'];
 
                 if (code && designation) {
                     const price = parsePrice(priceRaw);
-                    
-                    // Log pour débogage (s'affichera dans votre terminal noir)
-                    if (index < 5) console.log(`[Import] Code: ${code} | Brut: "${priceRaw}" | Converti: ${price}`);
-
                     checkStmt.get(String(code), (err, existingRow) => {
                         if (!err) {
-                            if (existingRow) {
-                                updateStmt.run(String(designation), price, existingRow.id);
-                            } else {
-                                insertStmt.run(String(code), String(designation), price);
-                            }
+                            if (existingRow) updateStmt.run(String(designation), price, existingRow.id);
+                            else insertStmt.run(String(code), String(designation), price);
                         }
                     });
                     successCount++;
                 }
             });
-            
             setTimeout(() => {
-                checkStmt.finalize();
-                updateStmt.finalize();
-                insertStmt.finalize();
+                checkStmt.finalize(); updateStmt.finalize(); insertStmt.finalize();
                 db.run("INSERT INTO activity_logs (user_id, action, entity, entity_id) VALUES (?, ?, ?, ?)", [req.session.userId, 'IMPORT_MATERIALS', 'Material', 0]);
                 res.json({ success: true, count: successCount });
             }, 1000);
         });
-    } catch (error) {
-        console.error("Erreur Import:", error);
-        res.status(500).json({ error: "Erreur lecture fichier" });
-    }
+    } catch (error) { res.status(500).json({ error: "Erreur lecture fichier" }); }
 });
 
-// CRUD Standard
 router.get('/materials', requireAuth, (req, res) => db.all("SELECT * FROM materials ORDER BY name", [], (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows)));
-router.post('/materials', requireAdmin, (req, res) => { 
-    const { name, product_code, unit_price } = req.body; 
-    const cleanPrice = parsePrice(unit_price);
-    db.run("INSERT INTO materials (name, product_code, unit_price) VALUES (?, ?, ?)", [name, product_code, cleanPrice], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ id: this.lastID }); }); 
-});
-router.put('/materials/:id', requireAdmin, (req, res) => { 
-    const { name, product_code, unit_price } = req.body; 
-    const cleanPrice = parsePrice(unit_price);
-    db.run("UPDATE materials SET name=?, product_code=?, unit_price=? WHERE id=?", [name, product_code, cleanPrice, req.params.id], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ success: true }); }); 
-});
+router.post('/materials', requireAdmin, (req, res) => { const { name, product_code, unit_price } = req.body; const cleanPrice = parsePrice(unit_price); db.run("INSERT INTO materials (name, product_code, unit_price) VALUES (?, ?, ?)", [name, product_code, cleanPrice], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ id: this.lastID }); }); });
+router.put('/materials/:id', requireAdmin, (req, res) => { const { name, product_code, unit_price } = req.body; const cleanPrice = parsePrice(unit_price); db.run("UPDATE materials SET name=?, product_code=?, unit_price=? WHERE id=?", [name, product_code, cleanPrice, req.params.id], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ success: true }); }); });
 router.delete('/materials/:id', requireAdmin, (req, res) => { db.run("DELETE FROM materials WHERE id = ?", [req.params.id], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ success: true }); }); });
 
 // ==========================================
@@ -167,27 +122,32 @@ router.delete('/sectors/:id', requireAdmin, (req, res) => db.run("DELETE FROM se
 router.get('/device-types', requireAdmin, (req, res) => db.all("SELECT * FROM device_types ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
 router.post('/device-types', requireAdmin, (req, res) => db.run("INSERT INTO device_types (name) VALUES (?)", [req.body.name], function(err) { err ? res.status(400).json({error:"Erreur"}) : res.json({id:this.lastID}); }));
 router.delete('/device-types/:id', requireAdmin, (req, res) => db.run("DELETE FROM device_types WHERE id=?", [req.params.id], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})));
+
+// --- EQUIPEMENTS : AJOUT DE NAME_DE ---
 router.get('/equipment', requireAuth, (req, res) => db.all("SELECT * FROM equipment_catalog ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
-// POST : Ajouter un équipement (avec is_secondary)
+
 router.post('/equipment', requireAdmin, (req, res) => { 
-    const { name, brand, model, type, device_type, is_secondary } = req.body; 
-    // On force 1 ou 0
+    // On ajoute name_de
+    const { name, name_de, brand, model, type, device_type, is_secondary } = req.body; 
     const secVal = is_secondary ? 1 : 0;
     
-    db.run("INSERT INTO equipment_catalog (name, brand, model, type, device_type, is_secondary) VALUES (?, ?, ?, ?, ?, ?)", 
-    [name, brand, model, type, device_type, secVal], function(err){ 
+    db.run("INSERT INTO equipment_catalog (name, name_de, brand, model, type, device_type, is_secondary) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+    [name, name_de, brand, model, type, device_type, secVal], function(err){ 
         if(err) return res.status(500).json({error:err.message}); 
         res.json({id:this.lastID}); 
     }); 
 });
+
 router.put('/equipment/:id', requireAdmin, (req, res) => { 
-    const { name, brand, model, type, device_type, is_secondary } = req.body; 
+    // On ajoute name_de
+    const { name, name_de, brand, model, type, device_type, is_secondary } = req.body; 
     const secVal = is_secondary ? 1 : 0;
     
-    db.run("UPDATE equipment_catalog SET name=?, brand=?, model=?, type=?, device_type=?, is_secondary=? WHERE id=?", 
-    [name, brand, model, type, device_type, secVal, req.params.id], 
+    db.run("UPDATE equipment_catalog SET name=?, name_de=?, brand=?, model=?, type=?, device_type=?, is_secondary=? WHERE id=?", 
+    [name, name_de, brand, model, type, device_type, secVal, req.params.id], 
     (err)=>err?res.status(500).json({error:err.message}):res.json({success:true})); 
 });
+
 router.delete('/equipment/:id', requireAdmin, (req, res) => db.run("DELETE FROM equipment_catalog WHERE id=?", [req.params.id], (err)=>err?res.status(500).json({error:err.message}):res.json({success:true})));
 
 router.get('/export/clients', requireAdmin, (req, res) => {
@@ -203,6 +163,7 @@ router.get('/export/clients', requireAdmin, (req, res) => {
         res.send(xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' }));
     });
 });
+
 router.get('/logs', requireAdmin, (req, res) => {
   const limit = req.query.limit || 100; const category = req.query.category;
   let query = `SELECT l.*, u.name as user_name FROM activity_logs l LEFT JOIN users u ON l.user_id = u.id`; let params = [];
