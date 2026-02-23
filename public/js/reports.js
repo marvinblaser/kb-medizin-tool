@@ -68,10 +68,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     .getElementById("report-type")
     .addEventListener("change", updateReportTitleHeader);
 
-    document.getElementById("report-language").addEventListener("change", function () {
+    document.getElementById("report-language").addEventListener("change", async function () {
+      // 1. On bloque le rechargement si c'est le système qui ouvre un brouillon
+      if (isProgrammaticChange) return; 
+
       const clientId = document.getElementById("client-select").value;
       if (clientId) {
-          loadClientEquipmentForReport(clientId);
+          await loadClientEquipmentForReport(clientId);
+          updateInstallationText(); // Met à jour le texte du rapport avec la nouvelle langue !
       }
   });
 
@@ -900,6 +904,9 @@ function getFormData() {
 async function fillReportForm(report) {
   console.log("📂 Ouverture du rapport :", report.id);
   
+  // A. On lève le bouclier AU TOUT DÉBUT pour bloquer tous les événements parasites
+  isProgrammaticChange = true; 
+  
   // 1. Initialisation
   document.getElementById("report-id").value = report.id;
   document.getElementById("report-custom-title").value = report.title || "";
@@ -916,9 +923,6 @@ async function fillReportForm(report) {
   // 2. GESTION CRITIQUE : CLIENT & ÉQUIPEMENTS
   // =========================================================
   const clientId = report.client_id || "";
-  
-  // A. On lève le bouclier pour empêcher handleClientChange de tout casser
-  isProgrammaticChange = true; 
   
   if (window.setSlimSelect) {
       window.setSlimSelect("client-select", clientId);
@@ -1286,6 +1290,9 @@ function updateMaterialsTotal() {
 async function loadClientEquipmentForReport(clientId) {
     const container = document.getElementById('client-equipment-list');
     
+    // NOUVEAU : Sauvegarde des ID des machines déjà cochées
+    const checkedIds = Array.from(container.querySelectorAll('.eq-cb:checked')).map(cb => String(cb.value));
+    
     container.innerHTML = `
         <div style="padding:20px; text-align:center; color:#94a3b8;">
             <i class="fas fa-circle-notch fa-spin"></i> Chargement du parc...
@@ -1304,7 +1311,6 @@ async function loadClientEquipmentForReport(clientId) {
             return;
         }
 
-        // 1. Groupement par LOCATION (Salle)
         const groups = {};
         equipments.forEach(eq => {
             const cat = eq.location && eq.location.trim() !== "" ? eq.location : "Général";
@@ -1312,58 +1318,38 @@ async function loadClientEquipmentForReport(clientId) {
             groups[cat].push(eq);
         });
 
-        // 2. On regarde la langue choisie dans le formulaire
         const langSelect = document.getElementById("report-language");
         const lang = langSelect ? langSelect.value : 'fr';
 
-        // 3. Affichage par groupe
         Object.keys(groups).sort().forEach(category => {
             
-            // Header de catégorie
             const catHeader = document.createElement('div');
             catHeader.style.cssText = `
-                background: #f1f5f9; 
-                color: #475569; 
-                padding: 6px 10px; 
-                font-size: 0.75rem; 
-                font-weight: 700; 
-                letter-spacing: 0.05em; 
-                text-transform: uppercase; 
-                border-radius: 4px; 
-                margin-top: 12px; 
-                margin-bottom: 4px;
-                border: 1px solid #e2e8f0;
+                background: #f1f5f9; color: #475569; padding: 6px 10px; font-size: 0.75rem; 
+                font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; 
+                border-radius: 4px; margin-top: 12px; margin-bottom: 4px; border: 1px solid #e2e8f0;
             `;
             catHeader.innerHTML = `<i class="fas fa-layer-group" style="margin-right:6px; opacity:0.5;"></i> ${escapeHtml(category)}`;
             container.appendChild(catHeader);
 
-            // Liste des éléments
             groups[category].forEach(eq => {
                 const div = document.createElement('div');
-                div.style.cssText = `
-                    padding: 6px 8px;
-                    border-bottom: 1px solid #f8fafc;
-                    transition: background 0.15s;
-                `;
+                div.style.cssText = `padding: 6px 8px; border-bottom: 1px solid #f8fafc; transition: background 0.15s;`;
                 div.onmouseover = () => div.style.backgroundColor = "#f8fafc";
                 div.onmouseout = () => div.style.backgroundColor = "transparent";
 
-                // --- LOGIQUE DE TRADUCTION ICI (eq est bien défini) ---
                 const finalEqName = (lang === 'de' && eq.name_de) ? eq.name_de : eq.name;
                 const serialDisp = eq.serial_number || '-';
                 const txtForInput = `${finalEqName} S/N : ${serialDisp}`;
-                // ------------------------------------------------------
 
                 div.innerHTML = `
                     <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin:0; width:100%;">
-                        
                         <div style="padding-top:2px;">
                             <input type="checkbox" class="eq-cb" value="${eq.id}" 
                                    data-txt="${escapeHtml(txtForInput)}" 
                                    onchange="updateInstallationText()"
                                    style="width:16px; height:16px; cursor:pointer;">
                         </div>
-
                         <div style="line-height:1.3;">
                             <div style="color:#1e293b; font-size:0.9rem;">
                                 <span style="font-weight:700;">${escapeHtml(eq.brand || '')}</span> 
@@ -1378,6 +1364,15 @@ async function loadClientEquipmentForReport(clientId) {
                 container.appendChild(div);
             });
         });
+
+        // NOUVEAU : On restaure les cases qui étaient cochées avant le rechargement
+        if (checkedIds.length > 0) {
+            document.querySelectorAll('.eq-cb').forEach(cb => {
+                if (checkedIds.includes(String(cb.value))) {
+                    cb.checked = true;
+                }
+            });
+        }
 
     } catch(e) {
         console.error(e);
