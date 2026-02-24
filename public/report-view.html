@@ -32,7 +32,13 @@
     .tasks-section { border-bottom: 1px solid #000; padding: 4px 8px; display: flex; align-items: flex-start; }
     .tasks-label { width: 110px; font-weight: 700; font-size: 12px; padding-top: 2px; }
     .tasks-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px 8px; } /* Gap réduit */
-    .cb-item { display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; }
+    .cb-item { 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    font-size: 11px; 
+    pointer-events: none; /* Empêche tout clic sur l'élément */
+}
     .cb-box { width: 12px; height: 12px; border: 1px solid #000; display: inline-block; background: #fff; flex-shrink: 0; }
     .cb-box.checked { background: #000; }
 
