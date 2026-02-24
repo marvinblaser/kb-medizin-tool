@@ -63,10 +63,11 @@
 
     /* --- VUE ARCHIVES (LAYOUT FINAL : BLOC PLEINE LARGEUR) --- */
     #archives-container {
-        display: block; /* Comportement standard : empilement vertical */
+        display: block; 
+        flex: 1; /* <--- AJOUTEZ CETTE LIGNE CRUCIALE */
         width: 100%;
         height: 100%;
-        overflow-y: auto; /* Scroll si nécessaire */
+        overflow-y: auto; 
         padding-bottom: 2rem;
     }
     

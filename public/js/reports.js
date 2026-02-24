@@ -222,6 +222,7 @@ async function updateBadges() {
             "En attente": "pending",
             "Validés": "validated",
             "Archivés": "archived",
+            "Archives": "archived",
             "Refusés": "rejected"
         };
 
@@ -314,7 +315,7 @@ function switchTab(status, reload = true) {
 
   if (status === "archived") {
     tableView.style.display = "none";
-    archivesView.style.display = "grid"; // Utilise Grid pour les dossiers
+    archivesView.style.display = "block"; // <--- CHANGEZ "grid" PAR "block"
     pagination.style.display = "none";
   } else {
     tableView.style.display = "block";
