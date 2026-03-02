@@ -749,6 +749,15 @@ tr.row-selected { background-color: var(--color-primary-light) !important; }
 </div>
                   <div class="form-group"><label>Intervalle (Années)</label><select id="equip-interval"><option value="1">1 An</option><option value="2">2 Ans</option><option value="3">3 Ans</option></select></div>
               </form>
+              <div class="form-group full-width" style="grid-column: 1 / -1; margin-top: 10px; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; font-weight: normal;">
+        <input type="checkbox" id="equip-secondary" style="width: 18px; height: 18px; cursor: pointer;">
+        <div>
+            <strong style="color: #475569; font-size: 0.95rem;">Machine secondaire / Hors contrat</strong>
+            <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 2px;">Ne déclenchera plus d'alerte de maintenance sur le tableau de bord.</div>
+        </div>
+    </label>
+</div>
           </div>
           <div class="modal-footer"><button class="btn btn-secondary" onclick="closeEquipModal()">Annuler</button><button class="btn btn-primary" onclick="saveEquipment()">Sauvegarder</button></div>
       </div>

@@ -719,25 +719,32 @@ async function loadClientEquipment(id) {
             `;
             items.forEach(eq => {
                 let color = 'var(--color-success)', text = 'OK';
-                if(eq.days_remaining < 0) { color = 'var(--color-danger)'; text = 'Expiré'; }
-                else if(eq.days_remaining < 30) { color = 'var(--color-warning)'; text = 'Bientôt'; }
-                // <--- 1. CRÉATION DU BLOC NOTE ---
+                
+                // GESTION DU STATUT HORS CONTRAT
+                if (eq.is_secondary === 1) {
+                    color = 'var(--neutral-400)';
+                    text = 'Hors contrat';
+                } else if(eq.days_remaining < 0) { 
+                    color = 'var(--color-danger)'; text = 'Expiré'; 
+                } else if(eq.days_remaining < 30) { 
+                    color = 'var(--color-warning)'; text = 'Bientôt'; 
+                }
+
                 const noteHtml = eq.notes ? 
                     `<div style="margin-top:6px; font-size:0.85rem; color:#6b7280; background:#f9fafb; padding:4px 8px; border-radius:4px; border:1px solid #e5e7eb; display:flex; gap:6px;">
                         <i class="fas fa-sticky-note" style="color:#f59e0b; margin-top:3px;"></i> 
                         <span style="font-style:italic;">${escapeHtml(eq.notes)}</span>
-                     </div>` 
-                    : '';
-                // ---------------------------------
+                     </div>` : '';
+                     
                 const jsonEq = JSON.stringify(eq).replace(/"/g, '&quot;');
                 fullHtml += `
-                <div class="eq-card-pro" style="border-left-color:${color}">
+                <div class="eq-card-pro" style="border-left-color:${color}; ${eq.is_secondary === 1 ? 'background:#f8fafc; opacity:0.8;' : ''}">
                     <div class="eq-info">
                         <h4 class="eq-title">${escapeHtml(eq.final_name)}</h4>
                         <p class="eq-sub">${escapeHtml(eq.final_brand)} • S/N: ${escapeHtml(eq.serial_number||'-')}</p>
                         <span class="eq-date" style="color:${color}">${text} : ${formatDate(eq.next_maintenance_date)}</span>
-                        
-                        ${noteHtml}  </div>
+                        ${noteHtml}  
+                    </div>
                     <div style="display:flex; flex-direction:column; gap:4px;">
                         <button class="btn-icon-sm btn-icon-secondary" onclick="openEquipFormModal(${jsonEq})"><i class="fas fa-pen"></i></button>
                         <button class="btn-icon-sm btn-icon-danger" onclick="deleteEquipment(${id}, ${eq.id})"><i class="fas fa-trash"></i></button>
@@ -1130,7 +1137,10 @@ function openEquipFormModal(eq = null) {
     document.getElementById('equip-id').value = '';
     document.getElementById('equip-notes').value = '';
     
-    // Remplir le select avec le catalogue (variable globale 'catalog')
+    // Reset de la nouvelle case
+    const secCb = document.getElementById('equip-secondary');
+    if(secCb) secCb.checked = false;
+    
     const select = document.getElementById('equip-select');
     select.innerHTML = '<option value="">-- Sélectionner --</option>' + catalog.map(c => `<option value="${c.id}">${c.name} (${c.brand})</option>`).join('');
     
@@ -1143,9 +1153,10 @@ function openEquipFormModal(eq = null) {
         document.getElementById('equip-last').value = eq.last_maintenance_date;
         document.getElementById('equip-interval').value = eq.maintenance_interval;
         document.getElementById('equip-notes').value = eq.notes || '';
+        // Coche la case si secondaire
+        if(secCb) secCb.checked = (eq.is_secondary === 1);
     }
     modal.classList.add('active');
-    document.getElementById('equipment-form-modal').classList.add('active');
 }
 
 function closeEquipModal() { 
@@ -1155,6 +1166,7 @@ function closeEquipModal() {
 async function saveEquipment() {
     if(!currentClientId) return;
     const id = document.getElementById('equip-id').value;
+    const secCb = document.getElementById('equip-secondary');
     
     const data = {
         equipment_id: document.getElementById('equip-select').value,
@@ -1163,7 +1175,8 @@ async function saveEquipment() {
         installed_at: document.getElementById('equip-install').value,
         last_maintenance_date: document.getElementById('equip-last').value,
         maintenance_interval: document.getElementById('equip-interval').value,
-        notes: document.getElementById('equip-notes').value.trim()
+        notes: document.getElementById('equip-notes').value.trim(),
+        is_secondary: secCb && secCb.checked ? 1 : 0  // Envoi au serveur
     };
     
     const method = id ? 'PUT' : 'POST';

@@ -825,7 +825,7 @@ function updateMapMarkers() {
     };
 
     // On masque les équipements secondaires
-    const visibleEquipment = (client.equipment || []).filter(e => e.is_secondary !== 1);
+    const visibleEquipment = (client.equipment || []).filter(e => e.is_secondary !== 1 && e.catalog_is_secondary !== 1);
 
     const eqHtml = visibleEquipment.length > 0
         ? `<div class="map-equipment-section" style="margin-top:10px; border-top:1px solid #eee; padding-top:10px; max-height: 200px; overflow-y: auto; padding-right: 5px;">
