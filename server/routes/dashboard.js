@@ -165,11 +165,16 @@ router.get('/clients-map', requireAuth, (req, res) => {
             c.id, c.cabinet_name, c.contact_name, c.latitude, c.longitude, c.city, c.canton, c.address, c.postal_code, c.phone,
             
             CASE 
+                -- 1. Client masqué manuellement
+                WHEN c.is_hidden = 1 THEN 'ghost'
+                
+                -- 2. RDV Planifié
                 WHEN EXISTS (
                     SELECT 1 FROM appointments_history ah 
                     WHERE ah.client_id = c.id AND ah.appointment_date >= date('now')
                 ) THEN 'planned'
                 
+                -- 3. Urgence sur machine active
                 WHEN EXISTS (
                     SELECT 1 FROM client_equipment ce 
                     JOIN equipment_catalog ec ON ce.equipment_id = ec.id
@@ -179,6 +184,7 @@ router.get('/clients-map', requireAuth, (req, res) => {
                     AND (ce.is_secondary = 0 OR ce.is_secondary IS NULL)
                 ) THEN 'expired'
                 
+                -- 4. Bientôt sur machine active
                 WHEN EXISTS (
                     SELECT 1 FROM client_equipment ce 
                     JOIN equipment_catalog ec ON ce.equipment_id = ec.id
@@ -188,13 +194,27 @@ router.get('/clients-map', requireAuth, (req, res) => {
                     AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL)
                     AND (ce.is_secondary = 0 OR ce.is_secondary IS NULL)
                 ) THEN 'warning'
+
+                -- 5. Le client a au moins une machine active valide (OK)
+                WHEN EXISTS (
+                    SELECT 1 FROM client_equipment ce 
+                    JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+                    WHERE ce.client_id = c.id 
+                    AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL)
+                    AND (ce.is_secondary = 0 OR ce.is_secondary IS NULL)
+                ) THEN 'ok'
                 
-                ELSE 'ok'
+                -- 6. Le client est nouveau et n'a aucune machine (OK par défaut)
+                WHEN NOT EXISTS (
+                    SELECT 1 FROM client_equipment ce WHERE ce.client_id = c.id
+                ) THEN 'ok'
+                
+                -- 7. SINON : Il n'a QUE des machines secondaires
+                ELSE 'ghost'
             END as status
 
         FROM clients c
-        WHERE (c.is_hidden = 0 OR c.is_hidden IS NULL)
-        AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL
+        WHERE c.latitude IS NOT NULL AND c.longitude IS NOT NULL
     `;
     db.all(sql, [], (err, rows) => err ? res.status(500).json({error: err.message}) : res.json(rows));
 });
