@@ -64,6 +64,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document
     .getElementById("travel-canton")
     .addEventListener("change", updateTravelCost);
+  document.getElementById("travel-costs").addEventListener("input", calculateTotal);
   document
     .getElementById("report-type")
     .addEventListener("change", updateReportTitleHeader);
@@ -1384,6 +1385,14 @@ async function loadClientEquipmentForReport(clientId) {
 function updateTravelCost() {
   const sel = document.getElementById("travel-canton").value;
   const inp = document.getElementById("travel-costs");
+
+  // 1. Si le système ouvre un brouillon, on stoppe le calcul automatique 
+  // pour ne surtout pas écraser votre prix personnalisé !
+  if (isProgrammaticChange) {
+      calculateTotal();
+      return;
+  }
+
   let p = null;
   for (const [pr, cs] of Object.entries(TRAVEL_ZONES)) {
     if (cs.includes(sel)) {
@@ -1391,16 +1400,20 @@ function updateTravelCost() {
       break;
     }
   }
-  if (p) {
+  
+  // 2. Si un prix est trouvé pour le canton, on le suggère dans le champ
+  if (p !== null) {
     inp.value = p.toFixed(2);
-    inp.readOnly = true;
-    inp.style.backgroundColor = "#e9ecef";
-  } else {
-    inp.readOnly = false;
-    inp.style.backgroundColor = "";
   }
+
+  // 3. LA MODIFICATION EST LÀ : On enlève le mode "Lecture Seule" et le fond gris.
+  // Le champ est désormais TOUJOURS modifiable manuellement.
+  inp.readOnly = false;
+  inp.style.backgroundColor = "";
+
   calculateTotal();
 }
+
 function resetDynamicLists() {
   document.getElementById("technicians-list").innerHTML = "";
   document.getElementById("work-list").innerHTML = "";
@@ -1408,11 +1421,13 @@ function resetDynamicLists() {
   document.getElementById("materials-list").innerHTML = "";
   document.getElementById("client-equipment-list").innerHTML = "";
 }
+
 function logout() {
   fetch("/api/logout", { method: "POST" }).then(
     () => (window.location = "/login.html")
   );
 }
+
 function debounce(f, w) {
   let t;
   return function (...a) {
@@ -1420,13 +1435,16 @@ function debounce(f, w) {
     t = setTimeout(() => f.apply(this, a), w);
   };
 }
+
 function escapeHtml(t) {
   if (!t) return "";
   return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+
 function formatDate(s) {
   return s ? new Date(s).toLocaleDateString("fr-CH") : "-";
 }
+
 function updatePagination(p) {
     if (!p) return;
   document.getElementById(
@@ -1435,6 +1453,7 @@ function updatePagination(p) {
   document.getElementById("prev-page").disabled = p.page === 1;
   document.getElementById("next-page").disabled = p.page === p.totalPages;
 }
+
 function updateReportTitleHeader() {
   const customTitle = document.getElementById("report-custom-title").value.trim();
   const typeSelect = document.getElementById("report-type");
