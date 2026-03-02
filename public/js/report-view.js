@@ -320,12 +320,36 @@ async function loadReport(id) {
         
         const travelInc = (data.travel_included === 1 || data.travel_included === true || data.travel_included === "true");
         
-        let travelDisplay = fmt(data.travel_costs); // Colonne Total (Droite)
-        let travelUnit = fmt(data.travel_costs);    // Colonne Prix (Gauche)
+        // --- NOUVEAUTÉ : Dictionnaire des zones pour le PDF ---
+        const TRAVEL_ZONES = {
+          50: ["BS", "BL"],
+          75: ["AG", "SO", "JU"],
+          125: ["SH", "ZH", "BE", "LU", "NE", "FR", "ZG", "UR", "OW", "NW", "SZ"],
+          200: ["GE", "VD", "VS", "TI", "GR", "SG", "GL", "TG", "AI", "AR"]
+        };
+        
+        // On retrouve le prix de base théorique grâce au Canton (ex: "Biel (BE)" -> "BE")
+        let baseTravelPrice = data.travel_costs || 0;
+        if (data.travel_location) {
+            const match = data.travel_location.match(/\(([A-Z]{2})\)$/);
+            if (match) {
+                const canton = match[1];
+                for (const [priceStr, cantons] of Object.entries(TRAVEL_ZONES)) {
+                    if (cantons.includes(canton)) {
+                        baseTravelPrice = parseInt(priceStr);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // On assigne les bonnes valeurs aux colonnes
+        let travelUnit = fmt(baseTravelPrice); // GAUCHE : Prix de base standard
+        let travelDisplay = fmt(data.travel_costs); // DROITE : Le prix que vous avez modifié
 
         if(travelInc) {
             travelDisplay = TRANSLATIONS[currentLanguage].travel_included; // Affiche "Incl."
-            travelUnit = ""; // <--- FIX : On vide la colonne prix si c'est inclus
+            travelUnit = ""; // On vide la colonne unitaire si c'est inclus
         }
         
         const travelLabel = TRANSLATIONS[currentLanguage].travel_costs;

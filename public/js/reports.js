@@ -1386,8 +1386,7 @@ function updateTravelCost() {
   const sel = document.getElementById("travel-canton").value;
   const inp = document.getElementById("travel-costs");
 
-  // 1. Si le système ouvre un brouillon, on stoppe le calcul automatique 
-  // pour ne surtout pas écraser votre prix personnalisé !
+  // 1. On bloque l'écrasement automatique si c'est l'ouverture d'un brouillon
   if (isProgrammaticChange) {
       calculateTotal();
       return;
@@ -1401,13 +1400,12 @@ function updateTravelCost() {
     }
   }
   
-  // 2. Si un prix est trouvé pour le canton, on le suggère dans le champ
+  // 2. On suggère le prix de base du canton
   if (p !== null) {
     inp.value = p.toFixed(2);
   }
 
-  // 3. LA MODIFICATION EST LÀ : On enlève le mode "Lecture Seule" et le fond gris.
-  // Le champ est désormais TOUJOURS modifiable manuellement.
+  // 3. On libère le champ pour que vous puissiez taper votre propre prix !
   inp.readOnly = false;
   inp.style.backgroundColor = "";
 
