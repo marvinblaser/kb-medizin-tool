@@ -51,6 +51,7 @@ app.use('/api/clients', clientsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/notifications', require('./routes/notifications'));
 
 // Redirection intelligente
 app.get('/', (req, res) => {
@@ -61,6 +62,9 @@ app.get('/', (req, res) => {
   // Sinon, on l'envoie se connecter
   res.redirect('/login.html');
 });
+
+// --- LANCEMENT DES TÂCHES AUTOMATIQUES (CRON) ---
+require('./cron').initCronJobs();
 
 // Initialiser la DB et démarrer le serveur
 initDatabase()

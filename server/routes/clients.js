@@ -8,6 +8,21 @@ const { requireAuth } = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// --- NOTIFICATIONS HELPERS ---
+const notifyUser = (userId, type, message, link) => {
+    db.run("INSERT INTO notifications (user_id, type, message, link) VALUES (?, ?, ?, ?)", [userId, type, message, link], (err) => {
+        if(err) console.error("Erreur Notif:", err.message);
+    });
+};
+
+const notifyRoles = (rolesArray, type, message, link) => {
+    const placeholders = rolesArray.map(() => '?').join(',');
+    db.all(`SELECT id FROM users WHERE role IN (${placeholders})`, rolesArray, (err, rows) => {
+        if(!err && rows) rows.forEach(u => notifyUser(u.id, type, message, link));
+    });
+};
+// -----------------------------
+
 const cleanCanton = (val) => {
     if (!val) return '';
     let str = String(val).trim().toUpperCase();
@@ -191,18 +206,33 @@ router.get('/:id', requireAuth, (req, res) => {
     db.get(sql, [req.params.id], (err, row) => err || !row ? res.status(404).json({ error: "Client introuvable" }) : res.json(row));
 });
 
+// --- CRÉATION DE CLIENT ---
 router.post('/', requireAuth, (req, res) => {
     const { cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, notes, latitude, longitude } = req.body;
     db.run(`INSERT INTO clients (cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, notes, latitude, longitude) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, notes, latitude, longitude], function(err) {
         if (err) return res.status(500).json({ error: err.message });
-        logActivity(req.session.userId, 'create', 'client', this.lastID, { name: cabinet_name });
-        res.json({ id: this.lastID });
+        
+        const newId = this.lastID;
+        logActivity(req.session.userId, 'create', 'client', newId, { name: cabinet_name });
+        
+        // DÉCLENCHEUR : Notification Création de Client
+        notifyRoles(['admin', 'secretary'], 'success', `Nouveau client ajouté : ${cabinet_name} (${city})`, `/clients.html?open=${newId}`);
+
+        res.json({ id: newId });
     });
 });
 
+// --- MODIFICATION DE CLIENT ---
 router.put('/:id', requireAuth, (req, res) => {
     const { cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, notes, latitude, longitude } = req.body;
-    db.run(`UPDATE clients SET cabinet_name=?, contact_name=?, activity=?, address=?, postal_code=?, city=?, canton=?, phone=?, email=?, notes=?, latitude=?, longitude=? WHERE id=?`, [cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, notes, latitude, longitude, req.params.id], err => err ? res.status(500).json({ error: err.message }) : res.json({ success: true }));
+    db.run(`UPDATE clients SET cabinet_name=?, contact_name=?, activity=?, address=?, postal_code=?, city=?, canton=?, phone=?, email=?, notes=?, latitude=?, longitude=? WHERE id=?`, [cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, notes, latitude, longitude, req.params.id], err => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        // DÉCLENCHEUR : On prévient qu'un dossier client est modifié
+        notifyRoles(['admin', 'secretary', 'tech'], 'info', `Fiche client mise à jour : ${cabinet_name}`, `/clients.html?open=${req.params.id}`);
+
+        res.json({ success: true });
+    });
 });
 
 router.delete('/:id', requireAuth, (req, res) => {
@@ -226,6 +256,7 @@ router.get('/:id/equipment', requireAuth, (req, res) => {
     db.all(sql, [req.params.id], (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows));
 });
 
+// --- AJOUT D'ÉQUIPEMENT + DÉCLENCHEUR ---
 router.post('/:id/equipment', requireAuth, (req, res) => {
     const { equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, location, notes, is_secondary } = req.body;
     let nextDate = null;
@@ -237,7 +268,17 @@ router.post('/:id/equipment', requireAuth, (req, res) => {
     db.run(`INSERT INTO client_equipment (client_id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, next_maintenance_date, location, notes, is_secondary) VALUES (?,?,?,?,?,?,?,?,?,?)`, 
     [req.params.id, equipment_id, serial_number, installed_at, last_maintenance_date, maintenance_interval, nextDate, location, notes, is_secondary ? 1 : 0], function(err) {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID });
+        
+        const newId = this.lastID;
+        
+        // DÉCLENCHEUR : Nouvel équipement ajouté chez le client
+        db.get(`SELECT c.cabinet_name, ec.name, ec.brand FROM clients c, equipment_catalog ec WHERE c.id = ? AND ec.id = ?`, [req.params.id, equipment_id], (err, row) => {
+            if(row) {
+                notifyRoles(['admin', 'secretary'], 'info', `Nouvel équipement (${row.brand} ${row.name}) ajouté chez : ${row.cabinet_name}`, `/clients.html?open=${req.params.id}`);
+            }
+        });
+
+        res.json({ id: newId });
     });
 });
 
@@ -260,7 +301,7 @@ router.delete('/:clientId/equipment/:eqId', requireAuth, (req, res) => {
     db.run("DELETE FROM client_equipment WHERE id=? AND client_id=?", [req.params.eqId, req.params.clientId], err => err ? res.status(500).json({ error: err.message }) : res.json({ success: true }));
 });
 
-// HISTORIQUE & RDV
+// --- HISTORIQUE & RDV ---
 router.get('/:id/appointments', requireAuth, (req, res) => {
   const sql = `
     SELECT 'report' as source_type, r.id as id_unique, r.id as report_id, r.report_number, r.technician_signature_date as appointment_date, r.work_accomplished as task_description, u.name as tech_name, (SELECT group_concat(ec.name || ' (' || ec.brand || ')', ', ') FROM report_equipment re JOIN equipment_catalog ec ON re.equipment_id = ec.id WHERE re.report_id = r.id) as machines FROM reports r LEFT JOIN users u ON r.author_id = u.id WHERE r.client_id = ? AND r.status IN ('validated', 'archived')
@@ -270,16 +311,27 @@ router.get('/:id/appointments', requireAuth, (req, res) => {
   db.all(sql, [req.params.id, req.params.id], (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows));
 });
 
+// --- CREATION DE RDV ---
 router.post('/:id/appointments', requireAuth, (req, res) => {
     const { appointment_date, technician_ids, task_description } = req.body; 
     db.serialize(() => {
         db.run("INSERT INTO appointments_history (client_id, appointment_date, task_description) VALUES (?, ?, ?)", [req.params.id, appointment_date, task_description], function(err) {
             if (err) return res.status(500).json({ error: err.message });
             const rdvId = this.lastID;
+            
             if (Array.isArray(technician_ids) && technician_ids.length > 0) {
                 const placeholders = technician_ids.map(() => '(?, ?)').join(',');
                 const values = []; technician_ids.forEach(uid => { values.push(rdvId, uid); });
                 db.run(`INSERT INTO appointment_technicians (appointment_id, user_id) VALUES ${placeholders}`, values);
+
+                // DÉCLENCHEUR : On notifie personnellement les techniciens assignés
+                db.get("SELECT cabinet_name FROM clients WHERE id=?", [req.params.id], (err, row) => {
+                    const cab = row ? row.cabinet_name : "un client";
+                    const dateFr = new Date(appointment_date).toLocaleDateString('fr-CH');
+                    technician_ids.forEach(uid => {
+                        notifyUser(uid, 'info', `📅 Nouveau RDV assigné le ${dateFr} pour : ${cab}`, `/clients.html?open=${req.params.id}`);
+                    });
+                });
             }
             db.run("UPDATE clients SET appointment_at = ? WHERE id = ?", [appointment_date, req.params.id]);
             res.json({ message: "RDV créé", id: rdvId });
@@ -287,8 +339,28 @@ router.post('/:id/appointments', requireAuth, (req, res) => {
     });
 });
 
+// --- ANNULATION DE RDV ---
 router.delete('/appointments/:id', requireAuth, (req, res) => {
-    db.run("DELETE FROM appointments_history WHERE id = ?", [req.params.id], err => err ? res.status(500).json({ error: err.message }) : res.json({ message: "RDV supprimé" }));
+    // 1. On récupère les infos du RDV et les techniciens avant de le détruire
+    db.get(`SELECT ah.appointment_date, c.cabinet_name FROM appointments_history ah JOIN clients c ON ah.client_id = c.id WHERE ah.id = ?`, [req.params.id], (err, rdv) => {
+        if (rdv) {
+            db.all("SELECT user_id FROM appointment_technicians WHERE appointment_id = ?", [req.params.id], (err, techs) => {
+                if (techs && techs.length > 0) {
+                    const dateFr = new Date(rdv.appointment_date).toLocaleDateString('fr-CH');
+                    // DÉCLENCHEUR : On prévient les techniciens concernés
+                    techs.forEach(t => {
+                        notifyUser(t.user_id, 'error', `❌ RDV ANNULÉ : L'intervention du ${dateFr} pour ${rdv.cabinet_name} a été annulée.`, `/clients.html?view=planning`);
+                    });
+                }
+                
+                // 2. On supprime proprement le RDV et ses techniciens assignés
+                db.run("DELETE FROM appointment_technicians WHERE appointment_id = ?", [req.params.id]);
+                db.run("DELETE FROM appointments_history WHERE id = ?", [req.params.id], err => err ? res.status(500).json({ error: err.message }) : res.json({ message: "RDV supprimé" }));
+            });
+        } else {
+            db.run("DELETE FROM appointments_history WHERE id = ?", [req.params.id], err => err ? res.status(500).json({ error: err.message }) : res.json({ message: "RDV supprimé" }));
+        }
+    });
 });
 
 router.get('/appointments/:id', requireAuth, (req, res) => {
@@ -300,15 +372,26 @@ router.get('/appointments/:id', requireAuth, (req, res) => {
     });
 });
 
+// --- MODIFICATION DE RDV ---
 router.put('/appointments/:id', requireAuth, (req, res) => {
     const { appointment_date, technician_ids, task_description } = req.body;
     db.serialize(() => {
         db.run("UPDATE appointments_history SET appointment_date = ?, task_description = ? WHERE id = ?", [appointment_date, task_description, req.params.id]);
         db.run("DELETE FROM appointment_technicians WHERE appointment_id = ?", [req.params.id]);
+        
         if (Array.isArray(technician_ids) && technician_ids.length > 0) {
             const placeholders = technician_ids.map(() => '(?, ?)').join(',');
             const values = []; technician_ids.forEach(uid => { values.push(req.params.id, uid); });
             db.run(`INSERT INTO appointment_technicians (appointment_id, user_id) VALUES ${placeholders}`, values);
+
+            // DÉCLENCHEUR : Notification de modification de RDV
+            db.get("SELECT c.cabinet_name FROM appointments_history ah JOIN clients c ON ah.client_id = c.id WHERE ah.id=?", [req.params.id], (err, row) => {
+                const cab = row ? row.cabinet_name : "un client";
+                const dateFr = new Date(appointment_date).toLocaleDateString('fr-CH');
+                technician_ids.forEach(uid => {
+                    notifyUser(uid, 'warning', `🔄 Modification de votre RDV du ${dateFr} pour : ${cab}`, `/clients.html?view=planning`);
+                });
+            });
         }
         db.get("SELECT client_id FROM appointments_history WHERE id = ?", [req.params.id], (err, row) => {
             if(row) db.run("UPDATE clients SET appointment_at = ? WHERE id = ?", [appointment_date, row.client_id]);

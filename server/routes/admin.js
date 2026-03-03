@@ -1,14 +1,27 @@
 // server/routes/admin.js
-
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const xlsx = require('xlsx'); 
+const xlsx = require('xlsx');
 const { db } = require('../config/database');
 const { requireAdmin, requireAuth } = require('../middleware/auth');
+
+// --- NOTIFICATIONS HELPERS ---
+const notifyUser = (userId, type, message, link) => {
+    db.run("INSERT INTO notifications (user_id, type, message, link) VALUES (?, ?, ?, ?)", [userId, type, message, link], (err) => {
+        if(err) console.error("Erreur Notif:", err.message);
+    });
+};
+const notifyRoles = (rolesArray, type, message, link) => {
+    const placeholders = rolesArray.map(() => '?').join(',');
+    db.all(`SELECT id FROM users WHERE role IN (${placeholders})`, rolesArray, (err, rows) => {
+        if(!err && rows) rows.forEach(u => notifyUser(u.id, type, message, link));
+    });
+};
+// -----------------------------
 
 // --- CONFIG MULTER ---
 const storageAvatar = multer.diskStorage({
@@ -22,7 +35,7 @@ const storageAvatar = multer.diskStorage({
     cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
-const uploadAvatar = multer({ 
+const uploadAvatar = multer({
   storage: storageAvatar,
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
@@ -36,10 +49,7 @@ const uploadFile = multer({ storage: multer.memoryStorage() });
 const parsePrice = (raw) => {
     if (raw === null || raw === undefined || raw === '') return 0;
     let str = String(raw).trim();
-    if (str.includes(',')) {
-        str = str.replace(/\./g, '');
-        str = str.replace(',', '.');
-    } 
+    if (str.includes(',')) { str = str.replace(/\./g, ''); str = str.replace(',', '.'); }
     str = str.replace(/[^0-9.-]/g, '');
     const val = parseFloat(str);
     return isNaN(val) ? 0 : Math.round(val * 100) / 100;
@@ -48,7 +58,6 @@ const parsePrice = (raw) => {
 // ==========================================
 //               MATERIALS
 // ==========================================
-
 router.delete('/materials/all', requireAdmin, (req, res) => {
     db.serialize(() => {
         db.run("DELETE FROM materials");
@@ -108,26 +117,46 @@ router.delete('/materials/:id', requireAdmin, (req, res) => { db.run("DELETE FRO
 //               AUTRES ROUTES
 // ==========================================
 router.get('/users', requireAuth, (req, res) => db.all("SELECT id, email, role, name, phone, photo_url, is_active, last_login_at FROM users ORDER BY name", [], (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows)));
-router.post('/users', requireAdmin, uploadAvatar.single('photo'), async (req, res) => { const { email, password, role, name, phone, is_active } = req.body; const photo_url = req.file ? `/uploads/avatars/${req.file.filename}` : null; try { const hash = await bcrypt.hash(password, 10); db.run("INSERT INTO users (email, password_hash, role, name, phone, photo_url, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)", [email, hash, role, name, phone, photo_url, is_active], function(err) { if (err) return res.status(400).json({ error: err.message.includes('UNIQUE') ? "Email déjà utilisé" : "Erreur BDD" }); res.json({ id: this.lastID }); }); } catch (e) { res.status(500).json({ error: e.message }); } });
+
+// --- CRÉATION UTILISATEUR + DÉCLENCHEUR ---
+router.post('/users', requireAdmin, uploadAvatar.single('photo'), async (req, res) => { 
+    const { email, password, role, name, phone, is_active } = req.body; 
+    const photo_url = req.file ? `/uploads/avatars/${req.file.filename}` : null; 
+    try { 
+        const hash = await bcrypt.hash(password, 10); 
+        db.run("INSERT INTO users (email, password_hash, role, name, phone, photo_url, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+        [email, hash, role, name, phone, photo_url, is_active], function(err) { 
+            if (err) return res.status(400).json({ error: err.message.includes('UNIQUE') ? "Email déjà utilisé" : "Erreur BDD" }); 
+            
+            // NOTIFICATION : Nouvel utilisateur pour l'Admin
+            notifyRoles(['admin'], 'success', `👤 Nouvel utilisateur créé : ${name} (${role})`, '/admin.html');
+            
+            res.json({ id: this.lastID }); 
+        }); 
+    } catch (e) { res.status(500).json({ error: e.message }); } 
+});
+
 router.put('/users/:id', requireAdmin, uploadAvatar.single('photo'), (req, res) => { const { role, name, phone, is_active, email } = req.body; let sql="UPDATE users SET role=?, name=?, phone=?, is_active=?, email=?"; let params=[role, name, phone, is_active, email]; if(req.file){sql+=", photo_url=?"; params.push(`/uploads/avatars/${req.file.filename}`);} sql+=" WHERE id=?"; params.push(req.params.id); db.run(sql, params, (err)=>err?res.status(500).json({error:err.message}):res.json({success:true})); });
 router.post('/users/:id/reset-password', requireAdmin, async (req, res) => { const { password } = req.body; if(!password||password.length<6)return res.status(400).json({error:"Trop court"}); try{const hash=await bcrypt.hash(password, 10); db.run("UPDATE users SET password_hash=? WHERE id=?", [hash, req.params.id], (err)=>err?res.status(500).json({error:err.message}):res.json({success:true}));}catch(e){res.status(500).json({error:e.message});} });
 router.delete('/users/:id', requireAdmin, (req, res) => { if(req.session.userId==req.params.id)return res.status(400).json({error:"Impossible"}); db.run("DELETE FROM users WHERE id=?",[req.params.id],(err)=>err?res.status(500).json({error:err.message}):res.json({success:true})); });
+
 router.get('/roles', requireAdmin, (req, res) => db.all("SELECT * FROM roles ORDER BY name", [], (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows)));
 router.post('/roles', requireAdmin, (req, res) => { const { name, permissions } = req.body; const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '_'); db.run("INSERT INTO roles (slug, name, permissions) VALUES (?, ?, ?)", [slug, name, permissions || ''], (err) => err ? res.status(400).json({error:"Existe déjà"}) : res.json({slug, name})); });
 router.put('/roles/:slug', requireAdmin, (req, res) => { const { name, permissions } = req.body; db.run("UPDATE roles SET name=?, permissions=? WHERE slug=?", [name, permissions, req.params.slug], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})); });
 router.delete('/roles/:slug', requireAdmin, (req, res) => db.run("DELETE FROM roles WHERE slug=?", [req.params.slug], (err) => err ? res.status(500).json({error:"Erreur"}) : res.json({success:true})));
+
 router.get('/sectors', requireAdmin, (req, res) => db.all("SELECT * FROM sectors ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
 router.post('/sectors', requireAdmin, (req, res) => { const slug = req.body.name.toLowerCase().replace(/[^a-z0-9]/g, ''); db.run("INSERT INTO sectors (name, slug) VALUES (?, ?)", [req.body.name, slug], function(err) { if(err) return res.status(400).json({error:"Erreur"}); res.json({id:this.lastID}); }); });
 router.delete('/sectors/:id', requireAdmin, (req, res) => db.run("DELETE FROM sectors WHERE id=?", [req.params.id], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})));
+
 router.get('/device-types', requireAdmin, (req, res) => db.all("SELECT * FROM device_types ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
 router.post('/device-types', requireAdmin, (req, res) => db.run("INSERT INTO device_types (name) VALUES (?)", [req.body.name], function(err) { err ? res.status(400).json({error:"Erreur"}) : res.json({id:this.lastID}); }));
 router.delete('/device-types/:id', requireAdmin, (req, res) => db.run("DELETE FROM device_types WHERE id=?", [req.params.id], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})));
 
-// --- EQUIPEMENTS : AJOUT DE NAME_DE ---
+// --- EQUIPEMENTS ---
 router.get('/equipment', requireAuth, (req, res) => db.all("SELECT * FROM equipment_catalog ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
 
 router.post('/equipment', requireAdmin, (req, res) => { 
-    // On ajoute name_de
     const { name, name_de, brand, model, type, device_type, is_secondary } = req.body; 
     const secVal = is_secondary ? 1 : 0;
     
@@ -139,7 +168,6 @@ router.post('/equipment', requireAdmin, (req, res) => {
 });
 
 router.put('/equipment/:id', requireAdmin, (req, res) => { 
-    // On ajoute name_de
     const { name, name_de, brand, model, type, device_type, is_secondary } = req.body; 
     const secVal = is_secondary ? 1 : 0;
     
