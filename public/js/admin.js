@@ -130,7 +130,7 @@ async function checkAuth() {
     
     let avatarHtml = `<div class="user-avatar">${data.user.name.charAt(0)}</div>`;
     if(data.user.photo_url) avatarHtml = `<img src="${data.user.photo_url}" class="user-avatar-img" alt="avatar" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`;
-    document.getElementById('user-info').innerHTML = `${avatarHtml}<div class="user-details"><strong>${escapeHtml(data.user.name)}</strong><span>Admin</span></div>`;
+    document.getElementById('user-info').innerHTML = `${avatarHtml}<div class="user-details"><strong>${escapeHtml(data.user.name)}</strong><span>Administrateur</span></div>`;
     window.currentUserId = data.user.id;
   } catch { window.location.href = '/login.html'; }
 }
