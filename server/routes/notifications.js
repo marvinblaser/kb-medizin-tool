@@ -38,19 +38,21 @@ router.put('/read-all', requireAuth, (req, res) => {
     });
 });
 
-// --- NOUVEAU : Supprimer UNE notification ---
-router.delete('/:id', requireAuth, (req, res) => {
-    db.run("DELETE FROM notifications WHERE id = ? AND user_id = ?", 
-    [req.params.id, req.session.userId], (err) => {
+// --- NOUVEAU : Supprimer TOUTES les notifications ---
+// /all DOIT ÊTRE PLACÉ AVANT /:id
+router.delete('/all', requireAuth, (req, res) => {
+    db.run("DELETE FROM notifications WHERE user_id = ?", 
+    [req.session.userId], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });
 });
 
-// --- NOUVEAU : Supprimer TOUTES les notifications ---
-router.delete('/all', requireAuth, (req, res) => {
-    db.run("DELETE FROM notifications WHERE user_id = ?", 
-    [req.session.userId], (err) => {
+// --- NOUVEAU : Supprimer UNE notification ---
+// /:id vient APRES, sinon il capture le mot "all" comme si c'était un ID
+router.delete('/:id', requireAuth, (req, res) => {
+    db.run("DELETE FROM notifications WHERE id = ? AND user_id = ?", 
+    [req.params.id, req.session.userId], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });
