@@ -486,7 +486,7 @@ function renderPlanning(list) {
                 </div>`;
         } else {
             actionButtons = `
-                <button class="btn btn-sm btn-primary" style="margin-right:8px;" onclick="event.stopPropagation(); openScheduleModal(${client.client_id}, '${escapeHtml(client.cabinet_name)}')" title="Fixer un RDV">
+                <button class="btn btn-sm btn-primary" style="margin-right:8px;" onclick="event.stopPropagation(); openScheduleModal(${client.client_id}, '${escapeJsArg(client.cabinet_name)}')" title="Fixer un RDV">
                     <i class="fas fa-calendar-plus"></i> Fixer
                 </button>`;
         }
@@ -634,11 +634,10 @@ async function openClientDetails(id) {
         document.getElementById('sheet-notes').textContent = c.notes || 'Aucune note.';
         document.getElementById('sheet-coords').innerHTML = c.latitude ? `<i class="fas fa-check-circle"></i> ${c.latitude}, ${c.longitude}` : 'Non localisé';
         
-        // --- NOUVEAU : Injection des boutons d'action dans le header ---
         const actionsRow = modal.querySelector('.sheet-actions-row');
         if (actionsRow) {
             actionsRow.innerHTML = `
-                <button class="btn btn-primary btn-sm" onclick="openScheduleModal(${c.id}, '${escapeHtml(c.cabinet_name)}')" title="Fixer un nouveau RDV">
+                <button class="btn btn-primary btn-sm" onclick="openScheduleModal(${c.id}, '${escapeJsArg(c.cabinet_name)}')" title="Fixer un nouveau RDV">
                     <i class="fas fa-calendar-plus"></i> Planifier
                 </button>
                 <button class="btn btn-secondary btn-sm" onclick="openClientModal(${c.id})">
@@ -831,7 +830,7 @@ async function loadClientHistory(id) {
                     ${!isReport && !isPast ? `
                     <div class="timeline-action">
                         <button class="btn-doc-action" style="border-color:#cbd5e1; color:#475569;" 
-                                onclick="event.stopPropagation(); openScheduleModal(${id}, '${escapeHtml(clientName)}', ${h.id_unique})">
+                                onclick="event.stopPropagation(); openScheduleModal(${id}, '${escapeJsArg(clientName)}', ${h.id_unique})">
                             <i class="fas fa-pen"></i> Modifier
                         </button>
                     </div>` : ''}
@@ -1265,6 +1264,16 @@ async function loadTechnicians() {
         });
 
     } catch (e) { console.error("Erreur chargement techniciens", e); }
+}
+
+function escapeJsArg(t) {
+    if (!t) return '';
+    return t.toString()
+        .replace(/\\/g, "\\\\")
+        .replace(/'/g, "\\'")    // Échappe l'apostrophe pour le Javascript
+        .replace(/"/g, "&quot;") // Échappe les guillemets pour le HTML
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
 }
 
 // EXPOSITION DES FONCTIONS AU HTML
