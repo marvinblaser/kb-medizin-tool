@@ -189,7 +189,7 @@ router.get('/clients-map', requireAuth, (req, res) => {
                     SELECT 1 FROM client_equipment ce 
                     JOIN equipment_catalog ec ON ce.equipment_id = ec.id
                     WHERE ce.client_id = c.id 
-                    AND ce.next_maintenance_date < date('now', '+30 days')
+                    AND ce.next_maintenance_date <= date('now', '+30 days')
                     AND ce.next_maintenance_date >= date('now')
                     AND (ec.is_secondary = 0 OR ec.is_secondary IS NULL)
                     AND (ce.is_secondary = 0 OR ce.is_secondary IS NULL)
