@@ -439,7 +439,7 @@ function updateMapMarkers() {
       const now = new Date(); now.setHours(0,0,0,0); 
       const diff = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
       if (diff < 0) return `<span class="badge badge-danger" style="font-size:10px!important;padding:2px 6px;">Expiré (${Math.abs(diff)}j)</span>`;
-      if (diff < 30) return `<span class="badge badge-warning" style="font-size:10px!important;padding:2px 6px;">${diff} jours</span>`;
+      if (diff <= 30) return `<span class="badge badge-warning" style="font-size:10px!important;padding:2px 6px;">${diff} jours</span>`;
       return `<span class="badge badge-success" style="font-size:10px!important;padding:2px 6px;">OK</span>`;
     };
 
