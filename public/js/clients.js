@@ -725,7 +725,7 @@ async function loadClientEquipment(id) {
                     text = 'Hors contrat';
                 } else if(eq.days_remaining < 0) { 
                     color = 'var(--color-danger)'; text = 'Expiré'; 
-                } else if(eq.days_remaining < 30) { 
+                } else if(eq.days_remaining <= 30) { 
                     color = 'var(--color-warning)'; text = 'Bientôt'; 
                 }
 
