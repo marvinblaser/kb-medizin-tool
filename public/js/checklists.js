@@ -283,7 +283,6 @@ async function checkAuth() {
     const data = await response.json();
     currentUser = data.user;
     document.getElementById('user-info').innerHTML = `<div class="user-avatar">${data.user.name.charAt(0)}</div><div class="user-details"><strong>${escapeHtml(data.user.name)}</strong><span>${data.user.role === 'admin' ? 'Admin' : 'Tech'}</span></div>`;
-    if (data.user.role === 'admin') document.getElementById('admin-link')?.classList.remove('hidden');
   } catch { window.location.href = '/login.html'; }
 }
 async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login.html'; }

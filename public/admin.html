@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
@@ -12,88 +12,260 @@
     <link rel="stylesheet" href="/css/table.css" />
     <link rel="stylesheet" href="/css/pages.css" />
     <link rel="stylesheet" href="/css/utilities.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <link rel="stylesheet" href="/css/transitions.css" />
-    <link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
-    <link href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css" rel="stylesheet">
-    
+    <link
+      rel="shortcut icon"
+      href="src/images/swiss_flag.webp"
+      type="image/x-icon"
+    />
+    <link
+      href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css"
+      rel="stylesheet"
+    />
+
     <style>
-        /* --- STYLES SPÉCIFIQUES ADMIN --- */
-        .admin-container-fluid { padding: 1.5rem 3rem; width: 100%; max-width: 1800px; margin: 0 auto; }
-        
-        .toolbar-clean-bar {
-            background: white; border: 1px solid var(--border-color); border-radius: 8px;
-            padding: 0 1.5rem; display: flex; align-items: center; height: 64px;
-            box-shadow: var(--shadow-sm); margin-bottom: 2rem; flex-shrink: 0; gap: 1.5rem;
-        }
-        
-        .toolbar-nav-section { display: flex; gap: 2rem; height: 100%; }
-        
-        .nav-text-btn {
-            background: transparent; border: none; border-bottom: 3px solid transparent; height: 100%;
-            display: flex; align-items: center; font-size: 0.95rem; font-weight: 500; color: var(--neutral-500);
-            cursor: pointer; transition: all 0.2s; padding: 0 5px; gap: 8px; margin-bottom: -1px;
-        }
-        .nav-text-btn:hover { color: var(--color-primary); }
-        .nav-text-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
-        .nav-text-btn i { font-size: 1rem; }
+      /* --- STYLES SPÉCIFIQUES ADMIN --- */
+      .admin-container-fluid {
+        padding: 1.5rem 3rem;
+        width: 100%;
+        max-width: 1800px;
+        margin: 0 auto;
+      }
 
-        .view-section { display: none; animation: fadeIn 0.3s ease-out; }
-        .view-section.active { display: block; }
-        
-        .section-header { 
-            display: flex; justify-content: space-between; align-items: center; 
-            margin-bottom: 1.5rem; padding: 1rem 1.5rem; background: white;
-            border: 1px solid var(--border-color); border-radius: 8px;
-            box-shadow: var(--shadow-sm);
-        }
-        .section-info h3 { margin: 0; font-size: 1.1rem; color: var(--neutral-800); display: flex; align-items: center; gap: 10px; }
-        .section-info p { margin: 4px 0 0 0; font-size: 0.85rem; color: var(--neutral-500); }
-        
-        .erp-table-wrapper { 
-            background: white; border: 1px solid var(--border-color); border-radius: 8px; 
-            overflow: hidden; box-shadow: var(--shadow-sm); 
-        }
-        .erp-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        
-        .erp-table th { 
-            background: var(--neutral-50); padding: 1rem 1.25rem; text-align: left; 
-            color: var(--neutral-600); font-weight: 600; border-bottom: 1px solid var(--border-color); 
-            font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; 
-        }
-        
-        .erp-table td { 
-            padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color-light); 
-            vertical-align: middle; color: var(--neutral-800); font-size: 0.9rem; 
-        }
-        .erp-table tr:last-child td { border-bottom: none; }
-        .erp-table tr:hover { background: var(--neutral-50); }
+      .toolbar-clean-bar {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0 1.5rem;
+        display: flex;
+        align-items: center;
+        height: 64px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 2rem;
+        flex-shrink: 0;
+        gap: 1.5rem;
+      }
 
-        .table-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; }
-        
-        .btn-icon-sm { 
-            width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; 
-            border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; 
-        }
-        
-        .btn-icon-primary { background: var(--color-primary-light); color: var(--color-primary); }
-        .btn-icon-primary:hover { background: #b3e5fc; color: var(--color-primary-hover); transform: translateY(-1px); }
-        
-        .btn-icon-secondary { background: var(--neutral-100); color: var(--neutral-600); }
-        .btn-icon-secondary:hover { background: var(--neutral-200); color: var(--neutral-800); transform: translateY(-1px); }
-        
-        .btn-icon-danger { background: #fee2e2; color: #ef4444; }
-        .btn-icon-danger:hover { background: #fecaca; color: #b91c1c; transform: translateY(-1px); }
+      .toolbar-nav-section {
+        display: flex;
+        gap: 2rem;
+        height: 100%;
+      }
 
-        .permissions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; max-height: 350px; overflow-y: auto; padding: 1rem; background: var(--neutral-50); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
-        .perm-item { background: white; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-color-light); display: flex; align-items: center; gap: 0.75rem; transition: border-color 0.2s; }
-        .perm-item:hover { border-color: var(--color-primary-light); }
-        .perm-item label { cursor: pointer; font-size: 0.9rem; font-weight: 500; color: var(--neutral-700); user-select: none; }
-        .perm-item input { width: 18px; height: 18px; accent-color: var(--color-primary); }
+      .nav-text-btn {
+        background: transparent;
+        border: none;
+        border-bottom: 3px solid transparent;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: var(--neutral-500);
+        cursor: pointer;
+        transition: all 0.2s;
+        padding: 0 5px;
+        gap: 8px;
+        margin-bottom: -1px;
+      }
+      .nav-text-btn:hover {
+        color: var(--color-primary);
+      }
+      .nav-text-btn.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+        font-weight: 600;
+      }
+      .nav-text-btn i {
+        font-size: 1rem;
+      }
 
-        .log-filters { display: flex; gap: 5px; background: var(--neutral-100); padding: 4px; border-radius: 6px; }
-        .log-filter-btn { padding: 6px 12px; border: none; background: transparent; border-radius: 4px; font-size: 0.85rem; font-weight: 500; color: var(--neutral-600); cursor: pointer; transition: all 0.2s; }
-        .log-filter-btn.active { background: white; color: var(--color-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+      .view-section {
+        display: none;
+        animation: fadeIn 0.3s ease-out;
+      }
+      .view-section.active {
+        display: block;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding: 1rem 1.5rem;
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        box-shadow: var(--shadow-sm);
+      }
+      .section-info h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: var(--neutral-800);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .section-info p {
+        margin: 4px 0 0 0;
+        font-size: 0.85rem;
+        color: var(--neutral-500);
+      }
+
+      .erp-table-wrapper {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+      }
+      .erp-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+
+      .erp-table th {
+        background: var(--neutral-50);
+        padding: 1rem 1.25rem;
+        text-align: left;
+        color: var(--neutral-600);
+        font-weight: 600;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .erp-table td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border-color-light);
+        vertical-align: middle;
+        color: var(--neutral-800);
+        font-size: 0.9rem;
+      }
+      .erp-table tr:last-child td {
+        border-bottom: none;
+      }
+      .erp-table tr:hover {
+        background: var(--neutral-50);
+      }
+
+      .table-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+      }
+
+      .btn-icon-sm {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+      }
+
+      .btn-icon-primary {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+      }
+      .btn-icon-primary:hover {
+        background: #b3e5fc;
+        color: var(--color-primary-hover);
+        transform: translateY(-1px);
+      }
+
+      .btn-icon-secondary {
+        background: var(--neutral-100);
+        color: var(--neutral-600);
+      }
+      .btn-icon-secondary:hover {
+        background: var(--neutral-200);
+        color: var(--neutral-800);
+        transform: translateY(-1px);
+      }
+
+      .btn-icon-danger {
+        background: #fee2e2;
+        color: #ef4444;
+      }
+      .btn-icon-danger:hover {
+        background: #fecaca;
+        color: #b91c1c;
+        transform: translateY(-1px);
+      }
+
+      .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 0.75rem;
+        max-height: 350px;
+        overflow-y: auto;
+        padding: 1rem;
+        background: var(--neutral-50);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+      }
+      .perm-item {
+        background: white;
+        padding: 0.75rem;
+        border-radius: 6px;
+        border: 1px solid var(--border-color-light);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        transition: border-color 0.2s;
+      }
+      .perm-item:hover {
+        border-color: var(--color-primary-light);
+      }
+      .perm-item label {
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--neutral-700);
+        user-select: none;
+      }
+      .perm-item input {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--color-primary);
+      }
+
+      .log-filters {
+        display: flex;
+        gap: 5px;
+        background: var(--neutral-100);
+        padding: 4px;
+        border-radius: 6px;
+      }
+      .log-filter-btn {
+        padding: 6px 12px;
+        border: none;
+        background: transparent;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--neutral-600);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .log-filter-btn.active {
+        background: white;
+        color: var(--color-primary);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
     </style>
   </head>
   <body>
@@ -108,11 +280,16 @@
           <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
           <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
           <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
-          <a href="/admin.html" id="admin-link" class="active"><i class="fas fa-cog"></i><span>Administration</span></a>
+          
+          <a href="/admin.html" class="active"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
         </nav>
         <div class="sidebar-footer">
           <div class="user-info" id="user-info"></div>
-          <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%">
+          <button
+            class="btn btn-secondary btn-sm"
+            id="logout-btn"
+            style="width: 100%"
+          >
             <i class="fas fa-sign-out-alt"></i>Déconnexion
           </button>
         </div>
@@ -124,219 +301,596 @@
         </div>
 
         <div class="admin-container-fluid">
-            
-            <div class="toolbar-clean-bar">
+          <div class="toolbar-clean-bar">
                 <div class="toolbar-nav-section" id="admin-tabs">
-                    <button class="nav-text-btn active" data-tab="users"><i class="fas fa-users"></i> Utilisateurs</button>
-                    <button class="nav-text-btn" data-tab="roles"><i class="fas fa-user-shield"></i> Rôles</button>
-                    <button class="nav-text-btn" data-tab="equipment"><i class="fas fa-server"></i> Catalogue</button>
+                    <button class="nav-text-btn admin-only" data-tab="users" style="display:none;"><i class="fas fa-users"></i> Utilisateurs</button>
+                    <button class="nav-text-btn admin-only" data-tab="roles" style="display:none;"><i class="fas fa-user-shield"></i> Rôles</button>
+                    
+                    <button class="nav-text-btn" data-tab="equipment" id="tab-btn-eq"><i class="fas fa-server"></i> Catalogue</button>
                     <button class="nav-text-btn" data-tab="device-types"><i class="fas fa-tags"></i> Types</button>
                     <button class="nav-text-btn" data-tab="sectors"><i class="fas fa-clinic-medical"></i> Secteurs</button>
                     <button class="nav-text-btn" data-tab="materials"><i class="fas fa-boxes"></i> Matériel</button>
-                    <button class="nav-text-btn" data-tab="logs"><i class="fas fa-history"></i> Logs</button>
+                    
+                    <button class="nav-text-btn admin-only" data-tab="logs" style="display:none;"><i class="fas fa-history"></i> Logs</button>
                 </div>
             </div>
 
-            <div class="view-section active" id="tab-users">
-              <div class="section-header">
-                  <div class="section-info">
-                      <h3><i class="fas fa-users" style="color: var(--color-primary);"></i> Gestion des Utilisateurs</h3>
-                      <p>Gérez les accès et les comptes du personnel.</p>
-                  </div>
-                  <button class="btn btn-primary" id="add-user-btn"><i class="fas fa-user-plus"></i> Nouvel utilisateur</button>
+          <div class="view-section active" id="tab-users">
+            <div class="section-header">
+              <div class="section-info">
+                <h3>
+                  <i
+                    class="fas fa-users"
+                    style="color: var(--color-primary)"
+                  ></i>
+                  Gestion des Utilisateurs
+                </h3>
+                <p>Gérez les accès et les comptes du personnel.</p>
               </div>
-              <div class="erp-table-wrapper">
-                <table class="erp-table">
-                  <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Tél</th><th>Statut</th><th>Dernière connexion</th><th style="text-align:right">Actions</th></tr></thead>
-                  <tbody id="users-tbody"><tr><td colspan="7" class="text-center" style="padding:2rem">Chargement...</td></tr></tbody>
-                </table>
+              <button class="btn btn-primary" id="add-user-btn">
+                <i class="fas fa-user-plus"></i> Nouvel utilisateur
+              </button>
+            </div>
+            <div class="erp-table-wrapper">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th>Nom</th>
+                    <th>Email</th>
+                    <th>Rôle</th>
+                    <th>Tél</th>
+                    <th>Statut</th>
+                    <th>Dernière connexion</th>
+                    <th style="text-align: right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="users-tbody">
+                  <tr>
+                    <td colspan="7" class="text-center" style="padding: 2rem">
+                      Chargement...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="view-section" id="tab-roles">
+            <div class="section-header">
+              <div class="section-info">
+                <h3>
+                  <i
+                    class="fas fa-shield-alt"
+                    style="color: var(--color-primary)"
+                  ></i>
+                  Rôles & Permissions
+                </h3>
+                <p>Définissez les niveaux d'accès de l'application.</p>
+              </div>
+              <button class="btn btn-primary" id="add-role-btn">
+                <i class="fas fa-plus"></i> Créer un rôle
+              </button>
+            </div>
+            <div class="erp-table-wrapper">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th>Nom du rôle</th>
+                    <th>Identifiant (Slug)</th>
+                    <th>Permissions</th>
+                    <th style="text-align: right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="roles-tbody">
+                  <tr>
+                    <td colspan="4" class="text-center">Chargement...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="view-section" id="tab-equipment">
+            <div class="section-header">
+              <div class="section-info">
+                <h3>
+                  <i
+                    class="fas fa-server"
+                    style="color: var(--color-primary)"
+                  ></i>
+                  Catalogue Équipements
+                </h3>
+                <p>
+                  Base de données des machines installables chez les clients.
+                </p>
+              </div>
+              <button class="btn btn-primary" id="add-equipment-btn">
+                <i class="fas fa-plus"></i> Ajouter un modèle
+              </button>
+            </div>
+            <div class="erp-table-wrapper">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th>Modèle</th>
+                    <th>Marque</th>
+                    <th>Type Appareil</th>
+                    <th>Secteur</th>
+                    <th style="text-align: right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="equipment-tbody">
+                  <tr>
+                    <td colspan="5" class="text-center">Chargement...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="view-section" id="tab-device-types">
+            <div class="section-header">
+              <div class="section-info">
+                <h3>Types d'Appareils</h3>
+                <p>Catégories (ex: Fauteuil, Microscope).</p>
+              </div>
+              <button class="btn btn-primary" id="add-device-type-btn">
+                <i class="fas fa-plus"></i> Ajouter un type
+              </button>
+            </div>
+            <div class="erp-table-wrapper">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th>Nom</th>
+                    <th style="text-align: right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="device-types-tbody">
+                  <tr>
+                    <td colspan="2" class="text-center">Chargement...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="view-section" id="tab-sectors">
+            <div class="section-header">
+              <div class="section-info">
+                <h3>Secteurs d'activité</h3>
+                <p>Départements médicaux.</p>
+              </div>
+              <button class="btn btn-primary" id="add-sector-btn">
+                <i class="fas fa-plus"></i> Ajouter secteur
+              </button>
+            </div>
+            <div class="erp-table-wrapper">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th>Nom</th>
+                    <th>Slug</th>
+                    <th>Date création</th>
+                    <th style="text-align: right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="sectors-tbody">
+                  <tr>
+                    <td colspan="4" class="text-center">Chargement...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="view-section" id="tab-materials">
+            <div class="section-header">
+              <div class="section-info">
+                <h3>Pièces & Matériel</h3>
+                <p>Liste des consommables pour les rapports.</p>
+              </div>
+
+              <div style="display: flex; gap: 10px">
+                <input
+                  type="file"
+                  id="import-material-input"
+                  accept=".csv, .xlsx"
+                  style="display: none"
+                />
+
+                <button
+                  class="btn btn-icon-danger"
+                  id="delete-all-materials-btn"
+                  style="
+                    height: 38px;
+                    padding: 0 15px;
+                    font-weight: 500;
+                    font-size: 0.9rem;
+                  "
+                  title="Supprimer tout le matériel"
+                >
+                  <i class="fas fa-trash"></i> Tout vider
+                </button>
+
+                <button
+                  class="btn btn-secondary"
+                  onclick="
+                    document.getElementById('import-material-input').click()
+                  "
+                >
+                  <i class="fas fa-file-import"></i> Importer
+                </button>
+
+                <button class="btn btn-primary" id="add-material-btn">
+                  <i class="fas fa-plus"></i> Ajouter
+                </button>
               </div>
             </div>
-            
-            <div class="view-section" id="tab-roles">
-              <div class="section-header">
-                  <div class="section-info">
-                      <h3><i class="fas fa-shield-alt" style="color: var(--color-primary);"></i> Rôles & Permissions</h3>
-                      <p>Définissez les niveaux d'accès de l'application.</p>
-                  </div>
-                  <button class="btn btn-primary" id="add-role-btn"><i class="fas fa-plus"></i> Créer un rôle</button>
+            <div class="erp-table-wrapper">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th>Nom</th>
+                    <th>Code</th>
+                    <th>Prix</th>
+                    <th style="text-align: right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="materials-tbody">
+                  <tr>
+                    <td colspan="4" class="text-center">Chargement...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="view-section" id="tab-logs">
+            <div class="section-header">
+              <div class="section-info">
+                <h3>Journal Système</h3>
+                <p>Historique des actions importantes.</p>
               </div>
-              <div class="erp-table-wrapper">
-                <table class="erp-table">
-                  <thead><tr><th>Nom du rôle</th><th>Identifiant (Slug)</th><th>Permissions</th><th style="text-align:right">Actions</th></tr></thead>
-                  <tbody id="roles-tbody"><tr><td colspan="4" class="text-center">Chargement...</td></tr></tbody>
-                </table>
+              <div class="log-filters">
+                <button
+                  class="log-filter-btn active"
+                  onclick="filterLogs('all', this)"
+                >
+                  Tous
+                </button>
+                <button
+                  class="log-filter-btn"
+                  onclick="filterLogs('auth', this)"
+                >
+                  Auth
+                </button>
+                <button
+                  class="log-filter-btn"
+                  onclick="filterLogs('users', this)"
+                >
+                  Users
+                </button>
+                <button
+                  class="log-filter-btn"
+                  onclick="filterLogs('reports', this)"
+                >
+                  Rapports
+                </button>
               </div>
             </div>
-
-            <div class="view-section" id="tab-equipment">
-              <div class="section-header">
-                  <div class="section-info">
-                      <h3><i class="fas fa-server" style="color: var(--color-primary);"></i> Catalogue Équipements</h3>
-                      <p>Base de données des machines installables chez les clients.</p>
-                  </div>
-                  <button class="btn btn-primary" id="add-equipment-btn"><i class="fas fa-plus"></i> Ajouter un modèle</button>
-              </div>
-              <div class="erp-table-wrapper">
-                <table class="erp-table">
-                  <thead><tr><th>Modèle</th><th>Marque</th><th>Type Appareil</th><th>Secteur</th><th style="text-align:right">Actions</th></tr></thead>
-                  <tbody id="equipment-tbody"><tr><td colspan="5" class="text-center">Chargement...</td></tr></tbody>
-                </table>
-              </div>
+            <div class="erp-table-wrapper">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Utilisateur</th>
+                    <th>Action</th>
+                    <th>Entité</th>
+                    <th>ID</th>
+                  </tr>
+                </thead>
+                <tbody id="logs-tbody">
+                  <tr>
+                    <td colspan="5" class="text-center">Chargement...</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+          </div>
+        </div>
 
-            <div class="view-section" id="tab-device-types">
-              <div class="section-header">
-                  <div class="section-info"><h3>Types d'Appareils</h3><p>Catégories (ex: Fauteuil, Microscope).</p></div>
-                  <button class="btn btn-primary" id="add-device-type-btn"><i class="fas fa-plus"></i> Ajouter un type</button>
-              </div>
-              <div class="erp-table-wrapper">
-                <table class="erp-table">
-                  <thead><tr><th>Nom</th><th style="text-align:right">Actions</th></tr></thead>
-                  <tbody id="device-types-tbody"><tr><td colspan="2" class="text-center">Chargement...</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="view-section" id="tab-sectors">
-              <div class="section-header">
-                  <div class="section-info"><h3>Secteurs d'activité</h3><p>Départements médicaux.</p></div>
-                  <button class="btn btn-primary" id="add-sector-btn"><i class="fas fa-plus"></i> Ajouter secteur</button>
-              </div>
-              <div class="erp-table-wrapper">
-                <table class="erp-table">
-                  <thead><tr><th>Nom</th><th>Slug</th><th>Date création</th><th style="text-align:right">Actions</th></tr></thead>
-                  <tbody id="sectors-tbody"><tr><td colspan="4" class="text-center">Chargement...</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="view-section" id="tab-materials">
-              <div class="section-header">
-                  <div class="section-info">
-                      <h3>Pièces & Matériel</h3>
-                      <p>Liste des consommables pour les rapports.</p>
-                  </div>
-                  
-                  <div style="display:flex; gap:10px;">
-                      <input type="file" id="import-material-input" accept=".csv, .xlsx" style="display:none;" />
-                      
-                      <button class="btn btn-icon-danger" id="delete-all-materials-btn" style="height: 38px; padding: 0 15px; font-weight: 500; font-size: 0.9rem;" title="Supprimer tout le matériel">
-                        <i class="fas fa-trash"></i> Tout vider
-                      </button>
-
-                      <button class="btn btn-secondary" onclick="document.getElementById('import-material-input').click()">
-                        <i class="fas fa-file-import"></i> Importer
-                      </button>
-                      
-                      <button class="btn btn-primary" id="add-material-btn">
-                        <i class="fas fa-plus"></i> Ajouter
-                      </button>
-                  </div>
-              </div>
-              <div class="erp-table-wrapper">
-                <table class="erp-table">
-                  <thead><tr><th>Nom</th><th>Code</th><th>Prix</th><th style="text-align:right">Actions</th></tr></thead>
-                  <tbody id="materials-tbody"><tr><td colspan="4" class="text-center">Chargement...</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="view-section" id="tab-logs">
-              <div class="section-header">
-                  <div class="section-info"><h3>Journal Système</h3><p>Historique des actions importantes.</p></div>
-                  <div class="log-filters">
-                    <button class="log-filter-btn active" onclick="filterLogs('all', this)">Tous</button>
-                    <button class="log-filter-btn" onclick="filterLogs('auth', this)">Auth</button>
-                    <button class="log-filter-btn" onclick="filterLogs('users', this)">Users</button>
-                    <button class="log-filter-btn" onclick="filterLogs('reports', this)">Rapports</button>
-                  </div>
-              </div>
-              <div class="erp-table-wrapper">
-                <table class="erp-table">
-                  <thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Entité</th><th>ID</th></tr></thead>
-                  <tbody id="logs-tbody"><tr><td colspan="5" class="text-center">Chargement...</td></tr></tbody>
-                </table>
-              </div>
-            </div>
-
-        </div> 
-        
         <div class="modal" id="user-modal">
           <div class="modal-content">
-            <div class="modal-header"><h2 id="user-modal-title"></h2><button class="modal-close" onclick="closeUserModal()">&times;</button></div>
+            <div class="modal-header">
+              <h2 id="user-modal-title"></h2>
+              <button class="modal-close" onclick="closeUserModal()">
+                &times;
+              </button>
+            </div>
             <div class="modal-body">
               <form id="user-form" enctype="multipart/form-data">
                 <input type="hidden" id="user-id" />
                 <div class="form-row">
-                    <div class="form-group"><label>Nom complet *</label><input type="text" id="user-name" required /></div>
-                    <div class="form-group"><label>Email *</label><input type="email" id="user-email" required /></div>
+                  <div class="form-group">
+                    <label>Nom complet *</label
+                    ><input type="text" id="user-name" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Email *</label
+                    ><input type="email" id="user-email" required />
+                  </div>
                 </div>
-                <div class="form-group"><label>Photo</label><input type="file" id="user-photo" accept="image/*" /></div>
-                <div class="form-group" id="password-group"><label>Mot de passe *</label><input type="password" id="user-password" /></div>
+                <div class="form-group">
+                  <label>Photo</label
+                  ><input type="file" id="user-photo" accept="image/*" />
+                </div>
+                <div class="form-group" id="password-group">
+                  <label>Mot de passe *</label
+                  ><input type="password" id="user-password" />
+                </div>
                 <div class="form-row">
-                    <div class="form-group"><label>Rôle *</label><select id="user-role" required></select></div>
-                    <div class="form-group"><label>Téléphone</label><input type="tel" id="user-phone" /></div>
+                  <div class="form-group">
+                    <label>Rôle *</label
+                    ><select id="user-role" required></select>
+                  </div>
+                  <div class="form-group">
+                    <label>Téléphone</label><input type="tel" id="user-phone" />
+                  </div>
                 </div>
-                <div class="checkbox-group"><input type="checkbox" id="user-active" checked /><label>Compte actif (Peut se connecter)</label></div>
+                <div class="checkbox-group">
+                  <input type="checkbox" id="user-active" checked /><label
+                    >Compte actif (Peut se connecter)</label
+                  >
+                </div>
               </form>
             </div>
-            <div class="modal-footer"><button class="btn btn-secondary" id="cancel-user-btn">Annuler</button><button class="btn btn-primary" id="save-user-btn">Enregistrer</button></div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" id="cancel-user-btn">
+                Annuler</button
+              ><button class="btn btn-primary" id="save-user-btn">
+                Enregistrer
+              </button>
+            </div>
           </div>
         </div>
-        
+
         <div class="modal" id="role-modal">
           <div class="modal-content">
-            <div class="modal-header"><h2 id="role-modal-title">Nouveau Rôle</h2><button class="modal-close" onclick="closeRoleModal()">&times;</button></div>
+            <div class="modal-header">
+              <h2 id="role-modal-title">Nouveau Rôle</h2>
+              <button class="modal-close" onclick="closeRoleModal()">
+                &times;
+              </button>
+            </div>
             <div class="modal-body">
               <input type="hidden" id="role-slug-original" />
-              <div class="form-group"><label>Nom du rôle *</label><input type="text" id="role-name" placeholder="Ex: Stagiaire" required /></div>
-              
               <div class="form-group">
-                <label style="margin-bottom: 10px; display:block; font-weight:600;">Permissions</label>
-                <div id="permissions-container" class="permissions-grid">
-                    </div>
+                <label>Nom du rôle *</label
+                ><input
+                  type="text"
+                  id="role-name"
+                  placeholder="Ex: Stagiaire"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label
+                  style="margin-bottom: 10px; display: block; font-weight: 600"
+                  >Permissions</label
+                >
+                <div id="permissions-container" class="permissions-grid"></div>
               </div>
             </div>
-            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeRoleModal()">Annuler</button><button class="btn btn-primary" id="save-role-btn">Enregistrer</button></div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeRoleModal()">
+                Annuler</button
+              ><button class="btn btn-primary" id="save-role-btn">
+                Enregistrer
+              </button>
+            </div>
           </div>
         </div>
 
         <div class="modal" id="equipment-modal">
-            <div class="modal-content">
-                <div class="modal-header"><h2 id="equipment-modal-title"></h2><button class="modal-close" onclick="closeEquipmentModal()">&times;</button></div>
-                <div class="modal-body">
-                    <form id="equipment-form">
-                        <input type="hidden" id="equipment-id" />
-                        <div class="form-row">
-                            <div class="form-group"><label>Modèle (FR) *</label><input type="text" id="equipment-name" required /></div>
-    <div class="form-group"><label>Modèle (DE)</label><input type="text" id="equipment-name-de" placeholder="Optionnel" /></div>
-                            <div class="form-group"><label>Marque *</label><input type="text" id="equipment-brand" required /></div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group"><label>Appareil *</label><select id="equipment-device-type" required></select></div>
-                            <div class="form-group"><label>Secteur *</label><select id="equipment-type" required></select></div>
-                        </div>
-                        <div class="form-group" style="background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: 10px; display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="equipment-secondary" style="width: 20px; height: 20px; cursor: pointer;">
-                            <div style="display:flex; flex-direction:column;">
-                                <label for="equipment-secondary" style="margin:0; font-weight:600; cursor:pointer;">Appareil Secondaire</label>
-                                <small style="color:#64748b; font-size:0.8rem;">(Ne déclenche pas d'alerte rouge "Maintenance Expirée")</small>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer"><button class="btn btn-secondary" onclick="closeEquipmentModal()">Annuler</button><button class="btn btn-primary" id="save-equipment-btn">Enregistrer</button></div>
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 id="equipment-modal-title"></h2>
+              <button class="modal-close" onclick="closeEquipmentModal()">
+                &times;
+              </button>
             </div>
+            <div class="modal-body">
+              <form id="equipment-form">
+                <input type="hidden" id="equipment-id" />
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Modèle (FR) *</label
+                    ><input type="text" id="equipment-name" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Modèle (DE)</label
+                    ><input
+                      type="text"
+                      id="equipment-name-de"
+                      placeholder="Optionnel"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>Marque *</label
+                    ><input type="text" id="equipment-brand" required />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Appareil *</label
+                    ><select id="equipment-device-type" required></select>
+                  </div>
+                  <div class="form-group">
+                    <label>Secteur *</label
+                    ><select id="equipment-type" required></select>
+                  </div>
+                </div>
+                <div
+                  class="form-group"
+                  style="
+                    background: #f8fafc;
+                    padding: 10px;
+                    border-radius: 6px;
+                    border: 1px solid #e2e8f0;
+                    margin-top: 10px;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                  "
+                >
+                  <input
+                    type="checkbox"
+                    id="equipment-secondary"
+                    style="width: 20px; height: 20px; cursor: pointer"
+                  />
+                  <div style="display: flex; flex-direction: column">
+                    <label
+                      for="equipment-secondary"
+                      style="margin: 0; font-weight: 600; cursor: pointer"
+                      >Appareil Secondaire</label
+                    >
+                    <small style="color: #64748b; font-size: 0.8rem"
+                      >(Ne déclenche pas d'alerte rouge "Maintenance
+                      Expirée")</small
+                    >
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeEquipmentModal()">
+                Annuler</button
+              ><button class="btn btn-primary" id="save-equipment-btn">
+                Enregistrer
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div class="modal" id="device-type-modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h2>Ajouter Type</h2><button class="modal-close" onclick="closeDeviceTypeModal()">&times;</button></div><div class="modal-body"><div class="form-group"><label>Nom *</label><input type="text" id="device-type-name" required /></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeDeviceTypeModal()">Annuler</button><button class="btn btn-primary" id="save-device-type-btn">Enregistrer</button></div></div></div>
-        
-        <div class="modal" id="material-modal"><div class="modal-content"><div class="modal-header"><h2 id="material-modal-title"></h2><button class="modal-close" onclick="closeMaterialModal()">&times;</button></div><div class="modal-body"><form id="material-form"><input type="hidden" id="material-id" /><div class="form-group"><label>Nom *</label><input type="text" id="material-name" required /></div><div class="form-row"><div class="form-group"><label>Code *</label><input type="text" id="material-code" required /></div><div class="form-group"><label>Prix (CHF) *</label><input type="number" id="material-price" step="0.01" required /></div></div></form></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeMaterialModal()">Annuler</button><button class="btn btn-primary" id="save-material-btn">Enregistrer</button></div></div></div>
-        
-        <div class="modal" id="sector-modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h2>Ajouter Secteur</h2><button class="modal-close" onclick="closeSectorModal()">&times;</button></div><div class="modal-body"><div class="form-group"><label>Nom *</label><input type="text" id="sector-name" required /></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeSectorModal()">Annuler</button><button class="btn btn-primary" id="save-sector-btn">Enregistrer</button></div></div></div>
-        
-        <div class="modal" id="reset-password-modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h2>Réinitialiser MDP</h2><button class="modal-close" onclick="closeResetModal()">&times;</button></div><div class="modal-body"><input type="hidden" id="reset-user-id" /><div class="form-group"><label>Nouveau MDP</label><input type="password" id="new-password" required /></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeResetModal()">Annuler</button><button class="btn btn-primary" id="confirm-reset-btn">Valider</button></div></div></div>
+        <div class="modal" id="device-type-modal">
+          <div class="modal-content" style="max-width: 400px">
+            <div class="modal-header">
+              <h2>Ajouter Type</h2>
+              <button class="modal-close" onclick="closeDeviceTypeModal()">
+                &times;
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Nom *</label
+                ><input type="text" id="device-type-name" required />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button
+                class="btn btn-secondary"
+                onclick="closeDeviceTypeModal()"
+              >
+                Annuler</button
+              ><button class="btn btn-primary" id="save-device-type-btn">
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal" id="material-modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 id="material-modal-title"></h2>
+              <button class="modal-close" onclick="closeMaterialModal()">
+                &times;
+              </button>
+            </div>
+            <div class="modal-body">
+              <form id="material-form">
+                <input type="hidden" id="material-id" />
+                <div class="form-group">
+                  <label>Nom *</label
+                  ><input type="text" id="material-name" required />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Code *</label
+                    ><input type="text" id="material-code" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Prix (CHF) *</label
+                    ><input
+                      type="number"
+                      id="material-price"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeMaterialModal()">
+                Annuler</button
+              ><button class="btn btn-primary" id="save-material-btn">
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal" id="sector-modal">
+          <div class="modal-content" style="max-width: 400px">
+            <div class="modal-header">
+              <h2>Ajouter Secteur</h2>
+              <button class="modal-close" onclick="closeSectorModal()">
+                &times;
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Nom *</label
+                ><input type="text" id="sector-name" required />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeSectorModal()">
+                Annuler</button
+              ><button class="btn btn-primary" id="save-sector-btn">
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal" id="reset-password-modal">
+          <div class="modal-content" style="max-width: 400px">
+            <div class="modal-header">
+              <h2>Réinitialiser MDP</h2>
+              <button class="modal-close" onclick="closeResetModal()">
+                &times;
+              </button>
+            </div>
+            <div class="modal-body">
+              <input type="hidden" id="reset-user-id" />
+              <div class="form-group">
+                <label>Nouveau MDP</label
+                ><input type="password" id="new-password" required />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeResetModal()">
+                Annuler</button
+              ><button class="btn btn-primary" id="confirm-reset-btn">
+                Valider
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div id="notification-container" class="notification-container"></div>
         <script type="module" src="/js/init-selects.js"></script>

@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const xlsx = require('xlsx');
 const { db } = require('../config/database');
-const { requireAdmin, requireAuth } = require('../middleware/auth');
+const { requireAdmin, requireAuth, requireStaff } = require('../middleware/auth');
 
 // --- NOTIFICATIONS HELPERS ---
 const notifyUser = (userId, type, message, link) => {
@@ -108,10 +108,10 @@ router.post('/materials/import', requireAdmin, uploadFile.single('file'), (req, 
     } catch (error) { res.status(500).json({ error: "Erreur lecture fichier" }); }
 });
 
-router.get('/materials', requireAuth, (req, res) => db.all("SELECT * FROM materials ORDER BY name", [], (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows)));
-router.post('/materials', requireAdmin, (req, res) => { const { name, product_code, unit_price } = req.body; const cleanPrice = parsePrice(unit_price); db.run("INSERT INTO materials (name, product_code, unit_price) VALUES (?, ?, ?)", [name, product_code, cleanPrice], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ id: this.lastID }); }); });
-router.put('/materials/:id', requireAdmin, (req, res) => { const { name, product_code, unit_price } = req.body; const cleanPrice = parsePrice(unit_price); db.run("UPDATE materials SET name=?, product_code=?, unit_price=? WHERE id=?", [name, product_code, cleanPrice, req.params.id], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ success: true }); }); });
-router.delete('/materials/:id', requireAdmin, (req, res) => { db.run("DELETE FROM materials WHERE id = ?", [req.params.id], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ success: true }); }); });
+router.get('/materials', requireStaff, (req, res) => db.all("SELECT * FROM materials ORDER BY name", [], (err, rows) => err ? res.status(500).json({ error: err.message }) : res.json(rows)));
+router.post('/materials', requireStaff, (req, res) => { const { name, product_code, unit_price } = req.body; const cleanPrice = parsePrice(unit_price); db.run("INSERT INTO materials (name, product_code, unit_price) VALUES (?, ?, ?)", [name, product_code, cleanPrice], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ id: this.lastID }); }); });
+router.put('/materials/:id', requireStaff, (req, res) => { const { name, product_code, unit_price } = req.body; const cleanPrice = parsePrice(unit_price); db.run("UPDATE materials SET name=?, product_code=?, unit_price=? WHERE id=?", [name, product_code, cleanPrice, req.params.id], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ success: true }); }); });
+router.delete('/materials/:id', requireStaff, (req, res) => { db.run("DELETE FROM materials WHERE id = ?", [req.params.id], function(err) { if (err) return res.status(500).json({ error: err.message }); res.json({ success: true }); }); });
 
 // ==========================================
 //               AUTRES ROUTES
@@ -145,18 +145,18 @@ router.post('/roles', requireAdmin, (req, res) => { const { name, permissions } 
 router.put('/roles/:slug', requireAdmin, (req, res) => { const { name, permissions } = req.body; db.run("UPDATE roles SET name=?, permissions=? WHERE slug=?", [name, permissions, req.params.slug], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})); });
 router.delete('/roles/:slug', requireAdmin, (req, res) => db.run("DELETE FROM roles WHERE slug=?", [req.params.slug], (err) => err ? res.status(500).json({error:"Erreur"}) : res.json({success:true})));
 
-router.get('/sectors', requireAdmin, (req, res) => db.all("SELECT * FROM sectors ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
-router.post('/sectors', requireAdmin, (req, res) => { const slug = req.body.name.toLowerCase().replace(/[^a-z0-9]/g, ''); db.run("INSERT INTO sectors (name, slug) VALUES (?, ?)", [req.body.name, slug], function(err) { if(err) return res.status(400).json({error:"Erreur"}); res.json({id:this.lastID}); }); });
-router.delete('/sectors/:id', requireAdmin, (req, res) => db.run("DELETE FROM sectors WHERE id=?", [req.params.id], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})));
+router.get('/sectors', requireStaff, (req, res) => db.all("SELECT * FROM sectors ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
+router.post('/sectors', requireStaff, (req, res) => { const slug = req.body.name.toLowerCase().replace(/[^a-z0-9]/g, ''); db.run("INSERT INTO sectors (name, slug) VALUES (?, ?)", [req.body.name, slug], function(err) { if(err) return res.status(400).json({error:"Erreur"}); res.json({id:this.lastID}); }); });
+router.delete('/sectors/:id', requireStaff, (req, res) => db.run("DELETE FROM sectors WHERE id=?", [req.params.id], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})));
 
-router.get('/device-types', requireAdmin, (req, res) => db.all("SELECT * FROM device_types ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
-router.post('/device-types', requireAdmin, (req, res) => db.run("INSERT INTO device_types (name) VALUES (?)", [req.body.name], function(err) { err ? res.status(400).json({error:"Erreur"}) : res.json({id:this.lastID}); }));
-router.delete('/device-types/:id', requireAdmin, (req, res) => db.run("DELETE FROM device_types WHERE id=?", [req.params.id], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})));
+router.get('/device-types', requireStaff, (req, res) => db.all("SELECT * FROM device_types ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
+router.post('/device-types', requireStaff, (req, res) => db.run("INSERT INTO device_types (name) VALUES (?)", [req.body.name], function(err) { err ? res.status(400).json({error:"Erreur"}) : res.json({id:this.lastID}); }));
+router.delete('/device-types/:id', requireStaff, (req, res) => db.run("DELETE FROM device_types WHERE id=?", [req.params.id], (err) => err ? res.status(500).json({error:err.message}) : res.json({success:true})));
 
 // --- EQUIPEMENTS ---
-router.get('/equipment', requireAuth, (req, res) => db.all("SELECT * FROM equipment_catalog ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
+router.get('/equipment', requireStaff, (req, res) => db.all("SELECT * FROM equipment_catalog ORDER BY name", [], (err, rows) => err ? res.status(500).json({error:err.message}) : res.json(rows)));
 
-router.post('/equipment', requireAdmin, (req, res) => { 
+router.post('/equipment', requireStaff, (req, res) => { 
     const { name, name_de, brand, model, type, device_type, is_secondary } = req.body; 
     const secVal = is_secondary ? 1 : 0;
     
@@ -167,7 +167,7 @@ router.post('/equipment', requireAdmin, (req, res) => {
     }); 
 });
 
-router.put('/equipment/:id', requireAdmin, (req, res) => { 
+router.put('/equipment/:id', requireStaff, (req, res) => { 
     const { name, name_de, brand, model, type, device_type, is_secondary } = req.body; 
     const secVal = is_secondary ? 1 : 0;
     
@@ -176,7 +176,7 @@ router.put('/equipment/:id', requireAdmin, (req, res) => {
     (err)=>err?res.status(500).json({error:err.message}):res.json({success:true})); 
 });
 
-router.delete('/equipment/:id', requireAdmin, (req, res) => db.run("DELETE FROM equipment_catalog WHERE id=?", [req.params.id], (err)=>err?res.status(500).json({error:err.message}):res.json({success:true})));
+router.delete('/equipment/:id', requireStaff, (req, res) => db.run("DELETE FROM equipment_catalog WHERE id=?", [req.params.id], (err)=>err?res.status(500).json({error:err.message}):res.json({success:true})));
 
 router.get('/export/clients', requireAdmin, (req, res) => {
     const sql = `SELECT c.*, ce.serial_number, ec.name as equip_name, ec.brand as equip_brand FROM clients c LEFT JOIN client_equipment ce ON c.id=ce.client_id LEFT JOIN equipment_catalog ec ON ce.equipment_id=ec.id ORDER BY c.cabinet_name`;

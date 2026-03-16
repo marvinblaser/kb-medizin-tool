@@ -1012,8 +1012,6 @@ async function checkAuth() {
     const ui = document.getElementById("user-info");
     if (ui)
       ui.innerHTML = `<div class="user-avatar">${currentUser.name[0]}</div><div class="user-details"><strong>${currentUser.name}</strong><span>${currentUser.role}</span></div>`;
-    if (currentUser.role === "admin")
-      document.getElementById("admin-link")?.classList.remove("hidden");
   } catch {
     window.location.href = "/login.html";
   }

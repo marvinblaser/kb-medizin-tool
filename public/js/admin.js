@@ -126,12 +126,41 @@ async function checkAuth() {
     const response = await fetch('/api/me');
     if (!response.ok) { window.location.href = '/login.html'; return; }
     const data = await response.json();
-    if (data.user.role !== 'admin') { window.location.href = '/dashboard.html'; return; }
     
-    let avatarHtml = `<div class="user-avatar">${data.user.name.charAt(0)}</div>`;
-    if(data.user.photo_url) avatarHtml = `<img src="${data.user.photo_url}" class="user-avatar-img" alt="avatar" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`;
-    document.getElementById('user-info').innerHTML = `${avatarHtml}<div class="user-details"><strong>${escapeHtml(data.user.name)}</strong><span>Administrateur</span></div>`;
     window.currentUserId = data.user.id;
+    window.currentUserRole = data.user.role;
+
+    // --- STANDARDISATION DU ROLE ---
+    let roleDisplay = "Technicien";
+    if (data.user.role === "admin") roleDisplay = "Administrateur";
+    else if (data.user.role === "validator" || data.user.role === "sales_director") roleDisplay = "Validateur";
+    else if (data.user.role === "verifier" || data.user.role === "verificateur") roleDisplay = "Vérificateur";
+    else if (data.user.role === "secretary") roleDisplay = "Secrétariat";
+
+    let avatarHtml = `<div class="user-avatar">${data.user.name.charAt(0).toUpperCase()}</div>`;
+    if(data.user.photo_url) avatarHtml = `<img src="${data.user.photo_url}" class="user-avatar-img" alt="avatar" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`;
+    
+    document.getElementById('user-info').innerHTML = `${avatarHtml}<div class="user-details"><strong>${escapeHtml(data.user.name)}</strong><span>${roleDisplay}</span></div>`;
+    
+    // --- GESTION DES PERMISSIONS D'AFFICHAGE ---
+    if (data.user.role === 'admin') {
+        // L'admin voit tout
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+    } else {
+        // Le technicien (non-admin) ne voit pas le menu Users.
+        // On doit donc forcer l'onglet "Catalogue" à être actif par défaut au lieu de "Users" !
+        document.querySelectorAll('.nav-text-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.view-section').forEach(c => c.classList.remove('active'));
+        
+        const eqBtn = document.getElementById('tab-btn-eq');
+        if (eqBtn) eqBtn.classList.add('active');
+        document.getElementById('tab-equipment').classList.add('active');
+        
+        // On cache aussi les boutons d'import/suppression de masse du matériel (Trop dangereux pour un tech)
+        const btnDeleteAll = document.getElementById('delete-all-materials-btn');
+        if(btnDeleteAll) btnDeleteAll.style.display = 'none';
+    }
+
   } catch { window.location.href = '/login.html'; }
 }
 

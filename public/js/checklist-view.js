@@ -105,7 +105,6 @@ async function checkAuth() {
         if(res.ok) {
             const data = await res.json();
             document.getElementById('user-info').innerHTML = `<div class="user-avatar">${data.user.name[0]}</div><div class="user-details"><strong>${escapeHtml(data.user.name)}</strong><span>${data.user.role === 'admin' ? 'Administrateur' : 'Technicien'}</span></div>`;
-            if (data.user.role === 'admin') document.getElementById('admin-link')?.classList.remove('hidden');
         }
     } catch(e){}
 }

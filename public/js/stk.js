@@ -57,7 +57,6 @@ async function checkAuth() {
                 <strong>${escapeHtml(d.user.name)}</strong>
                 <span>${d.user.role}</span>
             </div>`;
-        if (d.user.role === 'admin') document.getElementById('admin-link').classList.remove('hidden');
     } catch { window.location.href = '/login.html'; }
 }
 

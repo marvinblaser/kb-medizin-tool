@@ -16,4 +16,17 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireAdmin };
+// NOUVEAU : Permet l'accès aux Admins, Secrétariat, et Techniciens (Pour le catalogue)
+function requireStaff(req, res, next) {
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Non authentifié' });
+    }
+    // Si vous voulez restreindre à certains rôles précis, vous pouvez faire :
+    // const allowedRoles = ['admin', 'secretary', 'tech', 'validator'];
+    // if (!allowedRoles.includes(req.session.role)) { ... }
+    
+    // Mais comme tout utilisateur connecté est considéré comme du staff dans votre cas :
+    next();
+}
+
+module.exports = { requireAuth, requireAdmin, requireStaff };

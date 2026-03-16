@@ -124,7 +124,6 @@ async function checkAuth() {
       <div class="user-avatar">${data.user.name.charAt(0)}</div>
       <div class="user-details"><strong>${data.user.name}</strong><span>${roleDisplay}</span></div>
     `;
-    if (data.user.role === "admin") document.getElementById("admin-link").classList.remove("hidden");
   } catch { window.location.href = "/login.html"; }
 }
 
