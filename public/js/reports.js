@@ -338,7 +338,8 @@ async function loadReports() {
       '<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--neutral-400);"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Chargement des archives...</p></div>';
     
     try {
-        const res = await fetch(`/api/reports?page=${currentPage}&limit=25&search=${search}&type=${type}&status=${currentStatusFilter}`);
+        // On force la limite à 1000 pour que tous les dossiers clients soient complets
+        const res = await fetch(`/api/reports?page=1&limit=1000&search=${search}&type=${type}&status=${currentStatusFilter}`);
         
         if (!res.ok) return;
 
