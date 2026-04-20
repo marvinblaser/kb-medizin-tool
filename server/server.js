@@ -12,6 +12,7 @@ const clientsRoutes = require('./routes/clients');
 const adminRoutes = require('./routes/admin');
 const checklistsRoutes = require('./routes/checklists');
 const reportsRoutes = require('./routes/reports');
+const ticketsRoutes = require('./routes/tickets');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,6 +52,7 @@ app.use('/api/clients', clientsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/tickets', ticketsRoutes);
 app.use('/api/notifications', require('./routes/notifications'));
 
 // Redirection intelligente

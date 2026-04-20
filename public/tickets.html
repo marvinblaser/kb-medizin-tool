@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tickets - KB Med</title>
+    <link rel="stylesheet" href="/css/tokens.css" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/layout.css" />
+    <link rel="stylesheet" href="/css/forms.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+    <link rel="stylesheet" href="/css/table.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css" rel="stylesheet">
+    <style>
+      /* --- BADGES MODERNES --- */
+      .ticket-status-badge { padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; text-align: center; }
+      .status-open { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+      .status-waiting { background: #ffedd5; color: #ea580c; border: 1px solid #fed7aa; }
+      .status-closed { background: #dcfce3; color: #16a34a; border: 1px solid #bbf7d0; }
+      
+      /* --- LAYOUT GLOBAL --- */
+      .main-content { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #f8fafc; }
+      /* .page-header { padding: 2rem 2rem 0.5rem 2rem; flex-shrink: 0; } */
+      
+      /* --- BOUTON D'ACTION PRINCIPAL --- */
+      .btn-primary-glow { border-radius: 10px; padding: 10px 20px; font-weight: 600; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25); transition: all 0.2s ease; }
+      .btn-primary-glow:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35); }
+
+      /* --- BARRE DE RECHERCHE PREMIUM --- */
+      .search-wrapper { padding: 1rem 2rem 2rem 2rem; flex-shrink: 0; }
+      .search-container { position: relative; max-width: 600px; }
+      .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1.1rem; }
+      .search-input { width: 100%; padding: 14px 14px 14px 50px; height: 50px; border-radius: 12px; font-size: 1rem; color: #334155; background: white; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.03); transition: all 0.2s ease; }
+      .search-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+
+      /* --- DASHBOARD KPI --- */
+      .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; padding: 0 2rem; margin-bottom: 2rem; flex-shrink: 0; }
+      .kpi-card { background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 16px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: all 0.3s ease; }
+      .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.06); border-color: #cbd5e1; }
+      .kpi-card h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; margin-bottom: 10px; font-weight: 700; }
+      .kpi-card .number { font-size: 2.5rem; font-weight: 800; color: #0f172a; line-height: 1; }
+      .kpi-card.highlight .number { color: var(--color-primary); }
+      
+      /* --- ONGLETS (TABS) FLUIDES --- */
+      .ticket-tabs-container { padding: 0 2rem; flex-shrink: 0; }
+      .ticket-tabs { display: flex; gap: 5px; background: #e2e8f0; padding: 6px; border-radius: 12px; width: 100%; overflow-x: auto; margin-bottom: 1.5rem; }
+      .ticket-tab-btn { flex: 1; text-align: center; background: transparent; border: none; font-size: 0.95rem; font-weight: 600; color: #64748b; cursor: pointer; padding: 10px 15px; border-radius: 8px; transition: all 0.2s ease; white-space: nowrap; }
+      .ticket-tab-btn:hover { color: #0f172a; }
+      .ticket-tab-btn.active { background: white; color: var(--color-primary); box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+      
+      /* --- TABLEAU PROFESSIONNEL --- */
+      .erp-table-wrapper { flex-grow: 1; margin: 0 2rem 2rem 2rem; background: white; border-radius: 16px; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; overflow-y: auto; }
+      .erp-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      .erp-table th { position: sticky; top: 0; z-index: 10; background: #f8fafc; color: #475569; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 16px 20px; border-bottom: 2px solid #e2e8f0; text-align: left; }
+      .col-status { width: 140px; } .col-date { width: 130px; } .col-action { width: 120px; }
+      .erp-table td { padding: 18px 20px; vertical-align: middle; border-bottom: 1px solid #f1f5f9; white-space: normal; word-break: break-all; overflow-wrap: break-word; color: #334155; }
+      .erp-table tbody tr { transition: background 0.15s ease; cursor: pointer; }
+      .erp-table tbody tr:hover { background-color: #f8fafc; }
+      .action-cell { text-align: right !important; }
+      
+.btn-outline { 
+          background: white; 
+          border: 1px solid #cbd5e1; 
+          color: #475569; 
+          padding: 10px 20px; /* Plus d'espace pour cliquer */
+          border-radius: 10px; 
+          font-size: 0.9rem; 
+          font-weight: 700; 
+          cursor: pointer; 
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          display: inline-flex; 
+          align-items: center; 
+          gap: 8px;
+          min-width: 110px;
+          justify-content: center;
+      }
+      .btn-outline:hover { 
+          border-color: var(--color-primary); 
+          color: var(--color-primary); 
+          background: #eff6ff;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+      
+      /* Alignement parfait des cellules du tableau */
+      .erp-table td { 
+          padding: 20px; 
+          vertical-align: middle; 
+          font-size: 0.95rem;
+      }
+      .col-action { width: 160px; } /* On élargit la colonne pour le bouton */
+
+      /* --- MODAL ET CHAT --- */
+      .comments-section { background: #f8fafc; padding: 1.5rem; border-radius: 16px; height: 350px; overflow-y: auto; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 15px; border: 1px solid #e2e8f0; scroll-behavior: smooth; }
+      .comment-box { padding: 14px 18px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); max-width: 85%; }
+      .comment-system { align-self: center; background: #e2e8f0; padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; color: #475569; font-style: italic; display:flex; align-items:center; gap:6px; margin: 8px 0; }
+      .comment-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(0,0,0,0.04); gap:15px; }
+      .comment-text { font-size: 0.95rem; color: #0f172a; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      <aside class="sidebar">
+        <div class="sidebar-header"><h2>KB Med.</h2></div>
+        <nav class="sidebar-nav">
+          <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
+          <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
+          <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
+          <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+          <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
+          <a href="/tickets.html" class="active"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
+          <a href="/admin.html"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="user-info" id="user-info"></div>
+          <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%"><i class="fas fa-sign-out-alt"></i>Déconnexion</button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h1><i class="fas fa-ticket-alt"></i> Suivi des Demandes</h1>
+          <button class="btn btn-primary" onclick="openNewTicketModal()"><i class="fas fa-plus"></i> Nouveau Ticket</button>
+        </div>
+
+        <div class="search-wrapper" style="padding: 1.5rem 3rem 2rem 3rem;">
+            <div class="search-container" style="max-width: 800px; position: relative;">
+                <i class="fas fa-search" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1.1rem;"></i>
+                <input type="text" id="ticket-search" class="search-input" 
+                       placeholder="Rechercher par sujet, client ou contenu..." 
+                       style="width: 100%; height: 55px; padding-left: 60px; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.03); font-size: 1.05rem;">
+            </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card"><h3>Ouverts</h3><div class="number" id="kpi-open">0</div></div>
+          <div class="kpi-card highlight" style="border-bottom: 4px solid var(--color-primary);"><h3>Mes Tickets Actifs</h3><div class="number" id="kpi-mine">0</div></div>
+          <div class="kpi-card"><h3>En Attente</h3><div class="number" id="kpi-waiting">0</div></div>
+          <div class="kpi-card"><h3>Non Assignés</h3><div class="number" id="kpi-unassigned">0</div></div>
+        </div>
+
+        <div class="ticket-tabs-container">
+          <div class="ticket-tabs">
+            <button class="ticket-tab-btn active" data-filter="all">Tous</button>
+            <button class="ticket-tab-btn" data-filter="mine">Mes tickets</button>
+            <button class="ticket-tab-btn" data-filter="open">Ouverts</button>
+            <button class="ticket-tab-btn" data-filter="waiting">En attente</button>
+            <button class="ticket-tab-btn" data-filter="unassigned">Non assignés</button>
+            <button class="ticket-tab-btn" data-filter="closed">Clôturés</button>
+          </div>
+        </div>
+
+        <div class="erp-table-wrapper">
+          <table class="erp-table">
+            <thead>
+              <tr>
+                <th class="col-status">Statut</th>
+                <th>Sujet de la demande</th>
+                <th>Client concerné</th>
+                <th>Assigné à</th>
+                <th class="col-date">Création</th>
+                <th class="col-action action-cell">Action</th>
+              </tr>
+            </thead>
+            <tbody id="tickets-tbody">
+              <tr><td colspan="6" style="text-align: center; padding: 4rem; color: #94a3b8;"><i class="fas fa-circle-notch fa-spin fa-2x"></i><br><br>Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="modal" id="new-ticket-modal">
+          <div class="modal-content" style="border-radius: 16px;">
+            <div class="modal-header"><h2>Créer une Demande</h2><button class="modal-close" onclick="closeModal('new-ticket-modal')">&times;</button></div>
+            <div class="modal-body">
+              <form id="ticket-form">
+                <div class="form-group"><label>Sujet principal *</label><input type="text" id="t-title" required style="border-radius: 8px;" /></div>
+                
+                <div class="form-row">
+                  <div class="form-group"><label>Lier à un Client (Optionnel)</label><select id="t-client" onchange="loadEquipmentForClient(this.value, 't-equip')"><option value="">-- Aucun --</option></select></div>
+                  <div class="form-group"><label>Machine concernée</label><select id="t-equip" class="form-control" style="border-radius: 8px;"><option value="">-- Choisir client d'abord --</option></select></div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group"><label>Assigner à</label><select id="t-assigned" multiple><option value="">-- Non assigné --</option></select></div>
+                  <div class="form-group" style="display:flex; align-items:flex-end;">
+                      <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#dc2626; font-weight:700; height: 42px; background: #fee2e2; padding: 0 15px; border-radius: 8px; border: 1px solid #fecaca;">
+                          <input type="checkbox" id="t-urgent" style="transform: scale(1.2);"> 🚨 SIGNALER COMME URGENCE
+                      </label>
+                  </div>
+                </div>
+
+                <div class="form-group"><label>Message détaillé *</label><textarea id="t-desc" rows="5" required style="border-radius: 8px;"></textarea></div>
+              </form>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('new-ticket-modal')">Annuler</button><button class="btn btn-primary btn-primary-glow" onclick="saveTicket()">Créer le ticket</button></div>
+          </div>
+        </div>
+
+        <div class="modal" id="view-ticket-modal">
+          <div class="modal-content" style="max-width: 700px; border-radius: 16px;">
+            <div class="modal-header">
+              <h2 id="v-title" style="margin: 0; font-weight: 800; color: #0f172a;">Titre</h2>
+              <div style="display: flex; gap: 15px; align-items: center;">
+                <button onclick="deleteTicket()" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:1.2rem; transition:0.2s;" title="Supprimer ce ticket"><i class="fas fa-trash"></i></button>
+                <button class="modal-close" onclick="closeModal('view-ticket-modal')">&times;</button>
+              </div>
+            </div>
+            
+            <div class="modal-body" style="background:#f1f5f9; padding:25px;">
+              <div class="status-bar" style="display: flex; gap: 12px; flex-wrap: wrap; background: white; padding: 18px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                <select id="v-status" class="form-control" style="width: auto; font-weight:bold; border-radius: 8px;" onchange="updateTicketData()">
+                  <option value="Ouvert">🔴 Ouvert</option>
+                  <option value="En attente">🟠 En attente</option>
+                  <option value="Clôturé">🟢 Clôturé</option>
+                </select>
+                
+                <div style="flex:1; min-width: 150px;">
+                   <select id="v-client" onchange="loadEquipmentForClient(this.value, 'v-equip'); updateTicketData()"><option value="">-- Aucun Client --</option></select>
+                </div>
+                
+                <div style="flex:1; min-width: 150px;">
+                   <select id="v-equip" onchange="updateTicketData()" class="form-control" style="border-radius: 8px;"><option value="">-- Machine --</option></select>
+                </div>
+
+                <div style="flex:1; min-width: 150px;">
+                   <select id="v-assigned" multiple onchange="updateTicketData()"><option value="">-- Non assigné --</option></select>
+                </div>
+
+                <div style="display: flex; align-items: center; padding-left: 5px;">
+                    <label style="color:#dc2626; font-weight:700; cursor:pointer; background: #fee2e2; padding: 8px 12px; border-radius: 8px; border: 1px solid #fecaca; display: flex; align-items: center; gap: 8px;"><input type="checkbox" id="v-urgent" onchange="updateTicketData()" style="transform: scale(1.1);"> 🚨 URGENT</label>
+                </div>
+              </div>
+              
+              <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                <div style="font-size: 0.8rem; color: #64748b; font-weight:600; margin-bottom: 10px; text-transform:uppercase; letter-spacing: 0.5px;" id="v-meta"></div>
+                <div id="v-desc" style="white-space: pre-wrap; font-size: 1rem; color:#0f172a; line-height: 1.6;"></div>
+              </div>
+
+              <div class="comments-section" id="v-comments"></div>
+              
+              <form id="comment-form" style="position: relative; display: flex; gap: 12px; background:white; padding:12px; border-radius:12px; border:1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.03);">
+                
+                <div id="mention-dropdown" style="display:none; position:absolute; bottom:calc(100% + 5px); left:50px; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 10px 20px rgba(0,0,0,0.1); max-height:180px; overflow-y:auto; z-index:100; min-width:220px;"></div>
+
+                <label id="paperclip-label" style="cursor:pointer; padding:10px 14px; color:#64748b; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; transition: all 0.2s;">
+                    <i class="fas fa-paperclip" id="paperclip-icon"></i>
+                    <input type="file" id="comment-file" style="display:none;">
+                </label>
+                <input type="text" id="new-comment" class="form-control" placeholder="Écrire un message ou @Nom pour mentionner..." style="flex: 1; border:none; background:#f8fafc; border-radius:8px; font-size: 0.95rem; padding-left: 15px;" autocomplete="off">
+                <button type="submit" class="btn btn-primary" style="padding: 10px 18px; border-radius:8px;"><i class="fas fa-paper-plane"></i></button>
+              </form>
+              <input type="hidden" id="current-ticket-id">
+            </div>
+          </div>
+        </div>
+
+        <div id="notification-container" class="notification-container"></div>
+
+        <script src="https://unpkg.com/slim-select@2.8.2/dist/slimselect.min.js"></script>
+        <script src="/js/tickets.js"></script>
+        <script src="/js/loader.js"></script>
+        <script src="/js/notifications.js"></script>
+        <script src="/js/page-transitions.js"></script>
+      </main>
+    </div>
+  </body>
+</html>

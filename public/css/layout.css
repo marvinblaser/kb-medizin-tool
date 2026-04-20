@@ -250,3 +250,21 @@
     .footer-desc { margin: 0 auto 1.5rem auto; }
     .footer-bottom { flex-direction: column; gap: 1rem; }
 }
+
+/* --- BADGE DE NOTIFICATION MENU LATÉRAL --- */
+.sidebar-nav a {
+    display: flex;
+    align-items: center; /* S'assure que le texte et le badge sont bien alignés */
+}
+
+.ticket-badge {
+    background-color: #ef4444; /* Rouge alerte */
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 20px;
+    margin-left: auto; /* Pousse magiquement le badge tout à droite */
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+    line-height: 1;
+}
