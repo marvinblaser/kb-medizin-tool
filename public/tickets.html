@@ -14,7 +14,7 @@
     <link href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css" rel="stylesheet">
     <style>
       /* --- BADGES MODERNES --- */
-      .ticket-status-badge { padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; text-align: center; }
+      .ticket-status-badge { padding: 2px 8px; border-radius: 20px; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; text-align: center; }
       .status-open { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
       .status-waiting { background: #ffedd5; color: #ea580c; border: 1px solid #fed7aa; }
       .status-closed { background: #dcfce3; color: #16a34a; border: 1px solid #bbf7d0; }
@@ -97,6 +97,21 @@
       .comment-system { align-self: center; background: #e2e8f0; padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; color: #475569; font-style: italic; display:flex; align-items:center; gap:6px; margin: 8px 0; }
       .comment-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(0,0,0,0.04); gap:15px; }
       .comment-text { font-size: 0.95rem; color: #0f172a; line-height: 1.5; }
+
+
+      /* Rendre le tableau des tickets plus compact */
+      table tbody tr td {
+          padding: 8px 15px !important; /* Réduit l'espace vertical (avant c'était probablement 15px ou 20px) */
+          font-size: 0.9rem; /* Réduit légèrement la taille du texte */
+          vertical-align: middle;
+      }
+
+      /* Rendre le bouton "Ouvrir" plus petit */
+      table tbody tr td .btn, 
+      table tbody tr td button {
+          padding: 4px 12px !important;
+          font-size: 0.85rem !important;
+      }
     </style>
   </head>
   <body>
@@ -161,6 +176,7 @@
             <thead>
               <tr>
                 <th class="col-status">Statut</th>
+                <th style="width: 70px;">ID</th>
                 <th>Sujet de la demande</th>
                 <th>Client concerné</th>
                 <th>Assigné à</th>
@@ -173,6 +189,7 @@
             </tbody>
           </table>
         </div>
+        <div id="pagination-controls" style="display: flex; justify-content: center; align-items: center; gap: 8px; padding-bottom: 20px;"></div>
 
         <div class="modal" id="new-ticket-modal">
           <div class="modal-content" style="border-radius: 16px;">

@@ -3,6 +3,8 @@ let allUsersList = []; // <-- NOUVELLE VARIABLE
 let currentFilter = 'all';
 let slimClient, slimAssignedNew, slimAssignedView, slimClientView;
 let isModalLoading = false; 
+let currentPage = 1;
+const itemsPerPage = 10; // Nombre de tickets par page (vous pouvez changer ce chiffre)
 
 function debounce(func, wait) {
     let timeout;
@@ -130,17 +132,31 @@ function renderTickets() {
         return true;
     });
 
-    if (filteredTickets.length === 0) { 
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 4rem; color: #94a3b8;"><i class="fas fa-check-circle fa-2x" style="opacity:0.2; margin-bottom:10px;"></i><br>Aucune demande dans cette vue.</td></tr>'; 
+    const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+    
+    if (currentPage > totalPages && totalPages > 0) currentPage = totalPages;
+    if (totalPages === 0) currentPage = 1;
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const ticketsToShow = filteredTickets.slice(startIndex, endIndex);
+
+    if (ticketsToShow.length === 0) { 
+        // ATTENTION : Le colspan passe à 7 à cause de la nouvelle colonne ID
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 4rem; color: #94a3b8;"><i class="fas fa-check-circle fa-2x" style="opacity:0.2; margin-bottom:10px;"></i><br>Aucune demande dans cette vue.</td></tr>'; 
+        if (typeof renderPagination === 'function') renderPagination(totalPages);
         return; 
     }
 
-    tbody.innerHTML = filteredTickets.map(t => {
+    tbody.innerHTML = ticketsToShow.map(t => {
         let statusClass = t.status === 'Ouvert' ? 'status-open' : t.status === 'En attente' ? 'status-waiting' : 'status-closed';
         let urgentIcon = t.is_urgent ? '<span style="color:#dc2626; margin-right:8px; font-size:1.2rem;" title="Urgent">🚨</span>' : '';
         
         return `<tr onclick="openTicketDetails(${t.id})">
             <td class="col-status"><span class="ticket-status-badge ${statusClass}">${t.status}</span></td>
+            
+            <td style="color: #94a3b8; font-weight: bold; font-size: 0.85rem;">#${t.id}</td>
+            
             <td style="font-weight: 700; color: #1e293b;">${urgentIcon}${escapeHtml(t.title)}</td>
             <td>${t.cabinet_name ? `<span style="font-weight:500; color:#475569;">🏢 ${escapeHtml(t.cabinet_name)}</span>` : '<span style="color:#cbd5e1;">-</span>'}</td>
             <td><small style="font-weight:600; color:#64748b;"><i class="fas fa-users-cog" style="margin-right:6px; opacity:0.5;"></i>${t.assigned_names || 'Non assigné'}</small></td>
@@ -152,6 +168,10 @@ function renderTickets() {
             </td>
         </tr>`;
     }).join('');
+
+    if (typeof renderPagination === 'function') {
+        renderPagination(totalPages);
+    }
 }
 
 async function populateSelects() {
@@ -392,4 +412,39 @@ window.insertMention = function(name) {
         document.getElementById('mention-dropdown').style.display = 'none';
         commentInput.focus();
     }
+};
+
+// --- FONCTIONS DE PAGINATION ---
+function renderPagination(totalPages) {
+    const container = document.getElementById('pagination-controls');
+    if (!container) return;
+
+    // S'il n'y a qu'une seule page, on cache la pagination
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+
+    // Bouton Précédent
+    const prevDisabled = currentPage === 1 ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '';
+    html += `<button onclick="changePage(${currentPage - 1})" class="btn btn-outline" ${prevDisabled}>&laquo; Précédent</button>`;
+
+    // Boutons des numéros de page
+    for (let i = 1; i <= totalPages; i++) {
+        const isActive = currentPage === i ? 'background:#2563eb; color:white; border-color:#2563eb;' : 'background:white; color:#334155;';
+        html += `<button onclick="changePage(${i})" class="btn btn-outline" style="min-width: 35px; ${isActive}">${i}</button>`;
+    }
+
+    // Bouton Suivant
+    const nextDisabled = currentPage === totalPages ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '';
+    html += `<button onclick="changePage(${currentPage + 1})" class="btn btn-outline" ${nextDisabled}>Suivant &raquo;</button>`;
+
+    container.innerHTML = html;
+}
+
+window.changePage = function(newPage) {
+    currentPage = newPage;
+    renderTickets(); // On recharge le tableau avec la nouvelle page
 };
