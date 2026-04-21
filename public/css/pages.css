@@ -209,7 +209,7 @@
 
 .widget-empty {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  padding: 2rem; color: var(--neutral-500); font-style: italic; background: var(--neutral-50);
+  padding: 2rem; color: var(--neutral-500); font-style: italic; background: white;
 }
 
 .widget-item { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color-light); transition: background 0.2s; }

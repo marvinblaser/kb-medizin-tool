@@ -10,9 +10,21 @@ let currentUser = null;
 const cityCoords = { Aarau: [47.3919, 8.0458], Baden: [47.4724, 8.3064], Bern: [46.948, 7.4474], Biel: [47.1372, 7.2459], Basel: [47.5596, 7.5886], "Biel-Benken": [47.5056, 7.5533], Fribourg: [46.8036, 7.1517], Genève: [46.2044, 6.1432], Lausanne: [46.5197, 6.6323], Zürich: [47.3769, 8.5417], Winterthur: [47.5, 8.75], Neuchâtel: [46.99, 6.9298] };
 const cantonCoords = { AG: [47.4, 8.15], AI: [47.32, 9.42], AR: [47.37, 9.3], BE: [46.95, 7.45], BL: [47.48, 7.73], BS: [47.56, 7.59], FR: [46.8, 7.15], GE: [46.2, 6.15], GL: [47.04, 9.07], GR: [46.85, 9.53], JU: [47.35, 7.15], LU: [47.05, 8.3], NE: [47.0, 6.93], NW: [46.93, 8.38], OW: [46.88, 8.25], SG: [47.42, 9.37], SH: [47.7, 8.63], SO: [47.3, 7.53], SZ: [47.02, 8.65], TG: [47.55, 9.0], TI: [46.33, 8.8], UR: [46.88, 8.63], VD: [46.57, 6.65], VS: [46.23, 7.36], ZG: [47.17, 8.52], ZH: [47.37, 8.54] };
 
-let widgetSettings = { appointments: true, contacts: true, "maintenance-month": true, warranty: true, map: true };
+// Remplacez la ligne existante par celle-ci :
+let widgetSettings = { appointments: true, contacts: true, "maintenance-month": true, warranty: true, map: true, tickets: true, activity: true };
 
 const customDashboardStyles = `
+
+.page-header {
+  position: sticky; top: 0; z-index: 400;
+  /* On remplace la hauteur fixe par une hauteur minimale et un bon padding */
+  min-height: 70px; 
+  padding: 1rem 3rem;
+  background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  display: flex; align-items: center; justify-content: space-between;
+}
+
   /* --- 1. LAYOUT & ALIGNEMENT (Ne pas toucher) --- */
   .stats-grid, .widgets-grid, .checklists-grid, .table-controls { margin-left: 3rem !important; margin-right: 3rem !important; width: auto !important; }
   .stats-grid { margin-top: 4rem !important; }
@@ -34,6 +46,18 @@ const customDashboardStyles = `
   .stat-card.info::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(2, 132, 199, 0.05) 0%, transparent 100%); pointer-events: none; }
 
   /* --- 3. WIDGETS DU BAS --- */
+  .widget {
+    background: white !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease;
+    border-top-width: 4px !important; /* Bordure en haut pour tout le monde */
+    border-top-style: solid !important;
+    min-height: 100%; /* S'assure que le contenu remplit la boîte */
+  }
   .widget-item { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; cursor: pointer; border-left: 3px solid transparent; }
   .widget-selector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
   .widget-selector-card { background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
@@ -50,6 +74,11 @@ const customDashboardStyles = `
   
   .item-danger { border-left-color: var(--color-danger) !important; background: #fff5f5; }
   .item-warning { border-left-color: var(--color-warning) !important; }
+  .widget-content {
+    flex-grow: 1; /* Permet au contenu de prendre toute la place et d'aligner les pieds de widgets */
+    display: flex;
+    flex-direction: column;
+  }
 
   /* Badges */
   .badge-mini { font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
@@ -85,6 +114,11 @@ const customDashboardStyles = `
   .fa-chevron-down { transition: transform 0.2s; }
   .expanded .fa-chevron-down { transform: rotate(180deg); }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  /* --- 6. MASQUER LE GROS FOOTER SUR LE DASHBOARD --- */
+  .app-footer { display: none !important; }
+  
+  /* On s'assure que la map a un bel espace de fin */
+  .map-wrapper-fixed { margin-bottom: 3rem !important; }
 `;
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -162,6 +196,8 @@ function openWidgetCustomization() {
                 ${createWidgetCard("maintenance-month", "fa-wrench", "Maintenances", "Prévues ce mois-ci")}
                 ${createWidgetCard("warranty", "fa-shield-alt", "Garanties", "Équipements expirant bientôt")}
                 ${createWidgetCard("map", "fa-map-marked-alt", "Carte Clients", "Vue géographique interactive")}
+                ${createWidgetCard("tickets", "fa-ticket-alt", "Tickets", "Urgences et suivis")}
+                ${createWidgetCard("activity", "fa-rss", "Activité", "Flux des dernières actions")}
             </div>
         </div>
         <div class="modal-footer" style="padding: 1.5rem;">
@@ -196,6 +232,8 @@ function saveWidgetCustomization(b) {
   widgetSettings["maintenance-month"] = document.getElementById("widget-check-maintenance-month").checked;
   widgetSettings.warranty = document.getElementById("widget-check-warranty").checked;
   widgetSettings.map = document.getElementById("widget-check-map").checked;
+  widgetSettings.tickets = document.getElementById("widget-check-tickets").checked;
+  widgetSettings.activity = document.getElementById("widget-check-activity").checked;
   localStorage.setItem("dashboardWidgets", JSON.stringify(widgetSettings));
   applyWidgetSettings();
   b.closest(".modal").remove();
@@ -214,7 +252,7 @@ function loadWidgetSettings() {
 }
 
 function applyWidgetSettings() {
-  const i = { appointments: "widget-appointments", contacts: "widget-contacts", "maintenance-month": "widget-maintenance-month", warranty: "widget-warranty", map: "widget-map" };
+  const i = { appointments: "widget-appointments", contacts: "widget-contacts", "maintenance-month": "widget-maintenance-month", warranty: "widget-warranty", map: "widget-map", tickets: "widget-tickets", activity: "widget-activity" };
   Object.keys(widgetSettings).forEach((k) => {
     const e = document.getElementById(i[k]);
     if (e) e.style.display = widgetSettings[k] ? "block" : "none";
@@ -230,7 +268,7 @@ function showNotification(m, t = "info") {
 
 async function loadDashboard() {
   await Promise.all([
-    loadStats(), loadUpcomingAppointments(), loadClientsToContact(), loadClientsMap(), loadPendingReportsWidget()
+    loadStats(), loadUpcomingAppointments(), loadClientsToContact(), loadClientsMap(), loadPendingReportsWidget(),loadTicketsWidget(), loadActivityWidget()
   ]);
   const maintenanceWidget = document.getElementById('widget-maintenance-month');
   if(maintenanceWidget) maintenanceWidget.style.display = 'none';
@@ -624,3 +662,146 @@ function escapeHtml(t) {
 }
 
 setInterval(() => { loadDashboard(); }, 60000);
+
+// --- NOUVEAUX WIDGETS : TICKETS ET ACTIVITÉ ---
+
+async function loadTicketsWidget() {
+    try {
+        const res = await fetch('/api/tickets');
+        if (!res.ok) return;
+        const tickets = await res.json();
+        const container = document.getElementById('tickets-list');
+        
+        const userId = String(currentUser.id);
+
+        // Tri des données
+        const urgencies = tickets.filter(t => t.is_urgent === 1 && t.status !== 'Clôturé');
+        const unassigned = tickets.filter(t => (!t.assigned_ids || t.assigned_ids.length === 0) && t.status !== 'Clôturé' && t.is_urgent !== 1);
+        const myTickets = tickets.filter(t => t.assigned_ids && t.assigned_ids.split(',').includes(userId) && t.status !== 'Clôturé' && t.is_urgent !== 1);
+
+        let html = '';
+
+        // 1. BLOC URGENCES (Rouge)
+        if (urgencies.length > 0) {
+            html += `<div style="padding: 6px 15px; background: #fee2e2; color: #991b1b; font-size: 0.75rem; font-weight: 800; text-transform: uppercase;">🚨 Urgences (${urgencies.length})</div>`;
+            html += urgencies.slice(0, 3).map(t => `
+                <div class="widget-item" style="cursor:pointer;" onclick="window.location.href='/tickets.html?open=${t.id}'">
+                    <div style="flex: 1; min-width: 0;">
+                        <strong style="color: #991b1b; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">#${t.id} ${escapeHtml(t.title)}</strong>
+                        <small style="color: #dc2626; display: block; margin-top: 2px;">${escapeHtml(t.cabinet_name || 'Client inconnu')}</small>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 2. BLOC NON ASSIGNÉS (Orange)
+        if (unassigned.length > 0) {
+             html += `<div style="padding: 6px 15px; background: #fffbeb; color: #b45309; font-size: 0.75rem; font-weight: 800; text-transform: uppercase;"><i class="fas fa-inbox"></i> À prendre (${unassigned.length})</div>`;
+             html += unassigned.slice(0, 2).map(t => `
+                <div class="widget-item" style="cursor:pointer;" onclick="window.location.href='/tickets.html?open=${t.id}'">
+                    <div style="flex: 1; min-width: 0;">
+                        <strong style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">#${t.id} ${escapeHtml(t.title)}</strong>
+                    </div>
+                    <span style="font-size: 0.7rem; color: #b45309; font-weight:bold; background: #fef3c7; padding: 2px 6px; border-radius: 4px; margin-left: 10px; flex-shrink: 0;">Nouveau</span>
+                </div>
+            `).join('');
+        }
+
+        // 3. BLOC MES TICKETS (Gris/Bleu)
+        html += `<div style="padding: 6px 15px; background: #f1f5f9; color: #475569; font-size: 0.75rem; font-weight: 800; text-transform: uppercase;"><i class="fas fa-user"></i> Mes Tickets en cours (${myTickets.length})</div>`;
+        if (myTickets.length > 0) {
+            html += myTickets.slice(0, 3).map(t => `
+                <div class="widget-item" style="cursor:pointer;" onclick="window.location.href='/tickets.html?open=${t.id}'">
+                    <div style="flex: 1; min-width: 0;">
+                        <strong style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">#${t.id} ${escapeHtml(t.title)}</strong>
+                    </div>
+                    <span class="badge" style="font-size: 0.7rem; background:#e2e8f0; color:#475569; padding: 2px 6px; border-radius: 4px; margin-left: 10px; flex-shrink: 0;">${t.status}</span>
+                </div>
+            `).join('');
+        } else {
+            html += `<div style="padding: 15px; text-align: center; color: #94a3b8; font-size: 0.9rem;">Aucun ticket assigné.</div>`;
+        }
+
+        container.innerHTML = html;
+    } catch (e) { console.error("Erreur tickets widget:", e); }
+}
+
+async function loadActivityWidget() {
+    try {
+        const res = await fetch('/api/notifications');
+        if (!res.ok) return;
+        const notifs = await res.json();
+        const container = document.getElementById('activity-list');
+
+        if (notifs.length === 0) {
+            container.innerHTML = '<div class="widget-empty"><i class="fas fa-bed fa-2x" style="opacity:0.2; margin-bottom:10px;"></i><br>Aucune activité récente.</div>';
+            return;
+        }
+
+        // On affiche les 5 premières lignes
+        let html = notifs.slice(0, 5).map(n => {
+            const timeStr = new Date(n.created_at).toLocaleDateString('fr-CH', { hour: '2-digit', minute: '2-digit' });
+            return `
+            <div class="widget-item" style="display:flex; justify-content:flex-start; gap:12px; align-items:flex-start; border-left: 3px solid ${n.is_read ? 'transparent' : '#3b82f6'}; cursor:pointer;" onclick="${n.link ? `window.location.href='${n.link}'` : ''}">
+                <div style="color: ${n.is_read ? '#cbd5e1' : '#3b82f6'}; flex-shrink: 0; padding-top: 4px;">
+                    <i class="fas fa-circle" style="font-size: 0.55rem;"></i>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.9rem; color: #334155; line-height: 1.4; word-wrap: break-word; font-weight: ${n.is_read ? 'normal' : '600'};">${n.message}</div>
+                    <div style="color: #94a3b8; font-size: 0.75rem; margin-top: 4px;"><i class="far fa-clock"></i> ${timeStr}</div>
+                </div>
+            </div>`;
+        }).join('');
+
+        // AJOUT DU BOUTON "VOIR TOUT"
+        html += `
+            <div style="padding: 10px; text-align: center; border-top: 1px solid #f1f5f9;">
+                <button class="btn btn-sm btn-outline" onclick="openActivityPopup()" style="width: 100%; justify-content: center; background: white;">
+                    <i class="fas fa-history"></i> Voir tout l'historique
+                </button>
+            </div>`;
+
+        container.innerHTML = html;
+    } catch (e) { console.error("Erreur activity widget:", e); }
+}
+
+window.openActivityPopup = async function() {
+    // On réutilise la modale de détails déjà existante dans votre dashboard.html
+    const modal = document.getElementById("stats-detail-modal");
+    const titleEl = document.getElementById("stats-modal-title");
+    const listEl = document.getElementById("stats-modal-list");
+    
+    modal.classList.add("active");
+    titleEl.innerHTML = '<i class="fas fa-rss"></i> Historique complet des activités';
+    listEl.innerHTML = '<div style="text-align:center; padding:2rem;"><i class="fas fa-circle-notch fa-spin fa-2x"></i></div>';
+
+    try {
+        const res = await fetch('/api/notifications');
+        const notifs = await res.json();
+
+        if (notifs.length === 0) {
+            listEl.innerHTML = '<p style="text-align:center; padding:2rem;">Aucun historique disponible.</p>';
+            return;
+        }
+
+        let html = `
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                ${notifs.map(n => {
+                    const dateFull = new Date(n.created_at).toLocaleDateString('fr-CH', { 
+                        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                    });
+                    return `
+                    <div style="padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; background: ${n.is_read ? 'white' : '#f0f9ff'};">
+                        <div style="font-size: 0.95rem; color: #1e293b; margin-bottom: 4px;">${n.message}</div>
+                        <div style="font-size: 0.8rem; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+                            <i class="far fa-clock"></i> ${dateFull}
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+            
+        listEl.innerHTML = html;
+    } catch (e) {
+        listEl.innerHTML = '<p style="color:red; text-align:center;">Erreur lors du chargement de l\'historique.</p>';
+    }
+};
