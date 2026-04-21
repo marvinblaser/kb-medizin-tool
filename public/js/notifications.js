@@ -264,3 +264,90 @@ function escapeHtml(text) {
     if (!text) return "";
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
+
+// --- SYSTÈME DE PRÉFÉRENCES GLOBAL (Généré en JS) ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. On crée le code HTML du modal
+    const settingsModalHTML = `
+    <div class="modal" id="settings-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+      <div class="modal-content" style="background:white; width:100%; max-width: 450px; border-radius: 16px; padding:25px; position:relative; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 style="margin:0; font-size:1.4rem; color:#0f172a;"><i class="fas fa-cog" style="color:#64748b; margin-right:8px;"></i> Mes Alertes E-mail</h2>
+          <button onclick="closeSettingsModal()" style="background:none; border:none; font-size:1.8rem; color:#94a3b8; cursor:pointer; padding:0;">&times;</button>
+        </div>
+        
+        <p style="font-size: 0.95rem; color: #64748b; margin-bottom: 25px; line-height:1.5;">Personnalisez les événements pour lesquels vous souhaitez recevoir un e-mail sur votre adresse professionnelle.</p>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid #e2e8f0;">
+            <div>
+                <strong style="display:block; color:#0f172a; margin-bottom:4px;">Mentions Directes</strong>
+                <small style="color:#94a3b8; font-size:0.85rem;">Quand quelqu'un écrit @MonNom</small>
+            </div>
+            <input type="checkbox" id="pref-mention" style="transform: scale(1.5); cursor:pointer;">
+        </div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
+            <div>
+                <strong style="display:block; color:#0f172a; margin-bottom:4px;">Assignations de groupe</strong>
+                <small style="color:#94a3b8; font-size:0.85rem;">Quand on m'ajoute à un ticket</small>
+            </div>
+            <input type="checkbox" id="pref-assign" style="transform: scale(1.5); cursor:pointer;">
+        </div>
+        
+        <button class="btn btn-primary" onclick="savePreferences()" style="width:100%; padding:12px; border-radius:8px; background:#2563eb; color:white; border:none; cursor:pointer; font-weight:bold; font-size:1rem; transition:0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">Enregistrer mes préférences</button>
+      </div>
+    </div>
+    `;
+
+    // 2. On l'injecte tout à la fin du document (Body)
+    document.body.insertAdjacentHTML('beforeend', settingsModalHTML);
+});
+
+// 3. Les fonctions globales pour manipuler le modal
+window.openSettings = async function() {
+    // On affiche le modal
+    document.getElementById('settings-modal').style.display = 'flex';
+    
+    try {
+        // On va chercher les vraies préférences sur le serveur
+        const res = await fetch('/api/me/preferences');
+        if (res.ok) {
+            const prefs = await res.json();
+            // On coche ou décoche selon la base de données
+            document.getElementById('pref-assign').checked = prefs.pref_mail_assign === 1;
+            document.getElementById('pref-mention').checked = prefs.pref_mail_mention === 1;
+        }
+    } catch(e) {
+        console.error("Erreur lors du chargement des préférences", e);
+    }
+};
+
+window.closeSettingsModal = function() {
+    document.getElementById('settings-modal').style.display = 'none';
+};
+
+window.savePreferences = async function() {
+    const data = {
+        pref_mail_assign: document.getElementById('pref-assign').checked,
+        pref_mail_mention: document.getElementById('pref-mention').checked
+    };
+    
+    try {
+        const res = await fetch('/api/me/preferences', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (res.ok) {
+            closeSettingsModal();
+            // Petite pop-up pour confirmer
+            alert("✅ Vos préférences ont été enregistrées avec succès !"); 
+            // Note : Si vous avez une fonction pour afficher un beau toast, remplacez alert() par cette fonction !
+        }
+    } catch(e) {
+        console.error("Erreur lors de la sauvegarde", e);
+    }
+};

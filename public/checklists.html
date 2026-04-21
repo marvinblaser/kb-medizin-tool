@@ -31,11 +31,14 @@
         <a href="/admin.html"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
       </nav>
       <div class="sidebar-footer">
-        <div class="user-info" id="user-info"></div>
-        <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%">
-          <i class="fas fa-sign-out-alt"></i> Déconnexion
-        </button>
-      </div>
+          <div class="user-info" id="user-info"></div>
+          <li style="list-style-type: none;;margin-top: auto; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+              <a href="#" onclick="openSettings(); return false;" style="display: flex; align-items: center; gap: 10px; padding: 10px 15px; color: #475569; text-decoration: none; border-radius: 8px; transition: 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                  <i class="fas fa-cog"></i> Mes Préférences
+              </a>
+          </li>
+          <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%"><i class="fas fa-sign-out-alt"></i>Déconnexion</button>
+        </div>
     </aside>
 
     <main class="main-content">

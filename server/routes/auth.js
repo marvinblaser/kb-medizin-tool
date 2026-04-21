@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const { db } = require('../config/database');
+const { requireAuth } = require('../middleware/auth');
 
 // LOGIN
 router.post('/login', (req, res) => {
@@ -82,6 +83,25 @@ router.get('/me', (req, res) => {
             return res.status(401).json({ error: "Compte introuvable" });
         }
         res.json({ user });
+    });
+});
+
+// SAUVEGARDE DES PRÉFÉRENCES UTILISATEUR
+router.put('/me/preferences', requireAuth, (req, res) => {
+    const { pref_mail_assign, pref_mail_mention } = req.body;
+    
+    db.run(`UPDATE users SET pref_mail_assign = ?, pref_mail_mention = ? WHERE id = ?`, 
+    [pref_mail_assign ? 1 : 0, pref_mail_mention ? 1 : 0, req.session.userId], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
+
+// LECTURE DES PRÉFÉRENCES
+router.get('/me/preferences', requireAuth, (req, res) => {
+    db.get("SELECT pref_mail_assign, pref_mail_mention FROM users WHERE id = ?", [req.session.userId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(row || { pref_mail_assign: 1, pref_mail_mention: 1 });
     });
 });
 
