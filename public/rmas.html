@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Suivi RMA - KB Med Tool</title>
+    <link rel="stylesheet" href="/css/tokens.css" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/layout.css" />
+    <link rel="stylesheet" href="/css/forms.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+    <link rel="stylesheet" href="/css/table.css" />
+    <link rel="stylesheet" href="/css/pages.css" />
+    <link rel="stylesheet" href="/css/utilities.css" />
+    <link rel="stylesheet" href="/css/transitions.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
+    
+    <style>
+        /* --- ARCHITECTURE DU KANBAN (Scroll Intelligent) --- */
+        html, body { height: 100%; overflow: hidden; } /* Bloque le scroll global */
+
+        .app-container { height: 100vh; display: flex; }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; /* Empêche le contenu de déborder du viewport */
+        }
+
+        /* La zone de jeu : Scroll horizontal uniquement */
+        .rma-kanban-container {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            gap: 1.25rem;
+            padding: 1.5rem 3rem;
+            overflow-x: auto;
+            overflow-y: hidden;
+            background: #f1f5f9;
+            align-items: stretch; /* Les colonnes prennent toute la hauteur */
+        }
+
+        .kanban-col {
+            background: #f8fafc;
+            border-radius: 12px;
+            min-width: 310px;
+            max-width: 310px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .kanban-col-header {
+            padding: 1rem 1.25rem;
+            background: white;
+            border-bottom: 2px solid #e2e8f0;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .kanban-col-header h3 {
+            margin: 0;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+        }
+
+        /* Zone des cartes : Scroll vertical uniquement */
+        .kanban-card-list {
+            padding: 1rem;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .rma-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-top: 4px solid #3b82f6;
+        }
+        .rma-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+        
+        .rma-card-id { font-size: 0.7rem; color: #94a3b8; font-weight: bold; }
+        .rma-card-title { font-weight: 700; font-size: 0.95rem; color: #1e293b; margin: 4px 0; }
+        .rma-card-client { font-size: 0.85rem; color: #64748b; }
+
+        /* Custom Scrollbar */
+        .rma-kanban-container::-webkit-scrollbar { height: 10px; }
+        .rma-kanban-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2>KB Med</h2></div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
+                <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
+                <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
+                <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+                <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
+                <a href="/tickets.html"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
+                <a href="/rmas.html" class="active"><i class="fas fa-tools"></i><span>RMA</span></a>
+                <a href="/admin.html"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info" id="user-info"></div>
+                <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%">
+                    <i class="fas fa-sign-out-alt"></i>Déconnexion
+                </button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header" style="justify-content: space-between;">
+                <h1><i class="fas fa-tools"></i> Flux des RMA</h1>
+                <button class="btn btn-primary" onclick="openNewRmaModal()">
+                    <i class="fas fa-plus-circle"></i> Nouveau RMA
+                </button>
+            </div>
+
+            <div class="rma-kanban-container" id="kanban-board">
+                </div>
+        </main>
+    </div>
+
+    <div class="modal" id="rma-modal">
+        <div class="modal-content" style="max-width: 850px; width: 95%;">
+            <div class="modal-header">
+                <h2 id="rma-modal-title">RMA</h2>
+                <button class="modal-close" onclick="closeRmaModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="rma-modal-body" style="padding: 2rem;"></div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between;">
+                <button class="btn btn-danger" id="delete-rma-btn" onclick="deleteRma()"><i class="fas fa-trash"></i> Supprimer</button>
+                <button class="btn btn-secondary" onclick="closeRmaModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/loader.js"></script>
+    <script src="/js/notifications.js"></script>
+    <script src="/js/ticket-badge.js"></script>
+    <script src="/js/rmas.js"></script>
+    <script>
+        document.getElementById("logout-btn").addEventListener("click", async () => {
+            await fetch("/api/logout", { method: "POST" });
+            window.location.href = "/login.html";
+        });
+
+        async function loadUser() {
+            const res = await fetch("/api/me");
+            const data = await res.json();
+            if (data.user) {
+                document.getElementById("user-info").innerHTML = `
+                    <div class="user-avatar">${data.user.name.charAt(0)}</div>
+                    <div class="user-details"><strong>${data.user.name}</strong><span>Technicien</span></div>`;
+            }
+        }
+        loadUser();
+    </script>
+</body>
+</html>
