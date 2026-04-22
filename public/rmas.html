@@ -15,6 +15,8 @@
     <link rel="stylesheet" href="/css/transitions.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.default.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
     
     <style>
         /* --- ARCHITECTURE DU KANBAN (Scroll Intelligent) --- */
@@ -102,6 +104,33 @@
         /* Custom Scrollbar */
         .rma-kanban-container::-webkit-scrollbar { height: 10px; }
         .rma-kanban-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        /* --- ADAPTATION DE TOM SELECT AU THÈME KB MED --- */
+.ts-control {
+    padding: 12px 15px !important;
+    border: 1px solid var(--kb-gray-border) !important;
+    border-radius: var(--radius-sm) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.95rem !important;
+    background: white !important;
+    box-shadow: none !important;
+    color: var(--kb-dark) !important;
+}
+.ts-wrapper.focus .ts-control {
+    border-color: var(--kb-primary) !important;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15) !important;
+}
+.ts-dropdown {
+    border-radius: var(--radius-sm) !important;
+    box-shadow: var(--shadow-lg) !important;
+    border: 1px solid var(--kb-gray-border) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.9rem !important;
+}
+.ts-dropdown .option:hover, .ts-dropdown .option.active {
+    background-color: #f1f5f9 !important;
+    color: var(--kb-primary) !important;
+}
     </style>
 </head>
 <body>

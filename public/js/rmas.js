@@ -14,6 +14,8 @@ let currentRmaId = null;
 let hoverTimeout;
 let tooltipCache = {};
 
+let tsInstances = {}; // Stocke les menus avec recherche
+
 document.addEventListener('DOMContentLoaded', () => {
     initBoard();
     loadRmas();
@@ -191,6 +193,8 @@ async function openNewRmaModal() {
                 <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Créer le RMA</button>
             </form>
         `;
+        // À mettre après body.innerHTML = `...`; dans vos fonctions d'ouverture
+setTimeout(() => applySearchableSelects(), 50);
     } catch (e) { alert("Erreur chargement clients"); }
 }
 
@@ -316,6 +320,8 @@ async function openRmaDetails(id) {
                 </form>
             </div>
         `;
+        // À mettre après body.innerHTML = `...`; dans vos fonctions d'ouverture
+setTimeout(() => applySearchableSelects(), 50);
     } catch (e) { console.error(e); }
 }
 
@@ -477,6 +483,8 @@ async function editRmaDetails(id) {
                 </div>
             </form>
         `;
+        // À mettre après body.innerHTML = `...`; dans vos fonctions d'ouverture
+setTimeout(() => applySearchableSelects(), 50);
     } catch (e) { console.error(e); }
 }
 
@@ -782,6 +790,64 @@ function getTagsComponentHtml(rma, allTags, rmaId) {
         </div>
     `;
 }
+
+// --- 10. MENUS DÉROULANTS AVEC RECHERCHE ---
+
+function applySearchableSelects() {
+    // 1. Détruire les anciens menus pour éviter les bugs si on ferme et rouvre la modale
+    for (let key in tsInstances) {
+        if (tsInstances[key]) {
+            tsInstances[key].destroy();
+            delete tsInstances[key];
+        }
+    }
+
+    const config = { 
+        create: false, 
+        maxOptions: null, 
+        placeholder: "Rechercher...",
+        sortField: { field: "text", direction: "asc" }
+    };
+
+    // 2. Transformer les menus du Mode Édition & Création
+    if (document.getElementById('form-client')) tsInstances.formClient = new TomSelect('#form-client', config);
+    if (document.getElementById('form-equipment')) tsInstances.formEquipment = new TomSelect('#form-equipment', { create: false });
+    
+    if (document.getElementById('edit-client')) tsInstances.editClient = new TomSelect('#edit-client', config);
+    if (document.getElementById('edit-equipment')) tsInstances.editEquipment = new TomSelect('#edit-equipment', { create: false });
+    
+    if (document.getElementById('select-add-tag')) tsInstances.addTag = new TomSelect('#select-add-tag', { create: false });
+}
+
+// 3. NOUVELLE FONCTION de chargement du matériel (Adaptée pour Tom Select)
+async function loadClientEquipmentForEdit(clientId) {
+    const eqSelect = tsInstances.editEquipment || tsInstances.formEquipment;
+    if (!eqSelect) return;
+
+    eqSelect.clear(); // Vide le choix actuel
+    eqSelect.clearOptions(); // Vide la liste déroulante
+
+    if (!clientId) {
+        eqSelect.addOption({value: "", text: "-- Aucun équipement --"});
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/rmas/equipment/${clientId}`);
+        const equipment = await res.json();
+
+        eqSelect.addOption({value: "", text: "-- Aucun équipement spécifié --"});
+        equipment.forEach(e => {
+            eqSelect.addOption({
+                value: e.id, 
+                text: `${e.brand} - ${e.name} (SN: ${e.serial_number || 'N/A'})`
+            });
+        });
+    } catch (err) { console.error("Erreur chargement équipement", err); }
+}
+
+// On fait pointer la fonction de création sur la même logique pour ne pas dupliquer le code
+window.loadClientEquipment = loadClientEquipmentForEdit;
 
 function closeRmaModal() { document.getElementById('rma-modal').classList.remove('active'); }
 function escapeHtml(t) { if (!t) return ""; const d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
