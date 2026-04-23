@@ -17,6 +17,7 @@
     <link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.default.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         /* --- ARCHITECTURE DU KANBAN (Scroll Intelligent) --- */
@@ -131,6 +132,113 @@
     background-color: #f1f5f9 !important;
     color: var(--kb-primary) !important;
 }
+
+/* --- ONGLETS DE NAVIGATION --- */
+.kb-tabs-container {
+    display: flex;
+    gap: 10px;
+    padding: 20px 25px 0 25px; /* Aligné avec le kanban */
+    border-bottom: 1px solid var(--kb-gray-border);
+    background: white;
+}
+
+.kb-tab {
+    background: transparent;
+    color: var(--kb-gray-text);
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 10px 20px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    margin-bottom: -1px; /* Pour se poser sur la bordure */
+}
+
+.kb-tab:hover {
+    color: var(--kb-dark);
+    background: var(--kb-gray-light);
+    border-radius: 8px 8px 0 0;
+}
+
+.kb-tab.active {
+    color: var(--kb-primary);
+    border-bottom-color: var(--kb-primary);
+}
+
+/* --- CORRECTION DU TABLEAU DE BORD --- */
+
+/* --- CORRECTION DU SCROLL ET DU HEADER --- */
+.dashboard-container {
+    padding: 30px 25px 80px 25px; /* Un peu d'espace en bas pour ne pas coller au bord */
+    max-width: 1600px;
+    margin: 0 auto;
+    
+    /* C'EST ICI QUE LA MAGIE OPÈRE */
+    /* On limite la hauteur pour forcer le scroll en dessous du header */
+    height: calc(100vh - 140px); /* Ajustez le 140px selon la hauteur exacte de votre header + onglets */
+    overflow-y: auto; 
+}
+
+/* Style de la barre de défilement du tableau de bord */
+.dashboard-container::-webkit-scrollbar {
+    width: 8px;
+}
+.dashboard-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+.dashboard-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+.dashboard-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.kpi-row {
+    display: flex; /* Force les éléments à rester sur la même ligne */
+    justify-content: space-between;
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+.kpi-card {
+    flex: 1; /* Chaque carte prend exactement un tiers de l'espace disponible */
+    background: white;
+    padding: 25px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--kb-gray-border);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transition: transform 0.2s;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Force la grille à 2 colonnes strictes */
+    gap: 25px;
+}
+
+.chart-card {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--kb-gray-border);
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-wrapper {
+    position: relative;
+    height: 320px; /* On donne un tout petit peu plus d'espace pour respirer */
+    width: 100%;
+    flex: 1;
+}
+
     </style>
 </head>
 <body>
@@ -161,6 +269,46 @@
                 <button class="btn btn-primary" onclick="openNewRmaModal()">
                     <i class="fas fa-plus-circle"></i> Nouveau RMA
                 </button>
+            </div>
+
+            <div class="kb-tabs-container">
+                <button id="btn-kanban" class="kb-tab active" onclick="toggleView('kanban')">
+                    <i class="fas fa-columns"></i> Vue Kanban
+                </button>
+                <button id="btn-stats" class="kb-tab" onclick="toggleView('dashboard')">
+                    <i class="fas fa-chart-pie"></i> Statistiques
+                </button>
+            </div>
+
+            <div id="dashboard-view" style="display:none;" class="dashboard-container">
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 25px;">
+                    <h2 style="margin:0; color: var(--kb-dark); font-weight: 800; letter-spacing: -0.5px;">
+                        Analytics <span style="color:var(--kb-primary);">KB Med</span>
+                    </h2>
+                    <span style="color:var(--kb-gray-text); font-size:0.85rem; font-weight:600;"><i class="fas fa-sync-alt"></i> Données en temps réel</span>
+                </div>
+                
+                <div class="kpi-row" id="kpi-container">
+                    </div>
+                
+                <div class="dashboard-grid">
+                    <div class="chart-card">
+                        <h4>Répartition par Statut</h4>
+                        <div class="chart-wrapper"><canvas id="statusChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Volume par Fournisseur</h4>
+                        <div class="chart-wrapper"><canvas id="supplierChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Top 5 - Cabinets impactés</h4>
+                        <div class="chart-wrapper"><canvas id="clientsChart"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Top 5 - Équipements problématiques</h4>
+                        <div class="chart-wrapper"><canvas id="equipmentChart"></canvas></div>
+                    </div>
+                </div>
             </div>
 
             <div class="rma-kanban-container" id="kanban-board">

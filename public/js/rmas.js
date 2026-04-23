@@ -276,11 +276,15 @@ async function openRmaDetails(id) {
         const rma = await rmaRes.json();
         const allTags = await tagsAllRes.json();
 
+        // Titre avec les boutons d'action
         titleHeader.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 20px;">
+            <div style="display: flex; align-items: center; gap: 15px;">
                 <span style="font-weight:800; letter-spacing:-0.5px;">RMA #${id}</span>
                 <button class="btn btn-primary btn-sm" onclick="editRmaDetails(${id})">
                     <i class="fas fa-pen"></i> Modifier l'intervention
+                </button>
+                <button class="btn btn-sm" style="background:#fee2e2; color:#ef4444; border:1px solid #f87171;" onclick="refuseDevis(${id})">
+                    <i class="fas fa-ban"></i> Devis Refusé
                 </button>
             </div>
         `;
@@ -942,6 +946,199 @@ async function deleteAttachment(rmaId, attachmentId) {
         if (res.ok) openRmaDetails(rmaId);
     } catch (err) {
         console.error(err);
+    }
+}
+
+// --- 12. TABLEAU DE BORD & STATISTIQUES ---
+
+let charts = {}; // Pour stocker et détruire les anciens graphiques si on recharge
+
+function toggleView(viewName) {
+    const kanban = document.getElementById('kanban-board');
+    const dashboard = document.getElementById('dashboard-view');
+    const btnKanban = document.getElementById('btn-kanban');
+    const btnStats = document.getElementById('btn-stats');
+    
+    if (viewName === 'kanban') {
+        dashboard.style.display = 'none';
+        kanban.style.display = 'flex';
+        btnKanban.classList.add('active'); // Allume le bouton Kanban
+        btnStats.classList.remove('active');
+    } else {
+        kanban.style.display = 'none';
+        dashboard.style.display = 'block';
+        btnStats.classList.add('active'); // Allume le bouton Stats
+        btnKanban.classList.remove('active');
+        loadDashboardStats();
+    }
+}
+
+async function loadDashboardStats() {
+    try {
+        const res = await fetch('/api/rmas/stats/dashboard');
+        const data = await res.json();
+
+        // Calcul et affichage des KPIs
+        const totalRma = data.statusDistribution.reduce((sum, item) => sum + item.count, 0);
+        const enReparation = data.statusDistribution.find(s => s.status === 'En réparation')?.count || 0;
+        const devisEnAttente = data.statusDistribution.find(s => s.status === 'Devis au client')?.count || 0;
+
+        document.getElementById('kpi-container').innerHTML = `
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:#e0f2fe; color:#0ea5e9;"><i class="fas fa-tools"></i></div>
+                <div>
+                    <div style="font-size:0.8rem; color:var(--kb-gray-text); font-weight:700; text-transform:uppercase;">Dossiers Actifs</div>
+                    <div style="font-size:1.8rem; font-weight:900; color:var(--kb-dark);">${totalRma}</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:#fef08a; color:#ca8a04;"><i class="fas fa-hourglass-half"></i></div>
+                <div>
+                    <div style="font-size:0.8rem; color:var(--kb-gray-text); font-weight:700; text-transform:uppercase;">En attente de Devis</div>
+                    <div style="font-size:1.8rem; font-weight:900; color:var(--kb-dark);">${devisEnAttente}</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background:#fee2e2; color:#ef4444;"><i class="fas fa-truck-loading"></i></div>
+                <div>
+                    <div style="font-size:0.8rem; color:var(--kb-gray-text); font-weight:700; text-transform:uppercase;">En Réparation</div>
+                    <div style="font-size:1.8rem; font-weight:900; color:var(--kb-dark);">${enReparation}</div>
+                </div>
+            </div>
+        `;
+
+        // Palette de couleurs KB Med
+        const colors = ['#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#f97316'];
+        const supplierColors = { 'Xion': '#ef4444', 'Heinemann': '#0ea5e9', 'Autre': '#94a3b8' };
+
+        // Destruction des anciens graphiques pour éviter la superposition
+        Object.values(charts).forEach(chart => chart.destroy());
+
+        // 1. Graphique des Statuts (Bar Chart Horizontal)
+        const ctxStatus = document.getElementById('statusChart').getContext('2d');
+        charts.status = new Chart(ctxStatus, {
+            type: 'bar',
+            data: {
+                labels: data.statusDistribution.map(d => d.status),
+                datasets: [{
+                    label: 'RMA Actifs',
+                    data: data.statusDistribution.map(d => d.count),
+                    backgroundColor: '#0ea5e9',
+                    borderRadius: 4
+                }]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        // 2. Graphique Fournisseurs (Doughnut)
+        const ctxSupplier = document.getElementById('supplierChart').getContext('2d');
+        charts.supplier = new Chart(ctxSupplier, {
+            type: 'doughnut',
+            data: {
+                labels: data.supplierDistribution.map(d => d.supplier_name || 'Inconnu'),
+                datasets: [{
+                    data: data.supplierDistribution.map(d => d.count),
+                    backgroundColor: data.supplierDistribution.map(d => supplierColors[d.supplier_name] || '#cbd5e1'),
+                    borderWidth: 0
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '70%' }
+        });
+
+        // 3. Top Clients (Bar Chart)
+        const ctxClients = document.getElementById('clientsChart').getContext('2d');
+        charts.clients = new Chart(ctxClients, {
+            type: 'bar',
+            data: {
+                labels: data.topClients.map(d => d.cabinet_name),
+                datasets: [{
+                    label: 'Nombre de RMA',
+                    data: data.topClients.map(d => d.count),
+                    backgroundColor: colors,
+                    borderRadius: 4
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        // 4. Top Équipements (Pie Chart)
+        const ctxEq = document.getElementById('equipmentChart').getContext('2d');
+        charts.equipment = new Chart(ctxEq, {
+            type: 'pie',
+            data: {
+                labels: data.topEquipment.map(d => `${d.brand} - ${d.name}`),
+                datasets: [{
+                    data: data.topEquipment.map(d => d.count),
+                    backgroundColor: colors,
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+    } catch (e) {
+        console.error("Erreur de chargement des statistiques", e);
+    }
+}
+
+// --- 13. MACRO : GESTION DU REFUS DE DEVIS ---
+async function refuseDevis(rmaId) {
+    // 1. On demande la raison
+    const reason = prompt("Raison du refus (ex: Réparation trop chère, Achat appareil neuf...) :");
+    
+    // Si l'utilisateur clique sur "Annuler" ou laisse vide, on arrête tout
+    if (!reason) return; 
+
+    const btn = event.currentTarget;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Traitement...';
+    btn.disabled = true;
+
+    try {
+        // 2. Ajouter le commentaire explicatif dans l'historique
+        await fetch(`/api/rmas/${rmaId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ comment: `❌ DEVIS REFUSÉ par le client. Raison : ${reason}` })
+        });
+
+        // 3. Gérer l'étiquette (Tag)
+        const tagsRes = await fetch('/api/rmas/tags/all');
+        const allTags = await tagsRes.json();
+        
+        // On cherche si un tag "Devis Refusé" existe déjà (peu importe la majuscule)
+        let refusedTag = allTags.find(t => t.name.toLowerCase() === 'devis refusé' || t.name.toLowerCase() === 'refus de devis');
+
+        // S'il n'existe pas, on le crée en rouge vif
+        if (!refusedTag) {
+            const createTagRes = await fetch('/api/rmas/tags', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'Devis Refusé', color: '#ef4444' })
+            });
+            refusedTag = await createTagRes.json();
+        }
+
+        // On assigne le tag au RMA
+        await fetch(`/api/rmas/${rmaId}/tags`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tag_id: refusedTag.id })
+        });
+
+        // 4. On rafraîchit l'interface
+        openRmaDetails(rmaId); // Recharge la modale pour voir le tag et le commentaire
+        loadRmas(); // Met à jour le Kanban derrière
+        
+        // Petit message d'instruction
+        setTimeout(() => alert("Le RMA a été marqué comme refusé.\n\nN'oubliez pas de glisser la carte dans votre colonne 'Archives' ou 'Terminé' sur le Kanban."), 300);
+
+    } catch (err) {
+        console.error("Erreur lors du refus :", err);
+        alert("Une erreur est survenue.");
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 }
 

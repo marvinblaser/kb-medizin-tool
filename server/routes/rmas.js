@@ -249,5 +249,47 @@ router.delete('/attachments/:attachmentId', requireAuth, (req, res) => {
     });
 });
 
+// --- 12. STATISTIQUES ET TABLEAU DE BORD ---
+router.get('/stats/dashboard', requireAuth, (req, res) => {
+    const stats = {};
+
+    // 1. Répartition par Statut (Actifs)
+    db.all("SELECT status, COUNT(*) as count FROM rmas WHERE status != 'Archives' GROUP BY status", [], (err, statusData) => {
+        if (err) return res.status(500).json({ error: err.message });
+        stats.statusDistribution = statusData || [];
+
+        // 2. Volume par Fournisseur
+        db.all("SELECT supplier_name, COUNT(*) as count FROM rmas GROUP BY supplier_name", [], (err, supplierData) => {
+            stats.supplierDistribution = supplierData || [];
+
+            // 3. Top 5 Clients avec le plus de RMA
+            db.all(`
+                SELECT c.cabinet_name, COUNT(r.id) as count 
+                FROM rmas r 
+                JOIN clients c ON r.client_id = c.id 
+                GROUP BY r.client_id 
+                ORDER BY count DESC LIMIT 5
+            `, [], (err, clientData) => {
+                stats.topClients = clientData || [];
+
+                // 4. Top 5 Équipements les plus en panne
+                db.all(`
+                    SELECT ec.name, ec.brand, COUNT(r.id) as count 
+                    FROM rmas r 
+                    JOIN client_equipment ce ON r.equipment_id = ce.id 
+                    JOIN equipment_catalog ec ON ce.equipment_id = ec.id 
+                    GROUP BY ec.id 
+                    ORDER BY count DESC LIMIT 5
+                `, [], (err, eqData) => {
+                    stats.topEquipment = eqData || [];
+                    
+                    // On renvoie tout d'un coup au navigateur
+                    res.json(stats);
+                });
+            });
+        });
+    });
+});
+
 // CETTE LIGNE DOIT TOUJOURS ÊTRE LA DERNIÈRE DU FICHIER :
 module.exports = router;
