@@ -139,63 +139,86 @@ async function openNewRmaModal() {
     const modal = document.getElementById('rma-modal');
     modal.classList.add('active');
     document.getElementById('delete-rma-btn').style.display = 'none';
-    document.getElementById('rma-modal-title').innerHTML = "<i class='fas fa-plus-circle'></i> Déclarer un nouveau RMA";
     
+    const titleHeader = document.getElementById('rma-modal-title');
+    const body = document.getElementById('rma-modal-body');
+    
+    titleHeader.innerHTML = `<i class='fas fa-plus-circle'></i> Nouvelle Déclaration RMA`;
+    body.innerHTML = '<div style="text-align:center; padding:5rem;"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--kb-primary);"></i></div>';
+
     try {
         const res = await fetch('/api/clients');
-        const clients = await res.json();
+        const data = await res.json();
+        
+        // LA CORRECTION EST ICI : On sécurise le format de la liste des clients
+        const clients = Array.isArray(data) ? data : (data.clients || data.data || []);
+        
         const clientOptions = clients.map(c => `<option value="${c.id}">${escapeHtml(c.cabinet_name || c.name)}</option>`).join('');
 
-        document.getElementById('rma-modal-body').innerHTML = `
+        body.innerHTML = `
             <form onsubmit="saveRma(event)">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 25px;">
                     <div>
                         <div class="form-group mb-3">
-                            <label>Client <span style="color:red;">*</span></label>
+                            <label>Client <span style="color:var(--kb-red);">*</span></label>
                             <select id="form-client" class="form-control" required onchange="loadClientEquipment(this.value)">
-                                <option value="">-- Choisir un client --</option>
+                                <option value="">-- Rechercher un client --</option>
                                 ${clientOptions}
                             </select>
                         </div>
                         <div class="form-group mb-3">
-                            <label>Équipement défectueux</label>
-                            <select id="form-equipment" class="form-control" disabled>
+                            <label>Matériel concerné</label>
+                            <select id="form-equipment" class="form-control">
                                 <option value="">-- Sélectionnez d'abord un client --</option>
                             </select>
                         </div>
                         <div class="form-group mb-3">
-                            <label>Fournisseur</label>
+                            <label>Fournisseur (SAV)</label>
                             <select id="form-supplier" class="form-control">
-                                <option value="Xion">Xion</option>
+                                <option value="Xion" selected>Xion</option>
                                 <option value="Heinemann">Heinemann</option>
+                                <option value="Autre">Autre...</option>
                             </select>
                         </div>
                     </div>
+
                     <div>
                         <div class="form-group mb-3">
                             <label>N° RMA Fournisseur</label>
-                            <input type="text" id="form-rma-number" class="form-control">
+                            <input type="text" id="form-rma-number" class="form-control" placeholder="Optionnel, si déjà connu">
                         </div>
                         <div class="form-group mb-3">
-                            <label>Tracking Aller</label>
-                            <input type="text" id="form-tracking-to" class="form-control">
+                            <label>Tracking Envoi (Aller)</label>
+                            <input type="text" id="form-tracking-to" class="form-control" placeholder="Optionnel">
                         </div>
                         <div class="form-group mb-3">
                             <label>Tracking Retour</label>
-                            <input type="text" id="form-tracking-from" class="form-control">
+                            <input type="text" id="form-tracking-from" class="form-control" placeholder="Optionnel">
                         </div>
                     </div>
                 </div>
-                <div class="form-group mb-3">
-                    <label>Description du problème <span style="color:red;">*</span></label>
-                    <textarea id="form-desc" class="form-control" rows="3" required></textarea>
+
+                <div class="form-group mb-4">
+                    <label>Description détaillée de la panne <span style="color:var(--kb-red);">*</span></label>
+                    <textarea id="form-desc" class="form-control" rows="4" required placeholder="Symptômes, tests effectués..."></textarea>
                 </div>
-                <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Créer le RMA</button>
+                
+                <div style="display:flex; gap:10px; border-top:1px solid var(--kb-gray-border); padding-top:20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeRmaModal()" style="flex:1;">Annuler</button>
+                    <button type="submit" class="btn btn-primary" style="flex:2; justify-content:center; font-weight:800;">
+                        <i class="fas fa-plus"></i> Créer le RMA
+                    </button>
+                </div>
             </form>
         `;
-        // À mettre après body.innerHTML = `...`; dans vos fonctions d'ouverture
-setTimeout(() => applySearchableSelects(), 50);
-    } catch (e) { alert("Erreur chargement clients"); }
+
+        // Activation de la recherche Tom Select une fois le HTML généré
+        setTimeout(() => applySearchableSelects(), 50);
+
+    } catch (e) {
+        console.error("Erreur création RMA :", e);
+        body.innerHTML = '<div style="color:var(--kb-red); text-align:center; padding:20px; font-weight:bold;">Erreur lors du chargement des clients.</div>';
+    }
 }
 
 // Cascade Client -> Équipement
