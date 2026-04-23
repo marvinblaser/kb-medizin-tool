@@ -323,6 +323,7 @@ async function openRmaDetails(id) {
             </div>
 
             ${renderTagsSection(rma, allTags, id)}
+            ${getAttachmentsHtml(rma, id)}
 
             <div style="margin-top:30px;">
                 <h3 style="font-size:0.75rem; text-transform:uppercase; color:var(--neutral-500); margin-bottom:15px; letter-spacing:0.1em;">Historique des interventions</h3>
@@ -499,6 +500,7 @@ async function editRmaDetails(id) {
                 </div>
 
                 ${renderTagsSection(rma, allTags, id)}
+                ${getAttachmentsHtml(rma, id)}
 
                 <div style="display:flex; gap:10px; margin-top:30px; border-top:1px solid var(--border-color); padding-top:20px;">
                     <button type="button" class="btn btn-secondary" onclick="openRmaDetails(${id})" style="flex:1;">Annuler</button>
@@ -814,6 +816,41 @@ function getTagsComponentHtml(rma, allTags, rmaId) {
     `;
 }
 
+function getAttachmentsHtml(rma, rmaId) {
+    const listHtml = rma.attachments && rma.attachments.length > 0 
+        ? rma.attachments.map(att => {
+            const isPdf = att.file_type.includes('pdf');
+            const icon = isPdf ? 'fa-file-pdf' : 'fa-image';
+            const color = isPdf ? '#ef4444' : '#0ea5e9';
+            return `
+            <div style="display:flex; align-items:center; gap:10px; background:white; padding:8px 12px; border:1px solid var(--kb-gray-border); border-radius:8px; box-shadow:var(--shadow-sm);">
+                <i class="fas ${icon}" style="color:${color}; font-size:1.2rem;"></i>
+                <a href="${att.file_path}" target="_blank" style="color:var(--kb-dark); text-decoration:none; font-weight:600; font-size:0.85rem; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(att.file_name)}">
+                    ${escapeHtml(att.file_name)}
+                </a>
+                <i class="fas fa-trash-alt" style="color:var(--kb-gray-text); cursor:pointer; margin-left:auto; font-size:0.8rem;" onclick="deleteAttachment(${rmaId}, ${att.id})" title="Supprimer"></i>
+            </div>`;
+        }).join('')
+        : '<span style="color:var(--kb-gray-text); font-size:0.85rem; font-style:italic;">Aucun document.</span>';
+
+    return `
+        <div style="margin-top:25px; padding-top:20px; border-top:2px solid #e2e8f0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h4 style="margin:0; font-size: 1rem; color: #1e293b; font-weight:700;"><i class="fas fa-paperclip"></i> Documents & Photos</h4>
+                <div>
+                    <input type="file" id="file-upload-input" style="display:none;" onchange="uploadAttachment(${rmaId}, this)">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('file-upload-input').click()" style="padding:4px 10px; font-size:0.8rem;">
+                        <i class="fas fa-upload"></i> Ajouter
+                    </button>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                ${listHtml}
+            </div>
+        </div>
+    `;
+}
+
 // --- 10. MENUS DÉROULANTS AVEC RECHERCHE ---
 
 function applySearchableSelects() {
@@ -867,6 +904,45 @@ async function loadClientEquipmentForEdit(clientId) {
             });
         });
     } catch (err) { console.error("Erreur chargement équipement", err); }
+}
+
+// --- 11. ACTIONS SUR LES PIÈCES JOINTES ---
+async function uploadAttachment(rmaId, inputElement) {
+    const file = inputElement.files[0];
+    if (!file) return;
+
+    // Affiche un état de chargement sur le bouton
+    const btn = inputElement.nextElementSibling;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...';
+    btn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch(`/api/rmas/${rmaId}/attachments`, {
+            method: 'POST',
+            body: formData // On n'utilise pas JSON.stringify pour les fichiers
+        });
+        if (res.ok) openRmaDetails(rmaId); // Rafraîchit la modale
+    } catch (err) {
+        alert("Erreur lors de l'envoi du fichier.");
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        inputElement.value = ''; // Réinitialise l'input
+    }
+}
+
+async function deleteAttachment(rmaId, attachmentId) {
+    if (!confirm("Supprimer définitivement ce fichier ?")) return;
+    try {
+        const res = await fetch(`/api/rmas/attachments/${attachmentId}`, { method: 'DELETE' });
+        if (res.ok) openRmaDetails(rmaId);
+    } catch (err) {
+        console.error(err);
+    }
 }
 
 // On fait pointer la fonction de création sur la même logique pour ne pas dupliquer le code

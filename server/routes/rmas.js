@@ -3,6 +3,22 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+
+// Configuration du stockage des fichiers
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
+        cb(null, './uploads');
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + '-' + file.originalname.replace(/[^a-zA-Z0-9.]/g, '_'));
+    }
+});
+const upload = multer({ storage: storage });
 
 // 1. RÉCUPÉRER TOUS LES RMA
 router.get('/', requireAuth, (req, res) => {
@@ -127,11 +143,15 @@ router.get('/:id', requireAuth, (req, res) => {
     db.get(sql, [rmaId], (err, rma) => {
         if (err || !rma) return res.status(404).json({ error: "RMA introuvable" });
 
-        db.all(`SELECT rt.* FROM rma_tags rt JOIN rma_tag_links rtl ON rt.id = rtl.tag_id WHERE rtl.rma_id = ?`, [rmaId], (err, tags) => {
+        db.all(`SELECT * FROM rma_tags rt JOIN rma_tag_links rtl ON rt.id = rtl.tag_id WHERE rtl.rma_id = ?`, [rmaId], (err, tags) => {
             rma.tags = tags || [];
             db.all(`SELECT rc.*, u.name as user_name FROM rma_comments rc JOIN users u ON rc.user_id = u.id WHERE rc.rma_id = ? ORDER BY rc.created_at ASC`, [rmaId], (err, comments) => {
                 rma.comments = comments || [];
-                res.json(rma);
+                // NOUVEAU : Récupération des pièces jointes
+                db.all(`SELECT * FROM rma_attachments WHERE rma_id = ? ORDER BY created_at DESC`, [rmaId], (err, attachments) => {
+                    rma.attachments = attachments || [];
+                    res.json(rma);
+                });
             });
         });
     });
@@ -198,6 +218,34 @@ router.delete('/:id/tags/:tagId', requireAuth, (req, res) => {
     db.run("DELETE FROM rma_tag_links WHERE rma_id = ? AND tag_id = ?", [req.params.id, req.params.tagId], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
+    });
+});
+
+// --- 10. PIÈCES JOINTES (Upload et Suppression) ---
+router.post('/:id/attachments', requireAuth, upload.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "Aucun fichier reçu" });
+
+    const filePath = `/uploads/${req.file.filename}`;
+    db.run("INSERT INTO rma_attachments (rma_id, file_name, file_path, file_type) VALUES (?, ?, ?, ?)", 
+        [req.params.id, req.file.originalname, filePath, req.file.mimetype], 
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        }
+    );
+});
+
+router.delete('/attachments/:attachmentId', requireAuth, (req, res) => {
+    // 1. Trouver le chemin du fichier pour le supprimer du disque dur
+    db.get("SELECT file_path FROM rma_attachments WHERE id = ?", [req.params.attachmentId], (err, row) => {
+        if (row && fs.existsSync('.' + row.file_path)) {
+            fs.unlinkSync('.' + row.file_path); // Supprime le fichier physique
+        }
+        // 2. Supprimer l'entrée de la base de données
+        db.run("DELETE FROM rma_attachments WHERE id = ?", [req.params.attachmentId], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        });
     });
 });
 

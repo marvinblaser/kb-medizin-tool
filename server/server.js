@@ -45,6 +45,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Fichiers statiques (Uploads/Photos) - IMPORTANT POUR LES PROFILS
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+app.use('/uploads', express.static('uploads'));
 
 // Routes API
 app.use('/api', authRoutes);
