@@ -204,8 +204,23 @@ function renderDirectory(list) {
                 <input type="checkbox" class="row-checkbox client-cb" value="${c.id}" ${isChecked} onchange="toggleClientSelection(${c.id}, this)">
             </td>
             <td onclick="openClientDetails(${c.id})" style="cursor:pointer">
-                <strong style="color:var(--color-primary); font-size:0.95rem;">${escapeHtml(c.cabinet_name)}</strong> ${badgeHidden}<br>
-                <span style="font-size:0.8rem; color:var(--neutral-500);">${escapeHtml(c.activity)}</span>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="flex-shrink: 0; min-width: 24px; display: flex; justify-content: center;">
+                        ${window.getContractBadgeHtml ? window.getContractBadgeHtml(c) : ''}
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; justify-content: center;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <strong style="color:var(--color-primary); font-size:0.95rem; line-height: 1.2;">
+                                ${escapeHtml(c.cabinet_name)}
+                            </strong> 
+                            ${badgeHidden}
+                        </div>
+                        <span style="font-size:0.8rem; color:var(--neutral-500); line-height: 1.2; margin-top: 2px;">
+                            ${escapeHtml(c.activity)}
+                        </span>
+                    </div>
+                </div>
             </td>
             <td onclick="openClientDetails(${c.id})" style="cursor:pointer">${escapeHtml(c.city)} <span style="font-size:0.75rem; color:var(--neutral-400);">(${c.canton||''})</span></td>
             <td onclick="openClientDetails(${c.id})" style="cursor:pointer">${escapeHtml(c.contact_name)}<br><span style="font-size:0.75rem; color:var(--neutral-500);">${escapeHtml(c.phone||'-')}</span></td>
@@ -862,6 +877,12 @@ async function openClientModal(id = null) {
     const idField = document.getElementById('client-id');
     if(idField) idField.value = '';
 
+    // --- NOUVEAU : Réinitialisation du contrat si c'est un nouveau client ---
+    const contractCheckbox = document.getElementById('client-has-contract');
+    if (contractCheckbox) contractCheckbox.checked = false;
+    window.currentContractPath = null;
+    if (typeof toggleContractZone === 'function') toggleContractZone();
+
     // 3. Si on modifie un client existant
     if (id) {
         if(idField) idField.value = id;
@@ -879,7 +900,7 @@ async function openClientModal(id = null) {
             };
 
             setVal('client-name', client.cabinet_name);
-            setVal('client-activity', client.activity); // Correspond à votre HTML <select id="client-activity">
+            setVal('client-activity', client.activity);
             setVal('client-contact', client.contact_name);
             setVal('client-phone', client.phone);
             setVal('client-email', client.email);
@@ -890,34 +911,43 @@ async function openClientModal(id = null) {
             setVal('client-lat', client.latitude);
             setVal('client-lon', client.longitude);
             setVal('client-notes', client.notes);
-            
-        } catch (e) {
-            console.error("Erreur openClientModal:", e);
-            // showNotification("Erreur chargement", "error"); // Activez si vous avez la fonction
+
+            // --- NOUVEAU : Chargement de l'état du contrat pour ce client ---
+            if (contractCheckbox) contractCheckbox.checked = (client.has_contract === 1);
+            window.currentContractPath = client.contract_file || null;
+            if (typeof toggleContractZone === 'function') toggleContractZone();
+
+        } catch (err) {
+            console.error(err);
+            showNotification("Erreur lors du chargement", "error");
         }
     }
 
-    // 4. Affichage
-    const detailsModal = document.getElementById('client-details-modal');
-    if(detailsModal) detailsModal.classList.remove('active');
-    
-    const editModal = document.getElementById('client-modal');
-    if(editModal) editModal.classList.add('active');
+    // Affichage de la modale
+    const modal = document.getElementById('client-modal');
+    if(modal) modal.classList.add('active');
 }
 
 function closeClientModal() { document.getElementById('client-modal').classList.remove('active'); }
 // 2. Fonction de sauvegarde (CORRIGÉE aussi pour envoyer les bons champs)
-async function saveClient() {
-    const id = document.getElementById('client-id').value;
-    const method = id ? 'PUT' : 'POST';
-    const url = id ? `/api/clients/${id}` : '/api/clients';
+async function saveClient(event) {
+    // --- CORRECTION DU BUG : On vérifie si l'événement existe avant de le bloquer ---
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
 
-    // Helper pour récupérer la valeur sans crash
-    const getVal = (domId) => document.getElementById(domId)?.value || '';
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    };
+
+    const id = getVal('client-id');
+    const url = id ? `/api/clients/${id}` : '/api/clients';
+    const method = id ? 'PUT' : 'POST';
 
     const body = {
         cabinet_name: getVal('client-name'),
-        activity: getVal('client-activity'), // Correction ici aussi
+        activity: getVal('client-activity'),
         contact_name: getVal('client-contact'),
         phone: getVal('client-phone'),
         email: getVal('client-email'),
@@ -927,7 +957,9 @@ async function saveClient() {
         canton: getVal('client-canton'),
         latitude: getVal('client-lat'),
         longitude: getVal('client-lon'),
-        notes: getVal('client-notes')
+        notes: getVal('client-notes'),
+        // Sauvegarde de la case à cocher du contrat
+        has_contract: document.getElementById('client-has-contract') && document.getElementById('client-has-contract').checked ? 1 : 0
     };
 
     // Validation minimale
@@ -950,15 +982,15 @@ async function saveClient() {
             
             // Si on était dans la fiche détail, on la met à jour
             if (id && document.getElementById('client-details-modal').classList.contains('active')) {
-                // On peut rappeler openClientDetails(id) ou laisser tel quel
+                // Si vous avez une fonction de rafraîchissement des détails, elle va ici
             }
         } else {
             const err = await res.json();
             showNotification(err.error || "Erreur lors de l'enregistrement", "error");
         }
-    } catch (e) {
-        console.error(e);
-        showNotification("Erreur de communication serveur", "error");
+    } catch (err) {
+        console.error(err);
+        showNotification("Erreur de connexion", "error");
     }
 }
 
@@ -1299,3 +1331,123 @@ window.confirmSchedule = confirmSchedule;
 window.deleteAppointment = deleteAppointment;
 window.exportData = exportData;
 window.requestBulkAction = window.triggerBulkConfirm;
+
+// GESTION DES CONTRATS ET DOCUMENTS
+window.toggleContractZone = function() {
+    const isChecked = document.getElementById('client-has-contract').checked;
+    const zone = document.getElementById('contract-file-zone');
+    const badge = document.getElementById('contract-status-badge');
+    const container = document.getElementById('contract-file-container');
+
+    // Sécurité : on arrête tout si un des éléments HTML est introuvable
+    if (!zone || !badge || !container) {
+        console.error("Erreur : Un élément HTML du contrat est introuvable.");
+        return;
+    }
+
+    if (isChecked) {
+        zone.style.display = 'block';
+        badge.style.display = 'inline-block';
+        badge.textContent = 'Sous contrat';
+        badge.className = 'badge badge-success';
+        badge.style.background = '#dcfce7'; 
+        badge.style.color = '#16a34a';
+
+        if (window.currentContractPath) {
+            container.innerHTML = `
+                <a href="${window.currentContractPath}" target="_blank" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0;">
+                    <i class="fas fa-file-pdf" style="color: #ef4444;"></i> Consulter le document
+                </a>
+                <button type="button" class="btn btn-secondary btn-sm" style="color: #ef4444;" onclick="deleteContractFile()">
+                    <i class="fas fa-trash-alt"></i>
+                </button>`;
+        } else {
+            container.innerHTML = `
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('input-contract-file').click()">
+                    <i class="fas fa-upload"></i> Joindre le contrat (PDF/Image)
+                </button>`;
+        }
+    } else {
+        zone.style.display = 'none';
+        badge.style.display = 'inline-block';
+        badge.textContent = 'Sans contrat';
+        badge.className = 'badge badge-secondary';
+        badge.style.background = '#f1f5f9'; 
+        badge.style.color = '#64748b';
+    }
+};
+
+window.uploadContractFile = async function(input) {
+    if (!input.files[0] || !currentClientId) return;
+    
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+
+    const container = document.getElementById('contract-file-container');
+    container.innerHTML = '<span style="color: var(--color-primary); font-size: 0.9rem;"><i class="fas fa-spinner fa-spin"></i> Chargement...</span>';
+
+    try {
+        const res = await fetch(`/api/clients/${currentClientId}/contract`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+            window.currentContractPath = data.filePath;
+            toggleContractZone();
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Erreur lors de l'envoi.");
+        toggleContractZone();
+    }
+};
+
+window.deleteContractFile = async function() {
+    if (!confirm("Retirer le document de ce contrat ?")) return;
+    try {
+        await fetch(`/api/clients/${currentClientId}/contract`, { method: 'DELETE' });
+        window.currentContractPath = null;
+        document.getElementById('input-contract-file').value = "";
+        toggleContractZone();
+    } catch (e) {
+        console.error(e);
+    }
+};
+
+window.getContractBadgeHtml = function(client) {
+    if (client.has_contract !== 1) return ''; 
+    
+    // Style commun pour les petits badges icônes
+    const badgeStyle = `
+        width: 24px; 
+        height: 24px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        border-radius: 6px; 
+        font-size: 0.85rem; 
+        transition: all 0.2s;
+    `;
+
+    if (client.contract_file) {
+        return `
+            <span class="badge" 
+                  style="${badgeStyle} background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; cursor: pointer;" 
+                  onmouseover="this.style.background='#bbf7d0'" 
+                  onmouseout="this.style.background='#dcfce7'" 
+                  onclick="event.stopPropagation(); window.open('${client.contract_file}', '_blank')" 
+                  title="Voir le contrat">
+                <i class="fas fa-file-signature"></i>
+            </span>
+        `;
+    } else {
+        return `
+            <span class="badge" 
+                  style="${badgeStyle} background: #f8fafc; color: #16a34a; border: 1px solid #e2e8f0;" 
+                  title="Sous contrat (Pas de fichier joint)">
+                <i class="fas fa-check"></i>
+            </span>
+        `;
+    }
+};

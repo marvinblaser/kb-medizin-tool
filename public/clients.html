@@ -713,6 +713,22 @@ tr.row-selected { background-color: var(--color-primary-light) !important; }
                       <div class="form-group" style="flex:2"><label>Ville</label><input type="text" id="client-city"></div>
                       <div class="form-group"><label>Canton</label><input type="text" id="client-canton" style="text-transform:uppercase" maxlength="2"></div>
                   </div>
+
+                  <div class="form-group mb-4" style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label style="margin: 0; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; color: var(--neutral-800);">
+                                <input type="checkbox" id="client-has-contract" style="width: 18px; height: 18px; accent-color: var(--color-primary);" onchange="toggleContractZone()">
+                                Contrat de maintenance actif
+                            </label>
+                            <span id="contract-status-badge" class="badge" style="display: none;"></span>
+                        </div>
+
+                        <div id="contract-file-zone" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+                            <div id="contract-file-container" style="display: flex; align-items: center; gap: 15px;">
+                                </div>
+                            <input type="file" id="input-contract-file" style="display: none;" accept=".pdf,.jpg,.jpeg,.png" onchange="uploadContractFile(this)">
+                        </div>
+                    </div>
                   
                   <div class="gps-container" style="background:#f0fdf4; padding:12px; border-radius:8px; margin-bottom:1.5rem; border:1px solid #bbf7d0;">
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">

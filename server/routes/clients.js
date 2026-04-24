@@ -3,10 +3,31 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const xlsx = require('xlsx');
+const fs = require('fs');
+const path = require('path');
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
 
+// ==========================================
+// 1. CONFIGURATION DES UPLOADS (FICHIERS)
+// ==========================================
+
+// --- NOUVELLE LIGNE À AJOUTER (Pour réparer l'erreur d'import Excel) ---
 const upload = multer({ storage: multer.memoryStorage() });
+
+// --- Configuration pour les contrats de maintenance (Ce que nous avons ajouté tout à l'heure) ---
+const contractStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = './public/uploads/contracts';
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'contrat-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const uploadContract = multer({ storage: contractStorage });
 
 // --- NOTIFICATIONS HELPERS ---
 const notifyUser = (userId, type, message, link) => {
@@ -224,17 +245,32 @@ router.post('/', requireAuth, (req, res) => {
 
 // --- MODIFICATION DE CLIENT ---
 router.put('/:id', requireAuth, (req, res) => {
-    const { cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, notes, latitude, longitude } = req.body;
-    db.run(`UPDATE clients SET cabinet_name=?, contact_name=?, activity=?, address=?, postal_code=?, city=?, canton=?, phone=?, email=?, notes=?, latitude=?, longitude=? WHERE id=?`, [cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, notes, latitude, longitude, req.params.id], err => {
-        if (err) return res.status(500).json({ error: err.message });
-        
-        // DÉCLENCHEUR : On prévient qu'un dossier client est modifié
-        notifyRoles(['admin', 'secretary', 'tech'], 'info', `Fiche client mise à jour : ${cabinet_name}`, `/clients.html?open=${req.params.id}`);
+    const { 
+        cabinet_name, activity, contact_name, phone, email, 
+        address, postal_code, city, canton, latitude, longitude, notes, 
+        has_contract // <--- DOIT ÊTRE RÉCUPÉRÉ ICI
+    } = req.body;
 
+    const sql = `UPDATE clients SET 
+        cabinet_name = ?, activity = ?, contact_name = ?, phone = ?, email = ?, 
+        address = ?, postal_code = ?, city = ?, canton = ?, 
+        latitude = ?, longitude = ?, notes = ?, 
+        has_contract = ? -- <--- DOIT ÊTRE AJOUTÉ ICI
+        WHERE id = ?`;
+
+    const params = [
+        cabinet_name, activity, contact_name, phone, email, 
+        address, postal_code, city, canton, 
+        latitude, longitude, notes, 
+        has_contract, // <--- DOIT ÊTRE AJOUTÉ ICI AVANT req.params.id
+        req.params.id
+    ];
+
+    db.run(sql, params, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });
 });
-
 router.delete('/:id', requireAuth, (req, res) => {
     db.run("DELETE FROM clients WHERE id = ?", [req.params.id], err => err ? res.status(500).json({ error: err.message }) : res.json({ success: true }));
 });
@@ -396,6 +432,36 @@ router.put('/appointments/:id', requireAuth, (req, res) => {
         db.get("SELECT client_id FROM appointments_history WHERE id = ?", [req.params.id], (err, row) => {
             if(row) db.run("UPDATE clients SET appointment_at = ? WHERE id = ?", [appointment_date, row.client_id]);
             res.json({ message: "RDV mis à jour" });
+        });
+    });
+});
+
+// ======================================================
+// --- GESTION DES CONTRATS (AVANT LE MODULE.EXPORTS) ---
+// ======================================================
+
+// 2. Route POST pour l'upload (Celle qui cause l'erreur 404)
+router.post('/:id/contract', requireAuth, uploadContract.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "Aucun fichier reçu" });
+    
+    const filePath = `/uploads/contracts/${req.file.filename}`;
+    
+    db.run("UPDATE clients SET contract_file = ? WHERE id = ?", [filePath, req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, filePath: filePath });
+    });
+});
+
+// 3. Route DELETE pour supprimer le fichier
+router.delete('/:id/contract', requireAuth, (req, res) => {
+    db.get("SELECT contract_file FROM clients WHERE id = ?", [req.params.id], (err, row) => {
+        if (row && row.contract_file) {
+            const physicalPath = './public' + row.contract_file;
+            if (fs.existsSync(physicalPath)) fs.unlinkSync(physicalPath);
+        }
+        db.run("UPDATE clients SET contract_file = NULL WHERE id = ?", [req.params.id], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
         });
     });
 });
