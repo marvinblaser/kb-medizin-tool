@@ -250,13 +250,51 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
             }
         }
 
-        // Auto-Update Maintenance (si validé)
+        // --- PROTECTION KB MED : Auto-Update Maintenance STRICT & DATE PRÉCISE ---
         if (status === 'validated') {
-            const row = await get("SELECT technician_signature_date, created_at FROM reports WHERE id = ?", [reportId]);
+            // NOUVEAU : On va chercher la "work_date" du technicien (la vraie date d'intervention)
+            const row = await get(`
+                SELECT 
+                    r.technician_signature_date, 
+                    r.created_at, 
+                    r.work_type,
+                    (SELECT work_date FROM report_technicians WHERE report_id = r.id ORDER BY work_date ASC LIMIT 1) as tech_work_date
+                FROM reports r WHERE r.id = ?
+            `, [reportId]);
+            
             if (row) {
-                const interventionDate = row.technician_signature_date || row.created_at;
-                const updateEqSql = `UPDATE client_equipment SET last_maintenance_date = ?, next_maintenance_date = date(?, '+' || COALESCE(maintenance_interval, 1) || ' years') WHERE id IN (SELECT equipment_id FROM report_equipment WHERE report_id = ?)`;
-                run(updateEqSql, [interventionDate, interventionDate, reportId]).catch(e => console.error(e));
+                const workType = (row.work_type || '').toLowerCase();
+                
+                const maintenanceTypes = [
+                    "service d'entretien",
+                    "service-wartung",
+                    "première validation",
+                    "erste validierung",
+                    "re-validation",
+                    "re-validierung"
+                ];
+                
+                const isMaintenance = maintenanceTypes.some(type => workType.includes(type));
+
+                if (isMaintenance) {
+                    // 1. Priorité absolue : La date de travail renseignée par le technicien
+                    // 2. Sinon : La date de signature
+                    // 3. Dernier recours : La date de création du rapport
+                    let rawDate = row.tech_work_date || row.technician_signature_date || row.created_at;
+
+                    // Nettoyage de sécurité : on force le format YYYY-MM-DD pour SQLite (on enlève les heures)
+                    if (rawDate && rawDate.includes('T')) {
+                        rawDate = rawDate.split('T')[0];
+                    }
+
+                    const updateEqSql = `UPDATE client_equipment SET last_maintenance_date = ?, next_maintenance_date = date(?, '+' || COALESCE(maintenance_interval, 1) || ' years') WHERE id IN (SELECT equipment_id FROM report_equipment WHERE report_id = ?)`;
+                    
+                    run(updateEqSql, [rawDate, rawDate, reportId])
+                        .then(() => console.log(`✅ Date de maintenance (${rawDate}) mise à jour pour le rapport #${reportId}`))
+                        .catch(e => console.error("🔴 Erreur mise à jour date :", e));
+                } else {
+                    console.log(`ℹ️ Rapport #${reportId} validé (Type: "${row.work_type}"). Les dates de maintenance restent inchangées.`);
+                }
             }
         }
 

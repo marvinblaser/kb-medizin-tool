@@ -852,11 +852,16 @@ function getFormData() {
                               .map(cb => cb.value);
 
     // 2. Récupération du Type de Travaux (Multi-select)
-    // On gère le cas où c'est un select multiple standard ou SlimSelect
     const typeSelect = document.getElementById("report-type");
     let workType = [];
     if (typeSelect) {
-        workType = Array.from(typeSelect.selectedOptions).map(opt => opt.value);
+        workType = Array.from(typeSelect.selectedOptions)
+            .map(opt => {
+                // Force la récupération du texte si la 'value' HTML est vide
+                const val = (opt.value && opt.value.trim() !== "") ? opt.value : opt.text;
+                return val.trim();
+            })
+            .filter(val => val !== "" && !val.includes("--")); // Ignore les options type "-- Sélectionner --"
     }
 
     // 3. Construction de l'objet de données complet
