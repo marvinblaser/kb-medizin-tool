@@ -3,7 +3,7 @@
 let map = null;
 let markers = [];
 let allClients = [];
-let currentFilter = "all";
+let currentFilters = ["all"]; // Devient un tableau pour le multi-sélection
 let currentUser = null;
 
 // Coordonnées
@@ -432,25 +432,37 @@ function updateMapMarkers() {
   markers.forEach((m) => map.removeLayer(m));
   markers = [];
   
-  // 1. NOUVEAU FILTRAGE INTELLIGENT
+  // 1. NOUVEAU FILTRAGE INTELLIGENT (MULTI-SÉLECTION)
   const filtered = allClients.filter(c => {
-      if (currentFilter === "all") return c.status !== "ghost";
+      if (currentFilters.includes("all")) return c.status !== "ghost";
       
-      if (currentFilter === "ghost") {
-          // Si on cherche les fantômes, on affiche les clients 100% fantômes 
-          // MAIS AUSSI les clients normaux qui ont au moins 1 machine secondaire !
-          return c.status === "ghost" || (c.equipment && c.equipment.some(e => e.is_secondary === 1 || e.catalog_is_secondary === 1));
+      let isIncluded = false;
+      
+      // Vérifie si le statut principal du client est coché
+      if (currentFilters.includes(c.status)) {
+          isIncluded = true;
       }
       
-      return c.status === currentFilter;
+      // Règle spéciale pour les "Fantômes / Hors contrat"
+      if (currentFilters.includes("ghost")) {
+          if (c.status === "ghost" || (c.equipment && c.equipment.some(e => e.is_secondary === 1 || e.catalog_is_secondary === 1))) {
+              isIncluded = true;
+          }
+      }
+      
+      return isIncluded;
   });
 
   filtered.forEach((client) => {
     const coords = getCoordinatesForClient(client);
     
-    // 2. FORCER L'APPARTENANCE VISUELLE AU FILTRE
+    // 2. FORCER L'APPARTENANCE VISUELLE SELON LES FILTRES COCHÉS
     let displayStatus = client.status;
-    if (currentFilter === "ghost") displayStatus = "ghost"; // Force le gris si on est dans le filtre "Hors contrat"
+    
+    // Si on affiche ce client UNIQUEMENT grâce au filtre "Hors contrat" (et que son statut principal n'est pas coché)
+    if (!currentFilters.includes("all") && !currentFilters.includes(client.status) && currentFilters.includes("ghost")) {
+        displayStatus = "ghost"; 
+    }
 
     let color = "#16a34a"; // Vert
     if (displayStatus === "expired") color = "#dc2626";
@@ -480,16 +492,22 @@ function updateMapMarkers() {
       return `<span class="badge badge-success" style="font-size:10px!important;padding:2px 6px;">OK</span>`;
     };
 
-    // 3. GESTION DE L'AFFICHAGE DANS LA POPUP
+    // 3. GESTION DE L'AFFICHAGE DANS LA POPUP (MULTI-SÉLECTION)
     let visibleEquipment = client.equipment || [];
-    if (currentFilter === "ghost") {
-        // En mode "Hors contrat", on n'affiche QUE les machines secondaires
-        if (client.status !== "ghost" || visibleEquipment.some(e => e.is_secondary === 1 || e.catalog_is_secondary === 1)) {
+    
+    if (currentFilters.includes("all")) {
+        // En mode "Tous", on cache les secondaires pour ne pas polluer l'interface
+        visibleEquipment = visibleEquipment.filter(e => e.is_secondary !== 1 && e.catalog_is_secondary !== 1);
+    } else {
+        const showMain = currentFilters.includes(client.status);
+        const showGhost = currentFilters.includes("ghost");
+        
+        if (showMain && !showGhost) {
+            visibleEquipment = visibleEquipment.filter(e => e.is_secondary !== 1 && e.catalog_is_secondary !== 1);
+        } else if (!showMain && showGhost) {
             visibleEquipment = visibleEquipment.filter(e => e.is_secondary === 1 || e.catalog_is_secondary === 1);
         }
-    } else {
-        // Dans les autres modes, on cache les secondaires pour ne pas polluer
-        visibleEquipment = visibleEquipment.filter(e => e.is_secondary !== 1 && e.catalog_is_secondary !== 1);
+        // Si showMain ET showGhost sont vrais, on ne filtre rien, on affiche TOUT !
     }
 
     const eqHtml = visibleEquipment.length > 0
@@ -633,9 +651,35 @@ function setupMapFilters() {
 
   document.querySelectorAll(".map-filter-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".map-filter-btn").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      currentFilter = btn.dataset.filter;
+      const filterValue = btn.dataset.filter;
+
+      if (filterValue === "all") {
+          // 1. Si on clique sur "Tous", on désélectionne les autres
+          currentFilters = ["all"];
+          document.querySelectorAll(".map-filter-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+      } else {
+          // 2. Si on clique sur un autre, on enlève "Tous"
+          const allBtn = document.querySelector('.map-filter-btn[data-filter="all"]');
+          if (allBtn) allBtn.classList.remove("active");
+          currentFilters = currentFilters.filter(f => f !== "all");
+
+          // 3. On bascule l'état du bouton cliqué
+          if (btn.classList.contains("active")) {
+              btn.classList.remove("active");
+              currentFilters = currentFilters.filter(f => f !== filterValue);
+          } else {
+              btn.classList.add("active");
+              currentFilters.push(filterValue);
+          }
+
+          // 4. Si plus aucun filtre n'est sélectionné, on remet "Tous" par défaut
+          if (currentFilters.length === 0) {
+              currentFilters = ["all"];
+              if (allBtn) allBtn.classList.add("active");
+          }
+      }
+      
       updateMapMarkers();
     });
   });
