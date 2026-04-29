@@ -4,15 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Suivi RMA - KB Med Tool</title>
-    <link rel="stylesheet" href="/css/tokens.css" />
-    <link rel="stylesheet" href="/css/base.css" />
-    <link rel="stylesheet" href="/css/layout.css" />
-    <link rel="stylesheet" href="/css/forms.css" />
-    <link rel="stylesheet" href="/css/components.css" />
-    <link rel="stylesheet" href="/css/table.css" />
-    <link rel="stylesheet" href="/css/pages.css" />
-    <link rel="stylesheet" href="/css/utilities.css" />
-    <link rel="stylesheet" href="/css/transitions.css" />
+<link rel="stylesheet" href="/css/tokens.css" />      <!-- 1. Variables -->
+<link rel="stylesheet" href="/css/base.css" />        <!-- 2. Reset & Base -->
+<link rel="stylesheet" href="/css/layout.css" />      <!-- 3. Layout -->
+<link rel="stylesheet" href="/css/forms.css" />       <!-- 4. Formulaires -->
+<link rel="stylesheet" href="/css/components.css" />  <!-- 5. Composants -->
+<link rel="stylesheet" href="/css/table.css" />       <!-- 6. Tableaux -->
+<link rel="stylesheet" href="/css/pages.css" />       <!-- 7. Pages -->
+<link rel="stylesheet" href="/css/utilities.css" />   <!-- 8. Utilitaires -->
+<link rel="stylesheet" href="/css/transitions.css" /> <!-- 9. Transitions -->
+<link rel="stylesheet" href="/css/responsive.css" />  <!-- 10. RESPONSIVE (doit être en DERNIER) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.default.min.css" rel="stylesheet">
@@ -31,6 +32,27 @@
             flex-direction: column;
             height: 100vh;
             overflow: hidden; /* Empêche le contenu de déborder du viewport */
+        }
+
+        .kanban-column {
+            background: #f8fafc; /* Un gris-bleu extrêmement clair */
+            border: 1px solid #f1f5f9;
+            border-radius: 16px;
+            padding: 16px;
+            min-width: 320px;
+            height: 100%;
+        }
+
+        .kanban-column-header {
+            font-size: 0.85rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--neutral-500);
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         /* La zone de jeu : Scroll horizontal uniquement */
@@ -264,11 +286,27 @@
         </aside>
 
         <main class="main-content">
-            <div class="page-header" style="justify-content: space-between;">
-                <h1><i class="fas fa-tools"></i> Flux des RMA</h1>
-                <button class="btn btn-primary" onclick="openNewRmaModal()">
-                    <i class="fas fa-plus-circle"></i> Nouveau RMA
-                </button>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color);">
+                <div>
+                    <h1 style="font-size: 1.5rem; color: var(--neutral-800); font-weight: 800; margin: 0; display: flex; align-items: center; gap: 12px; letter-spacing: -0.5px;">
+                        <div style="background: var(--color-primary-light); color: var(--color-primary); width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 10px;">
+                            <i class="fas fa-tools"></i>
+                        </div>
+                        Suivi des Interventions
+                    </h1>
+                    <p style="color: var(--neutral-500); font-size: 0.9rem; margin: 8px 0 0 52px;">
+                        Gérez vos retours matériels (RMA) et suivez leur statut par simple glisser-déposer.
+                    </p>
+                </div>
+                
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn btn-secondary" onclick="openTagManager()" style="background: white; border: 1px solid #cbd5e1; color: var(--neutral-700); box-shadow: var(--shadow-sm); border-radius: 8px; font-weight: 600; padding: 0 16px; height: 40px; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#94a3b8';" onmouseout="this.style.background='white'; this.style.borderColor='#cbd5e1';">
+                        <i class="fas fa-tags" style="color: var(--neutral-500);"></i> Étiquettes
+                    </button>
+                    <button class="btn btn-primary" onclick="openRmaDetails()" style="box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25); border-radius: 8px; font-weight: 600; padding: 0 20px; height: 40px; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 15px rgba(59, 130, 246, 0.3)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.25)';">
+                        <i class="fas fa-plus"></i> Nouveau RMA
+                    </button>
+                </div>
             </div>
 
             <div class="kb-tabs-container">
@@ -330,6 +368,38 @@
         </div>
     </div>
 
+    <div class="modal" id="tag-manager-modal" style="z-index: 1060;">
+    <div class="modal-content" style="max-width: 480px; border-radius: 16px; box-shadow: var(--shadow-xl);">
+        <div class="modal-header" style="padding: 1.5rem; border-bottom: 1px solid var(--border-color);">
+            <h2 style="font-size: 1.1rem; color: var(--neutral-800); margin: 0; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-tags" style="color: var(--color-primary);"></i> Configuration des Étiquettes
+            </h2>
+            <button class="modal-close" onclick="closeTagManager()">&times;</button>
+        </div>
+        
+        <div class="modal-body" style="padding: 1.5rem;">
+            <form onsubmit="createNewGlobalTag(event)" style="background: #f8fafc; padding: 1.25rem; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 2rem;">
+                <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--neutral-500); text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.05em;">Nouvelle étiquette</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="flex: 1;">
+                        <input type="text" id="new-tag-name" class="form-control" placeholder="Nom (ex: Urgence, Devis...)" required style="height: 42px;">
+                    </div>
+                    <div style="position: relative; width: 42px; height: 42px;">
+                        <input type="color" id="new-tag-color" value="#3b82f6" style="position: absolute; width: 100%; height: 100%; border: none; cursor: pointer; padding: 0; background: none; border-radius: 8px;">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="height: 42px; padding: 0 15px;">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </form>
+            
+            <h3 style="font-size: 0.75rem; font-weight: 700; color: var(--neutral-500); text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.05em;">Bibliothèque actuelle</h3>
+            <div id="tag-manager-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; padding-right: 5px;">
+                </div>
+        </div>
+    </div>
+</div>
+
     <script src="/js/loader.js"></script>
     <script src="/js/notifications.js"></script>
     <script src="/js/ticket-badge.js"></script>
@@ -350,6 +420,48 @@
             }
         }
         loadUser();
+
+        // --- AJOUT / SUPPRESSION DES TAGS D'UN RMA ---
+
+window.addTagToRma = async function(rmaId, tagId) {
+    try {
+        const res = await fetch(`/api/rmas/${rmaId}/tags`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tag_id: tagId })
+        });
+
+        if (res.ok) {
+            openRmaDetails(rmaId); // Recharge l'interface instantanément
+            if (typeof loadRmas === 'function') loadRmas(); // Rafraîchit le Kanban
+        } else {
+            alert("Erreur lors de l'ajout de l'étiquette.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Erreur de connexion.");
+    }
+};
+
+window.removeTagFromRma = async function(rmaId, tagId) {
+    try {
+        const res = await fetch(`/api/rmas/${rmaId}/tags/${tagId}`, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            openRmaDetails(rmaId); // Recharge l'interface instantanément
+            if (typeof loadRmas === 'function') loadRmas(); // Rafraîchit le Kanban
+        } else {
+            alert("Erreur lors de la suppression de l'étiquette.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Erreur de connexion.");
+    }
+};
     </script>
+    <script src="/js/mobile-menu.js"></script>
+    <script src="/js/responsive-fixes.js"></script>
 </body>
 </html>

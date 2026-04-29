@@ -84,6 +84,35 @@ function renderRmas() {
             card.className = 'rma-card';
             card.draggable = true;
             card.dataset.id = rma.id;
+
+// --- NOUVEAU DESIGN DE LA CARTE (UX/UI Premium) ---
+            card.style.cssText = `
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 16px;
+                margin-bottom: 12px;
+                cursor: grab;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            `;
+
+            // Effet d'élévation au survol
+            card.onmouseover = () => {
+                card.style.boxShadow = '0 12px 20px -8px rgba(0,0,0,0.12)';
+                card.style.transform = 'translateY(-3px)';
+                card.style.borderColor = '#cbd5e1';
+            };
+            card.onmouseout = () => {
+                card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
+                card.style.transform = 'none';
+                card.style.borderColor = '#e2e8f0';
+            };
+
             card.onclick = () => openRmaDetails(rma.id);
             card.ondragstart = evDrag;
             // --- NOUVEAU : LES ÉVÉNEMENTS DE SURVOL ---
@@ -95,17 +124,49 @@ function renderRmas() {
                 ? rma.title 
                 : `#RMA-${rma.id} - ${rma.equipment_name || 'Matériel'}`;
 
+            // --- NOUVEAU DESIGN DE LA CARTE ---
+            
+            // Formatage des étiquettes (Tags)
             const tagsHtml = rma.tags && rma.tags.length > 0 
-                ? `<div style="margin-top:8px; display:flex; gap:4px; flex-wrap:wrap;">` + 
-                rma.tags.map(t => `<span style="background:${t.color}15; color:${t.color}; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:800; border: 1px solid ${t.color}50;">${escapeHtml(t.name)}</span>`).join('') + 
-                `</div>`
+                ? rma.tags.map(t => `<span style="background:${t.color}15; color:${t.color}; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:800; border: 1px solid ${t.color}50;">${escapeHtml(t.name)}</span>`).join('') 
                 : '';
 
             card.innerHTML = `
-                <div class="rma-card-id">#${rma.id} ${rma.rma_number ? ' / ' + escapeHtml(rma.rma_number) : ''}</div>
-                <h4 class="rma-card-title">${escapeHtml(displayTitle)}</h4>
-                <div class="rma-card-client"><i class="fas fa-hospital"></i> ${escapeHtml(rma.cabinet_name || 'Client')}</div>
-                ${tagsHtml} ${rma.supplier_name ? `<div style="font-size:0.7rem; color:var(--neutral-500); margin-top:5px;"><i class="fas fa-truck"></i> ${escapeHtml(rma.supplier_name)}</div>` : ''}
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                    <span style="font-weight:800; font-size:0.85rem; color:var(--color-primary);">
+                        ${rma.rma_number ? escapeHtml(rma.rma_number) : 'RMA #' + rma.id}
+                    </span>
+                </div>
+
+                <div style="font-weight:700; font-size:0.9rem; color:var(--neutral-800); line-height:1.2; margin-bottom:4px;">
+                    <i class="fas fa-microscope" style="font-size:0.75rem; opacity:0.5; margin-right:5px;"></i>
+                    ${escapeHtml(rma.equipment_name || 'Appareil inconnu')} - <span style="font-weight:500; font-size:0.8rem; color:var(--neutral-500);">${escapeHtml(rma.serial_number || 'S/N inconnu')}</span>
+                </div>
+
+                <div style="font-size:0.8rem; color:var(--neutral-600); font-weight:600; margin-bottom:8px;">
+                    <i class="fas fa-hospital" style="font-size:0.75rem; opacity:0.5; margin-right:5px;"></i>
+                    ${escapeHtml(rma.cabinet_name || 'Client inconnu')}
+                </div>
+
+                <div style="font-size:0.75rem; color:var(--neutral-500); line-height:1.4; margin-bottom:10px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
+                    ${escapeHtml(rma.description || 'Aucune description')}
+                </div>
+
+                <div style="font-size:0.7rem; color:var(--neutral-400); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px;">
+                    <i class="fas fa-truck-loading"></i> ${escapeHtml(rma.supplier_name || 'Fournisseur non spécifié')}
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; padding-top:8px; border-top:1px solid #f1f5f9;">
+                    <div class="rma-tags" style="display:flex; flex-wrap:wrap; gap:4px;">
+                        ${tagsHtml}
+                    </div>
+                    
+                    ${rma.attachment_count > 0 ? `
+                        <div title="${rma.attachment_count} pièce(s) jointe(s)" style="color:var(--neutral-400); font-size:0.8rem;">
+                            <i class="fas fa-paperclip"></i> <span style="font-size:0.7rem; font-weight:700;">${rma.attachment_count}</span>
+                        </div>
+                    ` : ''}
+                </div>
             `;
             col.appendChild(card);
             
@@ -331,7 +392,13 @@ async function openRmaDetails(id) {
 
             <div style="margin-top:30px;">
                 <h3 style="font-size:0.75rem; text-transform:uppercase; color:var(--neutral-500); margin-bottom:15px; letter-spacing:0.1em;">Historique des interventions</h3>
-                <div style="max-height:250px; overflow-y:auto; background:white; border:1px solid var(--border-color); border-radius:12px; padding:15px; margin-bottom:15px;">
+                
+                <form onsubmit="addComment(event, ${id})" style="display:flex; gap:10px; background:#f8fafc; padding:10px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:15px;">
+                    <input type="text" id="new-comment" class="form-control" placeholder="Ajouter une mise à jour..." required style="border:none; background:transparent; flex:1;">
+                    <button type="submit" class="btn btn-primary" style="border-radius:10px;"><i class="fas fa-paper-plane"></i></button>
+                </form>
+
+                <div style="max-height:250px; overflow-y:auto; background:white; border:1px solid var(--border-color); border-radius:12px; padding:15px;">
                     ${rma.comments.length ? rma.comments.map(c => `
                         <div style="margin-bottom:15px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
                             <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
@@ -342,10 +409,6 @@ async function openRmaDetails(id) {
                         </div>
                     `).join('') : '<p style="text-align:center; color:var(--neutral-400); padding:20px;">Aucun commentaire.</p>'}
                 </div>
-                <form onsubmit="addComment(event, ${id})" style="display:flex; gap:10px; background:#f8fafc; padding:10px; border-radius:12px; border:1px solid var(--border-color);">
-                    <input type="text" id="new-comment" class="form-control" placeholder="Ajouter une mise à jour..." required style="border:none; background:transparent; flex:1;">
-                    <button type="submit" class="btn btn-primary" style="border-radius:10px;"><i class="fas fa-paper-plane"></i></button>
-                </form>
             </div>
         `;
         // À mettre après body.innerHTML = `...`; dans vos fonctions d'ouverture
@@ -353,59 +416,46 @@ setTimeout(() => applySearchableSelects(), 50);
     } catch (e) { console.error(e); }
 }
 
-function renderTagsSection(rma, allTags, rmaId) {
-    const currentTagIds = rma.tags.map(t => t.id);
-    const availableTags = allTags.filter(t => !currentTagIds.includes(t.id));
+window.renderTagsSection = function(rma, allTags, rmaId) {
+    // Liste des IDs des tags déjà assignés pour pouvoir les filtrer
+    const assignedTagIds = rma.tags ? rma.tags.map(t => t.id) : [];
 
+    // 1. Zone des tags ACTIFS (Design Solide)
+    const assignedTagsHtml = rma.tags && rma.tags.length > 0 
+        ? rma.tags.map(t => `
+            <div style="background:${t.color}15; color:${t.color}; font-size:0.75rem; padding:4px 10px; border-radius:6px; font-weight:800; border: 1px solid ${t.color}40; display:inline-flex; align-items:center; gap:6px;">
+                ${escapeHtml(t.name)}
+                <i class="fas fa-times" style="cursor:pointer; opacity:0.5; transition:0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'" onclick="removeTagFromRma(${rmaId}, ${t.id})" title="Retirer l'étiquette"></i>
+            </div>`).join('') 
+        : '<span style="color:var(--neutral-400); font-size:0.8rem; font-style:italic;">Aucune étiquette assignée.</span>';
+
+    // 2. Zone des tags DISPONIBLES (Design Pointillé)
+    const availableTags = allTags.filter(t => !assignedTagIds.includes(t.id));
+    const availableTagsHtml = availableTags.length > 0
+        ? availableTags.map(t => `
+            <button type="button" onclick="addTagToRma(${rmaId}, ${t.id})" style="background:white; color:${t.color}; font-size:0.75rem; padding:4px 10px; border-radius:6px; font-weight:700; border: 1px dashed ${t.color}80; display:inline-flex; align-items:center; gap:6px; cursor:pointer; transition:0.2s;" onmouseover="this.style.background='${t.color}10'" onmouseout="this.style.background='white'" title="Ajouter cette étiquette">
+                <i class="fas fa-plus" style="font-size:0.6rem;"></i> ${escapeHtml(t.name)}
+            </button>`).join('')
+        : '<span style="color:var(--neutral-400); font-size:0.8rem; font-style:italic;">Toutes les étiquettes sont déjà utilisées.</span>';
+
+    // 3. Rendu final de l'encart
     return `
-        <div class="rma-tags-manager" style="margin-top:20px; padding:15px; background:#f8fafc; border-radius:12px; border:1px solid #e2e8f0;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h4 style="margin:0; font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--neutral-500);">Étiquettes (Tags)</h4>
-                <button type="button" class="btn-icon" onclick="toggleTagEditor(${rmaId})" style="background:none; border:none; color:var(--neutral-400); cursor:pointer;" title="Catalogue des tags">
-                    <i class="fas fa-cog"></i>
-                </button>
+        <div style="margin-top:20px; margin-bottom:20px; background:#f8fafc; padding:15px; border-radius:12px; border:1px solid var(--border-color);">
+            <h3 style="font-size:0.75rem; text-transform:uppercase; color:var(--neutral-500); margin-top:0; margin-bottom:12px; letter-spacing:0.1em;">Étiquettes actives</h3>
+            
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
+                ${assignedTagsHtml}
             </div>
-
-            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                ${rma.tags.map(t => `
-                    <div style="background:white; color:${t.color}; border:1px solid ${t.color}50; padding:4px 12px; border-radius:20px; font-weight:700; font-size:0.75rem; display:flex; align-items:center; gap:8px; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
-                        <span style="width:8px; height:8px; border-radius:50%; background:${t.color};"></span>
-                        ${escapeHtml(t.name)}
-                        <i class="fas fa-times" style="cursor:pointer; opacity:0.4; font-size:0.8em;" onclick="removeTag(${rmaId}, ${t.id})"></i>
-                    </div>
-                `).join('')}
-
-                <div style="position:relative;">
-                    <button type="button" onclick="toggleTagDropdown()" style="width:32px; height:32px; border-radius:50%; border:1px dashed #cbd5e1; background:white; color:#94a3b8; cursor:pointer; display:flex; align-items:center; justify-content:center;">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                    
-                    <div id="tag-quick-select" style="display:none; position:absolute; bottom:40px; left:0; background:white; border:1px solid var(--border-color); border-radius:10px; box-shadow:var(--shadow-lg); z-index:100; width:220px; padding:10px;">
-                        <p style="font-size:0.65rem; font-weight:800; text-transform:uppercase; color:var(--neutral-400); margin-bottom:8px;">Assigner un tag</p>
-                        <div style="max-height:150px; overflow-y:auto;">
-                            ${availableTags.length ? availableTags.map(t => `
-                                <div class="tag-option" onclick="assignTagQuick(${rmaId}, ${t.id})" style="padding:8px 10px; cursor:pointer; border-radius:6px; display:flex; align-items:center; gap:10px; font-size:0.8rem; font-weight:600;">
-                                    <span style="width:8px; height:8px; border-radius:50%; background:${t.color};"></span>
-                                    ${escapeHtml(t.name)}
-                                </div>
-                            `).join('') : '<p style="font-size:0.7rem; color:#94a3b8; padding:5px;">Aucun autre tag</p>'}
-                        </div>
-                    </div>
+            
+            <div style="border-top:1px solid #e2e8f0; padding-top:12px;">
+                <h3 style="font-size:0.7rem; text-transform:uppercase; color:var(--neutral-400); margin-bottom:10px; letter-spacing:0.05em;">Ajouter une étiquette</h3>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    ${availableTagsHtml}
                 </div>
-            </div>
-
-            <div id="tag-editor-zone" style="display:none; margin-top:15px; padding-top:15px; border-top:1px solid #e2e8f0;">
-                <div style="display:flex; gap:10px; margin-bottom:15px;">
-                    <input type="text" id="new-tag-name" class="form-control form-control-sm" placeholder="Nouveau..." style="flex:1;">
-                    <input type="color" id="new-tag-color" value="#3b82f6" style="width:35px; height:35px; border:none; padding:0; background:none; cursor:pointer;">
-                    <button type="button" class="btn btn-primary btn-sm" onclick="createNewTag(${rmaId})">Créer</button>
-                </div>
-                <div id="global-tags-list" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                    </div>
             </div>
         </div>
     `;
-}
+};
 
 // Rafraîchir les équipements dans le formulaire d'édition
 async function loadClientEquipmentForEdit(clientId) {
@@ -611,7 +661,7 @@ function handleCardHover(ev, rmaId) {
                   `</div>`
                 : '';
 
-            const recentComments = details.comments.slice(-3);
+            const recentComments = details.comments.slice(0, 3);
             const commentsHtml = recentComments.length > 0 
                 ? recentComments.map(c => `
                     <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
@@ -1141,6 +1191,88 @@ async function refuseDevis(rmaId) {
         btn.disabled = false;
     }
 }
+
+// =========================================================
+// --- GESTIONNAIRE GLOBAL DES ÉTIQUETTES ---
+// =========================================================
+
+window.openTagManager = async function() {
+    document.getElementById('tag-manager-modal').classList.add('active');
+    await loadTagManagerList();
+};
+
+window.closeTagManager = function() {
+    document.getElementById('tag-manager-modal').classList.remove('active');
+};
+
+window.loadTagManagerList = async function() {
+    const container = document.getElementById('tag-manager-list');
+    container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--neutral-400);"><i class="fas fa-spinner fa-spin"></i></div>';
+    
+    try {
+        const res = await fetch('/api/rmas/tags/all');
+        const tags = await res.json();
+        
+        if (!tags.length) {
+            container.innerHTML = '<p style="text-align:center; color:var(--neutral-400); font-size:0.9rem; padding:20px;">Aucune étiquette configurée.</p>';
+            return;
+        }
+
+        container.innerHTML = tags.map(t => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: white; border: 1px solid #f1f5f9; border-radius: 8px; transition: 0.2s; hover: border-color: #e2e8f0;">
+                <span style="background:${t.color}15; color:${t.color}; font-size:0.75rem; padding:4px 10px; border-radius:6px; font-weight:800; border: 1px solid ${t.color}40; letter-spacing: 0.3px;">
+                    ${escapeHtml(t.name)}
+                </span>
+                <button onclick="deleteGlobalTag(${t.id})" style="background:none; border:none; color:#cbd5e1; cursor:pointer; transition: 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'">
+                    <i class="fas fa-trash-alt" style="font-size:0.85rem;"></i>
+                </button>
+            </div>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = '<p style="color:var(--color-danger); font-size:0.8rem;">Erreur de chargement.</p>';
+    }
+};
+
+window.createNewGlobalTag = async function(e) {
+    e.preventDefault();
+    const name = document.getElementById('new-tag-name').value.trim();
+    const color = document.getElementById('new-tag-color').value;
+    
+    if (!name) return;
+
+    try {
+        const res = await fetch('/api/rmas/tags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, color })
+        });
+
+        if (res.ok) {
+            document.getElementById('new-tag-name').value = '';
+            await loadTagManagerList();
+            if (typeof loadRmas === 'function') loadRmas(); // Rafraîchit le Kanban si nécessaire
+        } else {
+            const err = await res.json();
+            alert(err.error || "Erreur lors de la création");
+        }
+    } catch (err) {
+        alert("Impossible de contacter le serveur.");
+    }
+};
+
+window.deleteGlobalTag = async function(tagId) {
+    if (!confirm("Supprimer cette étiquette ? Elle sera retirée de tous les RMA qui l'utilisent.")) return;
+
+    try {
+        const res = await fetch(`/api/rmas/tags/${tagId}`, { method: 'DELETE' });
+        if (res.ok) {
+            await loadTagManagerList();
+            if (typeof loadRmas === 'function') loadRmas();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+};
 
 // On fait pointer la fonction de création sur la même logique pour ne pas dupliquer le code
 window.loadClientEquipment = loadClientEquipmentForEdit;

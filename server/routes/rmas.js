@@ -22,16 +22,22 @@ const upload = multer({ storage: storage });
 
 // 1. RÉCUPÉRER TOUS LES RMA
 router.get('/', requireAuth, (req, res) => {
-    // Note: On lie l'équipement à "client_equipment" pour avoir le numéro de série
-    const sql = `
-        SELECT r.*, c.cabinet_name, ec.name as equipment_name, ec.brand, ce.serial_number
-        FROM rmas r
-        LEFT JOIN clients c ON r.client_id = c.id
-        LEFT JOIN client_equipment ce ON r.equipment_id = ce.id
-        LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
-        ORDER BY r.created_at DESC
-    `;
-    db.all(sql, [], (err, rmas) => {
+        const sql = `
+            SELECT 
+                r.*, 
+                c.cabinet_name, 
+                ec.name as equipment_name, 
+                ec.brand, 
+                ce.serial_number,
+                (SELECT COUNT(*) FROM rma_attachments WHERE rma_id = r.id) as attachment_count
+            FROM rmas r
+            LEFT JOIN clients c ON r.client_id = c.id
+            LEFT JOIN client_equipment ce ON r.equipment_id = ce.id
+            LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+            ORDER BY r.created_at DESC
+        `;
+        
+        db.all(sql, [], (err, rmas) => {
         if (err) return res.status(500).json({ error: err.message });
         
         db.all(`SELECT rtl.rma_id, rt.id, rt.name, rt.color FROM rma_tag_links rtl JOIN rma_tags rt ON rtl.tag_id = rt.id`, [], (err, tags) => {
@@ -145,7 +151,7 @@ router.get('/:id', requireAuth, (req, res) => {
 
         db.all(`SELECT * FROM rma_tags rt JOIN rma_tag_links rtl ON rt.id = rtl.tag_id WHERE rtl.rma_id = ?`, [rmaId], (err, tags) => {
             rma.tags = tags || [];
-            db.all(`SELECT rc.*, u.name as user_name FROM rma_comments rc JOIN users u ON rc.user_id = u.id WHERE rc.rma_id = ? ORDER BY rc.created_at ASC`, [rmaId], (err, comments) => {
+            db.all(`SELECT rc.*, u.name as user_name FROM rma_comments rc JOIN users u ON rc.user_id = u.id WHERE rc.rma_id = ? ORDER BY rc.created_at DESC`, [rmaId], (err, comments) => {
                 rma.comments = comments || [];
                 // NOUVEAU : Récupération des pièces jointes
                 db.all(`SELECT * FROM rma_attachments WHERE rma_id = ? ORDER BY created_at DESC`, [rmaId], (err, attachments) => {
@@ -287,6 +293,33 @@ router.get('/stats/dashboard', requireAuth, (req, res) => {
                     res.json(stats);
                 });
             });
+        });
+    });
+});
+
+// Supprimer un tag d'un RMA
+router.delete('/:id/tags/:tagId', requireAuth, (req, res) => {
+    db.run("DELETE FROM rma_tags WHERE rma_id = ? AND tag_id = ?", [req.params.id, req.params.tagId], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
+
+// 3. Supprimer DÉFINITIVEMENT un tag du catalogue (et de tous les RMAs)
+router.delete('/tags/:id', requireAuth, (req, res) => {
+    const tagId = req.params.id;
+
+    // Étape 1 : On nettoie la table de liaison (rma_tag_links)
+    db.run("DELETE FROM rma_tag_links WHERE tag_id = ?", [tagId], function(err) {
+        if (err) {
+            console.error("Erreur nettoyage rma_tag_links:", err);
+            return res.status(500).json({ error: "Erreur lors du nettoyage." });
+        }
+        
+        // Étape 2 : On supprime définitivement l'étiquette (rma_tags)
+        db.run("DELETE FROM rma_tags WHERE id = ?", [tagId], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
         });
     });
 });
