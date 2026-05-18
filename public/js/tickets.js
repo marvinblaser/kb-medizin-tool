@@ -4,7 +4,15 @@ let currentFilter = 'all';
 let slimClient, slimAssignedNew, slimAssignedView, slimClientView;
 let isModalLoading = false; 
 let currentPage = 1;
-const itemsPerPage = 10; // Nombre de tickets par page (vous pouvez changer ce chiffre)
+let isLoadingEquipment = false;
+
+function getItemsPerPage() {
+  const rowHeight  = 52; // hauteur moyenne d'une ligne
+  const tableTop   = document.getElementById('tickets-tbody')
+    ?.closest('table')?.getBoundingClientRect().top || 300;
+  const available  = window.innerHeight - tableTop - 120; // 120 = pagination + marges
+  return Math.max(10, Math.floor(available / rowHeight));
+}
 
 function debounce(func, wait) {
     let timeout;
@@ -47,7 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.getElementById('comment-form').addEventListener('submit', (e) => { e.preventDefault(); addComment(); });
-    document.getElementById('logout-btn')?.addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login.html'; });
+    
 
     // CORRECTION : Animation du trombone SANS détruire le fichier
     document.body.addEventListener('change', function(e) {
@@ -72,7 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function checkAuth() {
     try {
-        const response = await fetch('/api/me');
+        const response = await fetch('/api/auth/me');
         if (!response.ok) { window.location.href = '/login.html'; return; }
         const data = await response.json();
         window.currentUserId = data.user.id;
@@ -102,19 +110,7 @@ async function loadTickets(searchQuery = '') {
 
         // --- MISE À JOUR DU BADGE DU MENU EN TEMPS RÉEL ---
         const badge = document.querySelector('.ticket-badge');
-        const ticketLink = document.querySelector('.sidebar-nav a[href="/tickets.html"]');
-        
-        if (countMine > 0) {
-            if (badge) {
-                badge.innerText = countMine; // Met à jour le chiffre
-            } else if (ticketLink) {
-                // Crée le badge s'il n'existait pas
-                ticketLink.insertAdjacentHTML('beforeend', `<span class="ticket-badge">${countMine}</span>`);
-            }
-        } else if (badge) {
-            badge.remove(); // Supprime la pastille rouge si on a fini son travail !
-        }
-
+    
         renderTickets();
     } catch (e) { console.error(e); }
 }
@@ -123,55 +119,112 @@ function renderTickets() {
     const tbody = document.getElementById('tickets-tbody');
     const filteredTickets = allTickets.filter(t => {
         const assignees = t.assigned_ids ? t.assigned_ids.split(',') : [];
-        if (currentFilter === 'all') return true;
-        if (currentFilter === 'mine') return assignees.includes(String(window.currentUserId)) && t.status !== 'Clôturé';
-        if (currentFilter === 'open') return t.status === 'Ouvert';
-        if (currentFilter === 'waiting') return t.status === 'En attente';
+        if (currentFilter === 'all')        return true;
+        if (currentFilter === 'mine')       return assignees.includes(String(window.currentUserId)) && t.status !== 'Clôturé';
+        if (currentFilter === 'open')       return t.status === 'Ouvert';
+        if (currentFilter === 'waiting')    return t.status === 'En attente';
         if (currentFilter === 'unassigned') return assignees.length === 0 && t.status !== 'Clôturé';
-        if (currentFilter === 'closed') return t.status === 'Clôturé';
+        if (currentFilter === 'closed')     return t.status === 'Clôturé';
         return true;
     });
-
-    const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
-    
-    if (currentPage > totalPages && totalPages > 0) currentPage = totalPages;
-    if (totalPages === 0) currentPage = 1;
-
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const ticketsToShow = filteredTickets.slice(startIndex, endIndex);
-
-    if (ticketsToShow.length === 0) { 
-        // ATTENTION : Le colspan passe à 7 à cause de la nouvelle colonne ID
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 4rem; color: #94a3b8;"><i class="fas fa-check-circle fa-2x" style="opacity:0.2; margin-bottom:10px;"></i><br>Aucune demande dans cette vue.</td></tr>'; 
+ 
+    const totalPages  = Math.ceil(filteredTickets.length / getItemsPerPage());
+    const ticketsToShow = filteredTickets.slice(
+        (currentPage - 1) * getItemsPerPage(),
+        currentPage * getItemsPerPage()
+    );
+ 
+    if (!ticketsToShow.length) {
+        tbody.innerHTML = `
+            <tr><td colspan="6" style="text-align:center;padding:4rem;color:var(--text-tertiary);">
+                <i class="fas fa-inbox fa-2x" style="opacity:0.15;display:block;margin-bottom:12px;"></i>
+                Aucune demande dans cette vue.
+            </td></tr>`;
         if (typeof renderPagination === 'function') renderPagination(totalPages);
-        return; 
+        return;
     }
-
+ 
+    const priorityConfig = {
+        'Urgente': { icon: '🔴', color: 'var(--color-danger)',  bg: 'var(--color-danger-bg)',  rowClass: 'ticket-row-urgent' },
+        'Haute':   { icon: '🟠', color: '#ea580c',              bg: '#ffedd5',                  rowClass: 'ticket-row-haute' },
+        'Normale': { icon: '🔵', color: 'var(--color-primary)', bg: 'rgba(44,90,160,0.08)',     rowClass: 'ticket-row-normale' },
+        'Basse':   { icon: '⚪', color: 'var(--text-tertiary)', bg: 'var(--bg-tertiary)',       rowClass: 'ticket-row-basse' },
+    };
+ 
+    const statusConfig = {
+        'Ouvert':     { cls: 'status-open',    dot: '●' },
+        'En attente': { cls: 'status-waiting', dot: '●' },
+        'Clôturé':    { cls: 'status-closed',  dot: '●' },
+    };
+ 
     tbody.innerHTML = ticketsToShow.map(t => {
-        let statusClass = t.status === 'Ouvert' ? 'status-open' : t.status === 'En attente' ? 'status-waiting' : 'status-closed';
-        let urgentIcon = t.is_urgent ? '<span style="color:#dc2626; margin-right:8px; font-size:1.2rem;" title="Urgent">🚨</span>' : '';
-        
-        return `<tr onclick="openTicketDetails(${t.id})">
-            <td class="col-status"><span class="ticket-status-badge ${statusClass}">${t.status}</span></td>
-            
-            <td style="color: #94a3b8; font-weight: bold; font-size: 0.85rem;">#${t.id}</td>
-            
-            <td style="font-weight: 700; color: #1e293b;">${urgentIcon}${escapeHtml(t.title)}</td>
-            <td>${t.cabinet_name ? `<span style="font-weight:500; color:#475569;">🏢 ${escapeHtml(t.cabinet_name)}</span>` : '<span style="color:#cbd5e1;">-</span>'}</td>
-            <td><small style="font-weight:600; color:#64748b;"><i class="fas fa-users-cog" style="margin-right:6px; opacity:0.5;"></i>${t.assigned_names || 'Non assigné'}</small></td>
-            <td class="col-date" style="color: #64748b; font-size: 0.9rem;">${parseDbDate(t.created_at).toLocaleDateString('fr-CH')}</td>
-            <td class="action-cell col-action">
-                <button class="btn-outline" onclick="event.stopPropagation(); openTicketDetails(${t.id})">
-                    Ouvrir <i class="fas fa-chevron-right" style="font-size: 0.7rem;"></i>
-                </button>
-            </td>
-        </tr>`;
+        const prio    = t.priority || 'Normale';
+        const pCfg    = priorityConfig[prio]  || priorityConfig['Normale'];
+        const sCfg    = statusConfig[t.status] || statusConfig['Ouvert'];
+ 
+        const urgentBadge = t.is_urgent
+            ? `<span style="background:var(--color-danger-bg);color:var(--color-danger);
+                font-size:10px;font-weight:700;padding:1px 6px;border-radius:2px;
+                border:1px solid rgba(239,68,68,0.2);">🚨 URGENT</span>`
+            : '';
+ 
+        const prioBadge = `<span class="priority-badge"
+            style="background:${pCfg.bg};color:${pCfg.color};">
+            ${pCfg.icon} ${prio}
+        </span>`;
+ 
+        const assignedHtml = t.assigned_names
+            ? `<span style="font-size:var(--text-xs);color:var(--text-secondary);font-weight:600;">
+                <i class="fas fa-user" style="opacity:0.4;margin-right:4px;"></i>${escapeHtml(t.assigned_names)}
+               </span>`
+            : `<span style="font-size:var(--text-xs);color:var(--text-tertiary);font-style:italic;">Non assigné</span>`;
+ 
+        return `
+<tr onclick="openTicketDetails(${t.id})" class="${pCfg.rowClass}" style="cursor:pointer;">
+    <td class="col-status">
+        <span class="ticket-status-badge ${sCfg.cls}">${sCfg.dot} ${t.status}</span>
+    </td>
+    <td style="color:var(--text-tertiary);font-weight:700;font-size:0.85rem;width:55px;">#${t.id}</td>
+    <td style="width:90px;">
+        <span class="priority-badge" style="background:${pCfg.bg};color:${pCfg.color};display:inline-flex;align-items:center;gap:4px;">
+            ${pCfg.icon} ${prio}
+        </span>
+        ${t.is_urgent ? `<span style="display:block;margin-top:3px;font-size:9px;font-weight:700;color:var(--color-danger);">🚨 URGENT</span>` : ''}
+    </td>
+    <td>
+        <div style="font-weight:var(--font-semibold);color:var(--text-primary);
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${escapeHtml(t.title)}
+        </div>
+        ${t.cabinet_name
+            ? `<div style="font-size:11px;color:var(--text-tertiary);margin-top:1px;">
+                <i class="fas fa-hospital" style="opacity:0.35;font-size:9px;margin-right:3px;"></i>
+                ${escapeHtml(t.cabinet_name)}
+               </div>`
+            : ''}
+    </td>
+    <td style="width:150px;">
+        ${t.assigned_names
+            ? `<span style="font-size:var(--text-xs);color:var(--text-secondary);font-weight:600;">
+                <i class="fas fa-user" style="opacity:0.4;margin-right:4px;"></i>${escapeHtml(t.assigned_names)}
+               </span>`
+            : `<span style="font-size:var(--text-xs);color:var(--text-tertiary);font-style:italic;">Non assigné</span>`}
+    </td>
+    <td style="width:140px;">   <!-- ← AJOUTE CE BLOC -->
+        ${t.eq_name
+            ? `<span style="font-size:11px;color:var(--text-secondary);">
+                <i class="fas fa-cog" style="opacity:0.35;margin-right:3px;font-size:9px;"></i>
+                ${escapeHtml(t.eq_name)}
+               </span>`
+            : `<span style="font-size:11px;color:var(--text-tertiary);">—</span>`}
+    </td>
+    <td class="col-date" style="color:var(--text-tertiary);font-size:var(--text-xs);width:95px;">
+        ${parseDbDate(t.created_at).toLocaleDateString('fr-CH')}
+    </td>
+</tr>`;
     }).join('');
-
-    if (typeof renderPagination === 'function') {
-        renderPagination(totalPages);
-    }
+ 
+    if (typeof renderPagination === 'function') renderPagination(totalPages);
 }
 
 async function populateSelects() {
@@ -185,6 +238,8 @@ async function populateSelects() {
         const userOptions = users.filter(u => u.is_active).map(u => `<option value="${u.id}">${u.name}</option>`).join('');
         const clientOptions = '<option value="">-- Aucun Client --</option>' + clientsArray.map(c => `<option value="${c.id}">${c.cabinet_name} - ${c.city}</option>`).join('');
 
+        let slimEquipView = null;
+
         if(slimClient) slimClient.destroy();
         if(slimClientView) slimClientView.destroy();
         if(slimAssignedNew) slimAssignedNew.destroy();
@@ -195,22 +250,59 @@ async function populateSelects() {
         document.getElementById('t-assigned').innerHTML = userOptions;
         document.getElementById('v-assigned').innerHTML = userOptions;
 
-        slimClient = new SlimSelect({ select: '#t-client', settings: { placeholderText: 'Rechercher un client...' } });
-        slimClientView = new SlimSelect({ select: '#v-client', settings: { placeholderText: 'Lier à un client...' } });
+        slimClient = new SlimSelect({
+        select: '#t-client',
+        settings: { placeholderText: 'Rechercher un client...' },
+        events: {
+            afterChange: (newVal) => {
+            loadEquipmentForClient(newVal[0]?.value || '', 't-equip');
+            }
+        }
+        });
+
+        slimClientView = new SlimSelect({
+        select: '#v-client',
+        settings: { placeholderText: 'Lier à un client...' },
+        events: {
+            afterChange: (newVal) => {
+            if (!isModalLoading) {
+                loadEquipmentForClient(newVal[0]?.value || '', 'v-equip');
+            }
+            }
+        }
+        });
         slimAssignedNew = new SlimSelect({ select: '#t-assigned', settings: { placeholderText: 'Assigner à...', closeOnSelect: false } });
         slimAssignedView = new SlimSelect({ select: '#v-assigned', settings: { placeholderText: 'Assigner à...', closeOnSelect: false } });
     } catch(e) { console.error(e); }
 }
 
 async function loadEquipmentForClient(clientId, selectId) {
+    isLoadingEquipment = true;        // ← AJOUTE
     const select = document.getElementById(selectId);
-    if (!clientId) { select.innerHTML = '<option value="">-- Choisir client d\'abord --</option>'; return; }
+    if (!clientId) {
+        select.innerHTML = '<option value="">-- Choisir client d\'abord --</option>';
+        isLoadingEquipment = false;   // ← AJOUTE
+        return;
+    }
     try {
-        const res = await fetch(`/api/clients/${clientId}/equipment`);
+        const res  = await fetch(`/api/clients/${clientId}/equipment`);
         const list = await res.json();
-        select.innerHTML = '<option value="">-- Machine concernée --</option>' + 
+        select.innerHTML = '<option value="">-- Machine concernée --</option>' +
             list.map(e => `<option value="${e.id}">${e.brand} ${e.eq_name || e.name} (${e.serial_number})</option>`).join('');
+
+        if (selectId === 'v-equip') {
+            if (window.slimEquipView) {
+                try { window.slimEquipView.destroy(); } catch {}
+            }
+            window.slimEquipView = new SlimSelect({
+                select: '#v-equip',
+                settings: { placeholderText: 'Rechercher une machine...' }
+            });
+        }
     } catch (e) { console.error(e); }
+    finally {
+        isLoadingEquipment = false;   // ← AJOUTE (dans finally = toujours exécuté)
+    }
 }
 
 function openNewTicketModal() {
@@ -222,93 +314,199 @@ function openNewTicketModal() {
 }
 
 async function saveTicket() {
-    const title = document.getElementById('t-title').value;
-    const desc = document.getElementById('t-desc').value;
-    if (!title || !desc) return alert("Le sujet et le message sont obligatoires.");
-
-    const data = { 
-        title: title, description: desc, 
-        client_id: document.getElementById('t-client').value || null, 
-        equipment_id: document.getElementById('t-equip').value || null,
-        assigned_to: slimAssignedNew.getSelected(),
-        is_urgent: document.getElementById('t-urgent').checked
+    const title = document.getElementById('t-title').value.trim();
+    const desc  = document.getElementById('t-desc').value.trim();
+ 
+    if (!title || !desc) {
+        if (window.toast) toast.error('Champs requis', 'Le sujet et le message sont obligatoires.');
+        return;
+    }
+ 
+    const data = {
+        title,
+        description: desc,
+        priority:     document.getElementById('t-priority').value || 'Normale',
+        client_id:    document.getElementById('t-client').value   || null,
+        equipment_id: document.getElementById('t-equip').value    || null,
+        assigned_to:  slimAssignedNew.getSelected(),
+        is_urgent:    document.getElementById('t-urgent').checked
     };
-    
-    const res = await fetch('/api/tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    if (res.ok) { closeModal('new-ticket-modal'); loadTickets(); } 
+ 
+    try {
+        const res = await fetch('/api/tickets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (res.ok) {
+            closeModal('new-ticket-modal');
+            loadTickets();
+            if (window.toast) toast.success('Ticket créé', title);
+        } else {
+            const err = await res.json();
+            if (window.toast) toast.error('Erreur', err.error || 'Impossible de créer le ticket.');
+        }
+    } catch (e) { console.error(e); }
 }
 
 async function openTicketDetails(id) {
-    isModalLoading = true; 
+    isModalLoading = true;
     const res = await fetch(`/api/tickets/${id}`);
-    const t = await res.json();
-    
+    const t   = await res.json();
+ 
     document.getElementById('current-ticket-id').value = t.id;
-    // On retire l'emoji du titre ici, car on utilise la vraie case à cocher
-    document.getElementById('v-title').innerText = `[#${t.id}] ${t.title}`;
-    document.getElementById('v-status').value = t.status;
-    document.getElementById('v-urgent').checked = t.is_urgent ? true : false; // La case URGENT
-    
+ 
+    // ── Titre dans le header ──────────────────────────────────────
+    document.getElementById('v-title').innerHTML = `
+        <span id="v-title-text" style="font-size:var(--text-lg);font-weight:var(--font-bold);
+            color:var(--text-primary);">[#${t.id}] ${escapeHtml(t.title)}</span>`;
+ 
+    // ── Métadonnées sidebar ───────────────────────────────────────
+    document.getElementById('v-sidebar-meta').innerHTML = `
+        <div style="margin-bottom:4px;">
+            <i class="fas fa-hashtag" style="width:14px;opacity:0.4;"></i> Ticket #${t.id}
+        </div>
+        <div style="margin-bottom:4px;">
+            <i class="fas fa-user" style="width:14px;opacity:0.4;"></i> ${escapeHtml(t.creator_name || '—')}
+        </div>
+        <div>
+            <i class="fas fa-clock" style="width:14px;opacity:0.4;"></i>
+            ${parseDbDate(t.created_at).toLocaleString('fr-CH')}
+        </div>`;
+ 
+    // ── Selects statut, priorité ──────────────────────────────────
+    document.getElementById('v-status').value   = t.status;
+    const vPrio = document.getElementById('v-priority');
+    if (vPrio) vPrio.value = t.priority || 'Normale';
+ 
+    // ── Urgent ────────────────────────────────────────────────────
+    const urgentCheck = document.getElementById('v-urgent');
+    const urgentBtn   = document.getElementById('v-urgent-btn');
+    if (urgentCheck) urgentCheck.checked = !!t.is_urgent;
+    updateUrgentBtnStyle(!!t.is_urgent);
+ 
+    // ── Selects client / machine / assigné ────────────────────────
     slimClientView.setSelected(t.client_id ? String(t.client_id) : '');
     slimAssignedView.setSelected(t.assigned_to ? t.assigned_to.map(String) : []);
-
+ 
     await loadEquipmentForClient(t.client_id, 'v-equip');
-    document.getElementById('v-equip').value = t.equipment_id || '';
-
-    document.getElementById('v-meta').innerHTML = `Créé par ${t.creator_name} le ${parseDbDate(t.created_at).toLocaleString('fr-CH')}`;
+    if (t.equipment_id && window.slimEquipView) {
+        window.slimEquipView.setSelected(String(t.equipment_id));
+    } else if (window.slimEquipView) {
+        window.slimEquipView.setSelected('');
+    }
+ 
+    // ── Description ───────────────────────────────────────────────
+    document.getElementById('v-meta').textContent =
+        `Créé par ${t.creator_name} le ${parseDbDate(t.created_at).toLocaleString('fr-CH')}`;
     document.getElementById('v-desc').innerText = t.description;
-
+ 
+    // ── Prépare la zone d'édition ─────────────────────────────────
+    const editTitle = document.getElementById('v-edit-title');
+    const editDesc  = document.getElementById('v-edit-desc');
+    if (editTitle) editTitle.value = t.title;
+    if (editDesc)  editDesc.value  = t.description;
+    document.getElementById('v-edit-zone').style.display = 'none';
+ 
+    // ── Commentaires ──────────────────────────────────────────────
     const commentsDiv = document.getElementById('v-comments');
-    commentsDiv.innerHTML = t.comments.length ? t.comments.map(c => {
-        const dateLocal = parseDbDate(c.created_at).toLocaleString('fr-CH');
-        if(c.is_system === 1) return `<div class="comment-system"><i class="fas fa-history"></i> <strong>${c.user_name}</strong> ${c.comment} <span style="opacity:0.6; margin-left:5px;">(${dateLocal})</span></div>`;
-        
-        const isMe = (c.user_id === window.currentUserId);
-        const alignStyle = isMe ? 'align-self: flex-end; background-color: #f0fdf4; border-color: #bbf7d0;' : 'align-self: flex-start; background-color: white;';
-        
-        let fileHtml = '';
-        if (c.file_path) {
-            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(c.file_path);
-            fileHtml = `<div style="margin-top:8px;">
-                <a href="${c.file_path}" target="_blank" style="display:inline-block; ${isImage ? '' : 'background:rgba(0,0,0,0.05); padding:5px 10px; border-radius:6px; text-decoration:none; color:var(--color-primary); font-size:0.85rem;'}">
-                    ${isImage ? `<img src="${c.file_path}" style="max-width:100%; max-height:200px; border-radius:8px; border:1px solid #e2e8f0;">` : `<i class="fas fa-paperclip"></i> Voir la pièce jointe`}
-                </a>
-            </div>`;
-        }
-        
-        return `<div class="comment-box" style="${alignStyle}"><div class="comment-header"><strong>${c.user_name}</strong> <span>${dateLocal}</span></div><div class="comment-text">${escapeHtml(c.comment)} ${fileHtml}</div></div>`;
-    }).join('') : '<div style="color:#94a3b8; font-size:0.9rem; text-align:center; width:100%; margin-top:20px;">Commencez la discussion...</div>';
-
+    commentsDiv.innerHTML = t.comments.length
+        ? t.comments.map(c => {
+            const dt = parseDbDate(c.created_at).toLocaleString('fr-CH');
+ 
+            if (c.is_system === 1) return `
+    <div class="comment-system">
+        <i class="fas fa-history" style="flex-shrink:0;"></i>
+        <span>
+            <strong>${escapeHtml(c.user_name)}</strong>
+            ${escapeHtml(c.comment)}
+        </span>
+        <span style="margin-left:auto;white-space:nowrap;opacity:0.6;font-size:10px;">${dt}</span>
+    </div>`;
+ 
+            const isMe       = (c.user_id === window.currentUserId);
+            const bubbleCls  = isMe ? 'chat-bubble chat-bubble-me' : 'chat-bubble chat-bubble-other';
+ 
+            let fileHtml = '';
+            if (c.file_path) {
+                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(c.file_path);
+                fileHtml = `<div style="margin-top:8px;">
+                    <a href="${c.file_path}" target="_blank"
+                        style="display:inline-block;${isImage ? '' : 'background:var(--bg-secondary);padding:4px 10px;border-radius:3px;text-decoration:none;color:var(--color-primary);font-size:0.85rem;border:1px solid var(--border-primary);'}">
+                        ${isImage
+                            ? `<img src="${c.file_path}" style="max-width:100%;max-height:180px;border-radius:3px;border:1px solid var(--border-primary);">`
+                            : `<i class="fas fa-paperclip"></i> Voir la pièce jointe`}
+                    </a>
+                </div>`;
+            }
+ 
+            return `
+                <div class="${bubbleCls}">
+                    <div class="chat-bubble-header">
+                        <span class="chat-bubble-author">${escapeHtml(c.user_name)}</span>
+                        <span class="chat-bubble-date">${dt}</span>
+                    </div>
+                    <div class="chat-bubble-text">${escapeHtml(c.comment)}${fileHtml}</div>
+                </div>`;
+        }).join('')
+        : `<div style="color:var(--text-tertiary);font-size:var(--text-sm);text-align:center;
+            padding:30px;font-style:italic;">Commencez la discussion...</div>`;
+ 
     document.getElementById('view-ticket-modal').classList.add('active');
     scrollChatToBottom();
     setTimeout(() => { isModalLoading = false; }, 100);
 }
 
-async function updateTicketData() {
-    // Si la fenêtre est en train de se charger, on ne fait rien pour éviter les boucles
-    if (isModalLoading) return;
+function updateUrgentBtnStyle(isUrgent) {
+    const btn   = document.getElementById('v-urgent-btn');
+    const label = document.getElementById('v-urgent-label');
+    if (!btn || !label) return;
+    if (isUrgent) {
+        btn.classList.add('active');
+        label.textContent = 'Marqué comme urgent';
+    } else {
+        btn.classList.remove('active');
+        label.textContent = 'Marquer comme urgent';
+    }
+}
+ 
+window.toggleUrgentBtn = function() {
+    const check = document.getElementById('v-urgent');
+    if (!check) return;
+    check.checked = !check.checked;
+    updateUrgentBtnStyle(check.checked);
+    updateTicketData();
+};
 
-    const id = document.getElementById('current-ticket-id').value;
-    const data = { 
-        status: document.getElementById('v-status').value, 
-        client_id: document.getElementById('v-client').value || null,
-        equipment_id: document.getElementById('v-equip').value || null,
-        assigned_to: slimAssignedView.getSelected(),
-        is_urgent: document.getElementById('v-urgent').checked 
+async function updateTicketData() {
+    if (isModalLoading || isLoadingEquipment) return;
+
+    const id        = document.getElementById('current-ticket-id').value;
+    const newStatus   = document.getElementById('v-status').value;
+    const newPriority = document.getElementById('v-priority')?.value || 'Normale';
+    const newUrgent   = document.getElementById('v-urgent').checked;
+
+    const data = {
+        status:       newStatus,
+        priority:     newPriority,
+        client_id:    document.getElementById('v-client').value    || null,
+        equipment_id: document.getElementById('v-equip').value     || null,
+        assigned_to:  slimAssignedView.getSelected(),
+        is_urgent:    newUrgent,
     };
-    
-    // On attend que le serveur confirme que TOUT est enregistré
-    const response = await fetch(`/api/tickets/${id}`, { 
-        method: 'PUT', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(data) 
+
+    const response = await fetch(`/api/tickets/${id}`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(data)
     });
 
     if (response.ok) {
-        // On rafraîchit le tableau en arrière-plan
+        // ❌ SUPPRIME le bloc for(const change of changes) {...}
+        // Le serveur insère déjà les commentaires système dans PUT /:id
+
         await loadTickets(document.getElementById('ticket-search').value);
-        // On force le rafraîchissement des détails pour voir le message du robot
-        await openTicketDetails(id); 
+        await openTicketDetails(id);
     }
 }
 
@@ -343,11 +541,22 @@ async function addComment() {
 
 async function deleteTicket() {
     const id = document.getElementById('current-ticket-id').value;
-    if (!id || !confirm("Voulez-vous vraiment supprimer ce ticket ?")) return;
+    if (!id) return;
+ 
+    const ok = await confirmDelete('ce ticket et tous ses commentaires');
+    if (!ok) return;
+ 
     try {
         const res = await fetch(`/api/tickets/${id}`, { method: 'DELETE' });
-        if (res.ok) { closeModal('view-ticket-modal'); loadTickets(); }
-    } catch (e) { console.error("Erreur:", e); }
+        if (res.ok) {
+            closeModal('view-ticket-modal');
+            loadTickets();
+            if (window.toast) toast.success('Ticket supprimé', `Ticket #${id} supprimé.`);
+        } else {
+            const err = await res.json();
+            if (window.toast) toast.error('Erreur', err.error || 'Suppression impossible (admin requis).');
+        }
+    } catch (e) { console.error(e); }
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -448,3 +657,68 @@ window.changePage = function(newPage) {
     currentPage = newPage;
     renderTickets(); // On recharge le tableau avec la nouvelle page
 };
+
+window.toggleEditMode = function() {
+  const zone = document.getElementById('v-edit-zone');
+  const main = document.querySelector('.ticket-modal-main');
+  if (!zone || !main) return;
+
+  const isVisible = zone.style.display !== 'none';
+
+  if (isVisible) {
+    // Ferme l'édition
+    zone.style.display = 'none';
+    main.classList.remove('is-editing');
+  } else {
+    // Ouvre l'édition
+    const id     = document.getElementById('current-ticket-id').value;
+    const ticket = allTickets.find(t => String(t.id) === String(id));
+    if (ticket) {
+      document.getElementById('v-edit-title').value = ticket.title;
+      document.getElementById('v-edit-desc').value  = ticket.description;
+    }
+    zone.style.display = 'block';
+    main.classList.add('is-editing');
+    document.getElementById('v-edit-title').focus();
+  }
+};
+
+window.cancelEditMode = function() {
+  document.getElementById('v-edit-zone').style.display = 'none';
+  document.querySelector('.ticket-modal-main')?.classList.remove('is-editing');
+};
+ 
+window.saveEditMode = async function() {
+    const id    = document.getElementById('current-ticket-id').value;
+    const title = document.getElementById('v-edit-title').value.trim();
+    const desc  = document.getElementById('v-edit-desc').value.trim();
+    if (!title || !desc) {
+        if (window.toast) toast.error('Champs requis', 'Le titre et la description sont obligatoires.');
+        return;
+    }
+    try {
+        const res = await fetch(`/api/tickets/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title,
+                description: desc,
+                status:      document.getElementById('v-status').value,
+                client_id:   document.getElementById('v-client').value || null,
+                equipment_id: document.getElementById('v-equip').value || null,
+                assigned_to: slimAssignedView.getSelected(),
+                is_urgent:   document.getElementById('v-urgent').checked,
+                priority:    document.getElementById('v-priority').value,
+            })
+        });
+        if (res.ok) {
+            await loadTickets(document.getElementById('ticket-search').value);
+            await openTicketDetails(id);
+            if (window.toast) toast.success('Ticket modifié', title);
+        }
+    } catch (e) { console.error(e); }
+};
+
+window.deleteTicket    = deleteTicket;
+window.saveTicket      = saveTicket;
+window.openTicketDetails = openTicketDetails;

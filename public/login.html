@@ -1,99 +1,499 @@
-<!-- public/login.html -->
-
 <!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Connexion - KB Medizin Tool</title>
-<link rel="stylesheet" href="/css/tokens.css" />      <!-- 1. Variables -->
-<link rel="stylesheet" href="/css/base.css" />        <!-- 2. Reset & Base -->
-<link rel="stylesheet" href="/css/layout.css" />      <!-- 3. Layout -->
-<link rel="stylesheet" href="/css/forms.css" />       <!-- 4. Formulaires -->
-<link rel="stylesheet" href="/css/components.css" />  <!-- 5. Composants -->
-<link rel="stylesheet" href="/css/table.css" />       <!-- 6. Tableaux -->
-<link rel="stylesheet" href="/css/pages.css" />       <!-- 7. Pages -->
-<link rel="stylesheet" href="/css/utilities.css" />   <!-- 8. Utilitaires -->
-<link rel="stylesheet" href="/css/transitions.css" /> <!-- 9. Transitions -->
-<link rel="stylesheet" href="/css/responsive.css" />  <!-- 10. RESPONSIVE (doit être en DERNIER) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-<link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
-<link href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css" rel="stylesheet">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion - KB Med</title>
+  
+  <!-- Design System -->
+  <link rel="stylesheet" href="/css/design-tokens.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/toast.css">
+  
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--kb-blue) 0%, var(--kb-blue-dark) 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Background decorations */
+    .bg-decoration {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.1;
+      pointer-events: none;
+    }
+
+    .bg-decoration-1 {
+      width: 600px;
+      height: 600px;
+      background: white;
+      top: -200px;
+      right: -200px;
+      animation: float 20s ease-in-out infinite;
+    }
+
+    .bg-decoration-2 {
+      width: 400px;
+      height: 400px;
+      background: var(--kb-red);
+      bottom: -100px;
+      left: -100px;
+      animation: float 15s ease-in-out infinite reverse;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-30px) rotate(10deg); }
+    }
+
+    /* Login container */
+    .login-container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 440px;
+      padding: var(--space-6);
+      animation: slideInUp var(--transition-base) ease-out;
+    }
+
+    .login-card {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-2xl);
+      padding: var(--space-10);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Logo */
+    .login-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-8);
+      gap: var(--space-3);
+    }
+
+    .login-logo img {
+      height: 50px;
+      width: auto;
+    }
+
+    /* Header */
+    .login-header {
+      text-align: center;
+      margin-bottom: var(--space-8);
+    }
+
+    .login-title {
+      font-size: var(--text-3xl);
+      font-weight: var(--font-bold);
+      color: var(--text-primary);
+      margin-bottom: var(--space-2);
+    }
+
+    .login-subtitle {
+      font-size: var(--text-base);
+      color: var(--text-secondary);
+    }
+
+    /* Form */
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+
+    .password-input-wrapper {
+      position: relative;
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: var(--space-4);
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      padding: var(--space-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color var(--transition-fast);
+    }
+
+    .password-toggle:hover {
+      color: var(--text-primary);
+    }
+
+    .login-options {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: var(--text-sm);
+    }
+
+    .forgot-password {
+      color: var(--color-primary);
+      text-decoration: none;
+      font-weight: var(--font-medium);
+      transition: color var(--transition-fast);
+    }
+
+    .forgot-password:hover {
+      color: var(--color-primary-hover);
+    }
+
+    .login-button {
+      width: 100%;
+      height: 48px;
+      font-size: var(--text-lg);
+      font-weight: var(--font-semibold);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .login-button:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    /* Footer */
+    .login-footer {
+      margin-top: var(--space-8);
+      text-align: center;
+      font-size: var(--text-sm);
+      color: var(--text-tertiary);
+    }
+
+    .login-footer a {
+      color: var(--color-primary);
+      text-decoration: none;
+      font-weight: var(--font-medium);
+    }
+
+    /* Theme toggle button */
+    .theme-toggle-wrapper {
+      position: absolute;
+      top: var(--space-6);
+      right: var(--space-6);
+    }
+
+    .theme-toggle {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-full);
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      border: none;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--text-xl);
+      transition: all var(--transition-base);
+    }
+
+    .theme-toggle:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.05);
+    }
+
+    /* Error state */
+    .form-group.has-error .form-input {
+      border-color: var(--color-danger);
+      animation: shake 0.5s ease-in-out;
+    }
+
+    .error-message {
+      display: none;
+      color: var(--color-danger);
+      font-size: var(--text-sm);
+      margin-top: var(--space-2);
+      animation: fadeIn var(--transition-fast);
+    }
+
+    .form-group.has-error .error-message {
+      display: block;
+    }
+
+    /* Loading state */
+    .login-button.loading {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .login-button.loading .btn-text {
+      opacity: 0;
+    }
+
+    .login-button .spinner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      border-color: rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+    }
+
+    .login-button.loading .spinner {
+      display: block;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .login-container {
+        padding: var(--space-4);
+      }
+
+      .login-card {
+        padding: var(--space-6);
+      }
+
+      .login-title {
+        font-size: var(--text-2xl);
+      }
+
+      .theme-toggle-wrapper {
+        top: var(--space-4);
+        right: var(--space-4);
+      }
+    }
+
+    /* Dark mode adjustments */
+    [data-theme="dark"] .login-card {
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    }
+
+    [data-theme="dark"] .bg-decoration-1,
+    [data-theme="dark"] .bg-decoration-2 {
+      opacity: 0.05;
+    }
+  </style>
 </head>
-  <body>
-    <div class="login-container">
-      <div class="login-box">
-        <div class="login-logo">
-          <i class="fas fa-stethoscope"></i>
-        </div>
-        <h1>KB Medizin Technik</h1>
-        <p class="login-subtitle">Connectez-vous à votre espace</p>
+<body>
+  <!-- Theme toggle -->
+  <div class="theme-toggle-wrapper">
+    <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" aria-label="Basculer le mode sombre">
+      <i class="fas fa-moon"></i>
+    </button>
+  </div>
 
-        <div id="error-message" class="alert alert--danger hidden" style="margin-top: 1.5rem;">
-          <i class="fas fa-exclamation-circle"></i>
-          <div id="error-text"></div>
-        </div>
+  <!-- Background decorations -->
+  <div class="bg-decoration bg-decoration-1"></div>
+  <div class="bg-decoration bg-decoration-2"></div>
 
-        <form id="login-form">
-          <div class="form-group">
-            <label for="email">
+  <!-- Login container -->
+  <div class="login-container">
+    <div class="login-card">
+      <!-- Logo -->
+      <div class="login-logo">
+        <img src="src/images/logo-kbmed-short.svg" alt="KB Med" class="animate-fadeIn">
+      </div>
+
+      <!-- Header -->
+      <div class="login-header stagger-children">
+        <h1 class="login-title">Bienvenue</h1>
+        <p class="login-subtitle">Connectez-vous à votre compte KB Med</p>
+      </div>
+
+      <!-- Form -->
+      <form id="login-form" class="login-form" onsubmit="handleLogin(event)">
+        <!-- Email -->
+        <div class="form-group">
+          <label for="email" class="form-label">Adresse email</label>
+          <div class="form-input-group">
+            <span class="form-input-icon">
               <i class="fas fa-envelope"></i>
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
+            </span>
+            <input 
+              type="email" 
+              id="email" 
+              class="form-input" 
               placeholder="votre@email.com"
-              required
-              autofocus
               autocomplete="email"
-            />
+              required
+            >
           </div>
-
-          <div class="form-group">
-            <label for="password">
-              <i class="fas fa-lock"></i>
-              Mot de passe
-            </label>
-            <div class="password-wrapper">
-              <input
-                type="password"
-                id="password"
-                name="password"
-                placeholder="••••••••"
-                required
-                autocomplete="current-password"
-              />
-              <button type="button" class="password-toggle" id="toggle-password">
-                <i class="fas fa-eye"></i>
-              </button>
-            </div>
-          </div>
-
-          <div class="checkbox-group">
-            <input type="checkbox" id="remember" name="remember" />
-            <label for="remember">Se souvenir de moi (30 jours)</label>
-          </div>
-
-          <button type="submit" class="btn btn-primary" style="width: 100%;">
-            <i class="fas fa-sign-in-alt"></i>
-            Se connecter
-          </button>
-        </form>
-
-        <div class="login-footer">
-          <a href="#" id="forgot-password-link">
-            <i class="fas fa-question-circle"></i>
-            Mot de passe oublié ?
-          </a>
+          <span class="error-message">Veuillez entrer une adresse email valide</span>
         </div>
+
+        <!-- Password -->
+        <div class="form-group">
+          <label for="password" class="form-label">Mot de passe</label>
+          <div class="password-input-wrapper">
+            <div class="form-input-group">
+              <span class="form-input-icon">
+                <i class="fas fa-lock"></i>
+              </span>
+              <input 
+                type="password" 
+                id="password" 
+                class="form-input" 
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+                style="padding-right: 48px;"
+              >
+            </div>
+            <button type="button" class="password-toggle" onclick="togglePasswordVisibility()">
+              <i class="fas fa-eye" id="password-icon"></i>
+            </button>
+          </div>
+          <span class="error-message">Le mot de passe est requis</span>
+        </div>
+
+        <!-- Options -->
+        <div class="login-options">
+          <div class="form-check">
+            <input type="checkbox" id="remember" class="form-checkbox">
+            <label for="remember" class="form-check-label">Se souvenir de moi</label>
+          </div>
+          <a href="#" class="forgot-password">Mot de passe oublié ?</a>
+        </div>
+
+        <!-- Submit button -->
+        <button type="submit" class="btn btn-primary login-button">
+          <span class="btn-text">Se connecter</span>
+          <div class="spinner"></div>
+        </button>
+      </form>
+
+      <!-- Footer -->
+      <div class="login-footer">
+        <p>&copy; 2025 KB Med. Tous droits réservés.</p>
       </div>
     </div>
-    <div id="notification-container"></div>
-<script type="module" src="/js/init-selects.js"></script>
-<script src="/js/loader.js"></script>
-    <script src="/js/login.js"></script>
-<script src="/js/page-transitions.js"></script>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/theme-switcher.js"></script>
+  <script src="/js/toast.js"></script>
+  
+  <script>
+    // Toggle password visibility
+    function togglePasswordVisibility() {
+      const passwordInput = document.getElementById('password');
+      const passwordIcon = document.getElementById('password-icon');
+      
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        passwordIcon.className = 'fas fa-eye-slash';
+      } else {
+        passwordInput.type = 'password';
+        passwordIcon.className = 'fas fa-eye';
+      }
+    }
+
+    // Handle login
+    async function handleLogin(event) {
+      event.preventDefault();
+      
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const submitButton = document.querySelector('.login-button');
+      
+      // Validation
+      let hasError = false;
+      
+      if (!email) {
+        document.querySelector('#email').parentElement.parentElement.classList.add('has-error');
+        hasError = true;
+      } else {
+        document.querySelector('#email').parentElement.parentElement.classList.remove('has-error');
+      }
+      
+      if (!password) {
+        document.querySelector('#password').parentElement.parentElement.parentElement.classList.add('has-error');
+        hasError = true;
+      } else {
+        document.querySelector('#password').parentElement.parentElement.parentElement.classList.remove('has-error');
+      }
+      
+      if (hasError) return;
+      
+      // Loading state
+      submitButton.classList.add('loading');
+      
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Success
+          toast.success('Connexion réussie', 'Redirection en cours...');
+          
+          // Redirect after short delay
+          setTimeout(() => {
+            window.location.href = '/dashboard.html';
+          }, 800);
+        } else {
+          // Error
+          submitButton.classList.remove('loading');
+          
+          if (response.status === 401) {
+            toast.error('Échec de connexion', 'Email ou mot de passe incorrect.');
+          } else if (response.status === 429) {
+            toast.error('Trop de tentatives', 'Veuillez patienter quelques minutes.');
+          } else {
+            toast.error('Erreur', data.error || 'Une erreur est survenue.');
+          }
+          
+          // Shake animation
+          document.querySelector('.login-card').style.animation = 'shake 0.5s ease-in-out';
+          setTimeout(() => {
+            document.querySelector('.login-card').style.animation = '';
+          }, 500);
+        }
+      } catch (error) {
+        submitButton.classList.remove('loading');
+        toast.error('Erreur réseau', 'Impossible de contacter le serveur.');
+        console.error('Login error:', error);
+      }
+    }
+
+    // Auto-focus email field
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('email').focus();
+    });
+
+    // Handle Enter key in password field
+    document.getElementById('password').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleLogin(e);
+      }
+    });
+  </script>
 </body>
 </html>

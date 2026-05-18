@@ -1,50 +1,43 @@
 // server/middleware/errorHandler.js
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const path = require('path');
 
-// ─── 404 - Route introuvable ──────────────────────────────────────────────────
+// 404 - Route non trouvée
 function notFoundHandler(req, res, next) {
-  // Si la requête attend du JSON (API), on répond en JSON
+  // Si c'est une requête API, retourner JSON
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'Route API introuvable.' });
   }
-  // Sinon, redirection vers la page d'accueil
-  res.redirect('/');
+  // Sinon, servir la page HTML 404
+  res.status(404).sendFile(path.join(__dirname, '../../public/404.html'));
 }
 
-// ─── Gestionnaire d'erreurs global ───────────────────────────────────────────
-// Express reconnaît ce middleware grâce aux 4 paramètres (err, req, res, next)
+// 500 - Erreur serveur générique
 function errorHandler(err, req, res, next) {
-  const statusCode = err.status || err.statusCode || 500;
+  console.error('❌ Erreur serveur:', err);
 
-  // En développement : log complet avec la stack trace
-  // En production : log minimal pour ne pas exposer l'intérieur du serveur
-  if (!IS_PRODUCTION) {
-    console.error(`\n❌ [${req.method}] ${req.path}`);
-    console.error(err.stack || err.message);
-  } else {
-    console.error(`❌ Erreur ${statusCode} sur [${req.method}] ${req.path} : ${err.message}`);
-  }
-
-  // Les requêtes API reçoivent toujours du JSON
+  const status = err.status || err.statusCode || 500;
+  
+  // En développement, on peut montrer plus de détails
+  const isDev = process.env.NODE_ENV !== 'production';
+  
+  // Si c'est une requête API, retourner JSON
   if (req.path.startsWith('/api/')) {
-    return res.status(statusCode).json({
-      error: IS_PRODUCTION
-        ? 'Une erreur est survenue. Veuillez réessayer.'
-        : err.message
+    return res.status(status).json({
+      error: isDev ? err.message : 'Une erreur est survenue.',
+      ...(isDev && { stack: err.stack })
     });
   }
-
-  // Les autres requêtes (pages HTML) redirigent vers l'accueil
-  res.redirect('/');
+  
+  // Sinon, servir la page HTML d'erreur appropriée
+  if (status === 401) {
+    return res.status(401).sendFile(path.join(__dirname, '../../public/401.html'));
+  }
+  if (status === 403) {
+    return res.status(403).sendFile(path.join(__dirname, '../../public/403.html'));
+  }
+  // Pour toutes les autres erreurs 500+
+  res.status(status).sendFile(path.join(__dirname, '../../public/500.html'));
 }
 
-// ─── Helper pour créer des erreurs avec un code HTTP ────────────────────────
-// Utilisation dans les routes : throw createError(403, 'Accès refusé');
-function createError(statusCode, message) {
-  const err = new Error(message);
-  err.status = statusCode;
-  return err;
-}
-
-module.exports = { notFoundHandler, errorHandler, createError };
+module.exports = { notFoundHandler, errorHandler };

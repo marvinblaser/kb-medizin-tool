@@ -1,0 +1,230 @@
+/* public/css/mobile-fixes.css
+   Corrections responsive : header, admin, clients
+   Ajouter EN DERNIER dans <head> sur toutes les pages */
+
+/* ════════════════════════════════════════════════════════════════════
+   HEADER — Fix général (toutes les pages)
+   Le titre ne doit jamais pousser les actions hors écran
+════════════════════════════════════════════════════════════════════ */
+
+.page-header {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;        /* ← jamais de retour à la ligne */
+  overflow: hidden !important;
+  gap: 0 !important;
+}
+
+.header-title-group {
+  flex: 1 1 0 !important;             /* ← prend l'espace disponible */
+  min-width: 0 !important;            /* ← permet le troncage */
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  overflow: hidden !important;
+}
+
+.header-title-group h1,
+.page-header h1 {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+}
+
+.header-actions-group {
+  flex-shrink: 0 !important;          /* ← ne rétrécit JAMAIS */
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-left: auto !important;
+  padding-left: 8px !important;
+}
+
+/* La cloche ne doit jamais disparaître */
+.kb-notif-bell-wrap {
+  flex-shrink: 0 !important;
+  display: flex !important;
+}
+
+/* Le bouton "..." ne doit jamais disparaître sur mobile */
+.kb-more-btn {
+  flex-shrink: 0 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ADMIN — Onglets scrollables sur mobile
+════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* Rend la barre d'onglets scrollable horizontalement */
+  #admin-tabs,
+  .toolbar-clean-bar {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none !important;  /* Cache la scrollbar */
+  }
+
+  #admin-tabs::-webkit-scrollbar,
+  .toolbar-clean-bar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Les boutons d'onglets ne wrappent pas */
+  #admin-tabs .nav-text-btn,
+  .toolbar-clean-bar .nav-text-btn {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    padding: 0 10px !important;
+  }
+
+  /* Le contenu admin devient scrollable normalement */
+  .admin-container-fluid {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .view-section {
+    padding: 14px !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Tables admin scrollables horizontalement */
+  .erp-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .erp-table {
+    min-width: 500px !important;
+  }
+
+  /* Section header admin en colonne */
+  .section-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .section-header .section-actions,
+  .section-header > div:last-child {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  /* Modals admin plein écran */
+  .modal-content,
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+  }
+
+  .modal-backdrop {
+    padding: 0 !important;
+    align-items: flex-start !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CLIENTS — Page entière scrollable sur mobile
+════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  .client-container-fluid {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 10px !important;
+  }
+
+  /* Toolbar clients */
+  .toolbar-card,
+  .toolbar-clean-bar {
+    height: auto !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding: 0 10px !important;
+  }
+
+  .toolbar-card::-webkit-scrollbar { display: none !important; }
+
+  /* Tabs clients scrollables */
+  .toolbar-filters-section {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 2px !important;
+  }
+
+  .tab-btn,
+  .filter-tab {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    font-size: 12px !important;
+  }
+
+  /* Table clients scrollable */
+  .view-content {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  #view-annuaire,
+  #view-planning {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Grille checklists */
+  .checklists-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Planning scrollable */
+  #planning-table {
+    min-width: 700px !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TOPBAR DASHBOARD — Même fix que page-header
+════════════════════════════════════════════════════════════════════ */
+
+.topbar {
+  flex-wrap: nowrap !important;
+  overflow: hidden !important;
+}
+
+.topbar-left {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.topbar-title {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.topbar-right {
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}

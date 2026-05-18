@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
+const log = require('../utils/logger');
 
 // Récupérer les 50 dernières notifications de l'utilisateur (avec Auto-Nettoyage)
 router.get('/', requireAuth, (req, res) => {

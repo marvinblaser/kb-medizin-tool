@@ -16,6 +16,7 @@
   "author": "KB Medizin Technik",
   "license": "UNLICENSED",
   "dependencies": {
+    "archiver": "^8.0.0",
     "bcrypt": "^5.1.1",
     "connect-sqlite3": "^0.9.16",
     "csv-parser": "^3.2.0",

@@ -1,0 +1,498 @@
+/* public/css/global-fixes.css */
+/* KB Med — Corrections globales de design */
+/* À inclure EN DERNIER sur toutes les pages */
+
+/* ════════════════════════════════════════════════════════════════════
+   HEADER — Alignement sidebar + page-header (même hauteur)
+════════════════════════════════════════════════════════════════════ */
+
+.sidebar-header,
+.sidebar-logo {
+  height: 53px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 20px !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+  flex-shrink: 0 !important;
+}
+
+.page-header {
+  height: 53px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 24px !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+  flex-shrink: 0 !important;
+  gap: 12px;
+}
+
+.page-header h1 {
+  font-size: 1rem !important;
+  font-weight: var(--font-semibold) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0 !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-header h1 i {
+  color: var(--color-primary);
+  font-size: 0.95rem;
+}
+
+.header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.header-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SIDEBAR — Nav links uniformes
+════════════════════════════════════════════════════════════════════ */
+
+.sidebar-nav a,
+.sidebar-nav .nav-link {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 9px 16px !important;
+  font-size: var(--text-sm) !important;
+  font-weight: var(--font-medium) !important;
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
+  border-radius: 0 !important;
+  transition: all var(--transition-fast) !important;
+  border-left: 2px solid transparent !important;
+  white-space: nowrap !important;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav .nav-link:hover {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+.sidebar-nav a.active,
+.sidebar-nav .nav-link.active {
+  background: rgba(44,90,160,0.08) !important;
+  color: var(--color-primary) !important;
+  border-left-color: var(--color-primary) !important;
+  font-weight: var(--font-semibold) !important;
+}
+
+.sidebar-nav a i,
+.sidebar-nav .nav-link i,
+.sidebar-nav a .icon,
+.sidebar-nav .nav-link .icon {
+  width: 16px !important;
+  text-align: center !important;
+  font-size: 14px !important;
+  flex-shrink: 0 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TOOLBAR SEARCH — Uniformiser sur toutes les pages
+════════════════════════════════════════════════════════════════════ */
+
+.toolbar-search,
+.toolbar-search-section {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  color: var(--text-tertiary) !important;
+}
+
+.toolbar-search input,
+.toolbar-search-section input {
+  border: none !important;
+  background: transparent !important;
+  font-size: var(--text-sm) !important;
+  color: var(--text-primary) !important;
+  outline: none !important;
+  width: 100% !important;
+}
+
+.toolbar-search input::placeholder,
+.toolbar-search-section input::placeholder {
+  color: var(--text-tertiary) !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ADMIN — Tous les onglets prennent la même hauteur
+════════════════════════════════════════════════════════════════════ */
+
+.admin-container-fluid {
+  display: flex !important;
+  flex-direction: column !important;
+  height: calc(100vh - 53px) !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+.toolbar-clean-bar,
+#admin-tabs {
+  flex-shrink: 0 !important;
+}
+
+/* Toutes les sections admin prennent la hauteur disponible */
+.view-section {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 20px 28px !important;
+}
+
+.view-section .section-header {
+  margin-bottom: 16px !important;
+}
+
+.view-section .erp-table-wrapper {
+  overflow-y: auto !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   STK — Espacement correct
+════════════════════════════════════════════════════════════════════ */
+
+.stk-container {
+  height: calc(100vh - 53px - 52px) !important; /* viewport - page-header - toolbar */
+  padding: 12px 20px 16px !important;
+  gap: 10px !important;
+}
+
+.stk-toolbar {
+  padding: 0 16px !important;
+}
+
+#workspace {
+  border-radius: 0 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TICKETS — Design amélioré
+════════════════════════════════════════════════════════════════════ */
+
+.ticket-tab-btn {
+  padding: 8px 14px !important;
+  font-size: var(--text-xs) !important;
+  font-weight: var(--font-medium) !important;
+  border-radius: 3px !important;
+  white-space: nowrap !important;
+}
+
+.ticket-tab-btn.active {
+  font-weight: var(--font-semibold) !important;
+}
+
+/* KPI tickets uniformes */
+.kpi-card {
+  padding: 16px 18px !important;
+}
+
+.kpi-card h3 {
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.07em !important;
+  margin-bottom: 8px !important;
+}
+
+.kpi-card .number {
+  font-size: 2rem !important;
+  line-height: 1 !important;
+  font-weight: var(--font-bold) !important;
+}
+
+/* Table tickets */
+.erp-table-wrapper {
+  border: 1px solid var(--border-primary) !important;
+  background: var(--bg-elevated) !important;
+}
+
+.erp-table th {
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: var(--text-tertiary) !important;
+  font-weight: var(--font-semibold) !important;
+  padding: 10px 14px !important;
+  background: var(--bg-secondary) !important;
+}
+
+.erp-table td {
+  padding: 10px 14px !important;
+  font-size: var(--text-sm) !important;
+  vertical-align: middle !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   DASHBOARD HEADER — Uniformise avec les autres pages
+════════════════════════════════════════════════════════════════════ */
+
+/* Le dashboard utilise .topbar au lieu de .page-header */
+.topbar {
+  height: 53px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 24px !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+  flex-shrink: 0 !important;
+  background: var(--bg-elevated) !important;
+  gap: 12px !important;
+}
+
+.topbar-title {
+  font-size: 1rem !important;
+  font-weight: var(--font-semibold) !important;
+}
+
+.topbar-actions {
+  margin-left: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.topbar-btn {
+  width: 34px !important;
+  height: 34px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 3px !important;
+  color: var(--text-secondary) !important;
+  font-size: 14px !important;
+  cursor: pointer !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.topbar-btn:hover {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CHECKLISTS — Barre de recherche uniformisée
+════════════════════════════════════════════════════════════════════ */
+
+.toolbar-card {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 0 !important;
+  padding: 0 16px !important;
+  height: 52px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  margin-bottom: 16px !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   BADGES SIDEBAR — Style uniforme
+════════════════════════════════════════════════════════════════════ */
+
+.nav-badge,
+.sidebar-badge,
+.ticket-badge {
+  background: var(--color-danger) !important;
+  color: #fff !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  padding: 1px 6px !important;
+  border-radius: 999px !important;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+  min-width: 18px !important;
+  text-align: center !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   RESPONSIVE GLOBAL
+════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .page-header {
+    padding: 0 14px !important;
+    gap: 8px !important;
+  }
+
+  .page-header h1 {
+    font-size: 0.9rem !important;
+  }
+
+  .header-actions-group .btn-label {
+    display: none !important;
+  }
+
+  .header-actions-group .btn {
+    padding: 6px 10px !important;
+  }
+
+  .admin-container-fluid {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 12px !important;
+  }
+
+  .view-section {
+    padding: 12px !important;
+    overflow: visible !important;
+  }
+
+  .stk-container {
+    height: auto !important;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+    padding: 12px !important;
+    gap: 10px !important;
+  }
+
+  .topbar {
+    padding: 0 14px !important;
+  }
+}
+
+/* À ajouter dans le <style> du dashboard.html ou dans global-fixes.css */
+/* ── FIX WIDGETS MOBILE DASHBOARD ── */
+
+@media (max-width: 768px) {
+
+  /* Body scroll */
+  .page-body {
+    padding: 12px !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Stats grid : 2 colonnes compactes */
+  .stats-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .stat-card {
+    padding: 12px 14px !important;
+  }
+
+  .stat-value {
+    font-size: 1.8rem !important;
+  }
+
+  .stat-sub {
+    display: none; /* Masque le sous-titre pour gagner de la place */
+  }
+
+  /* Widgets : 1 colonne, hauteur limitée */
+  .widgets-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .widget {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .widget-body {
+    max-height: 220px !important; /* Plus compact sur mobile */
+  }
+
+  /* Toolbar widgets */
+  .widgets-toolbar {
+    margin-bottom: 10px !important;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Map */
+  .map-widget {
+    margin-bottom: 12px !important;
+  }
+
+  #map {
+    height: 280px !important; /* Réduit sur mobile */
+  }
+
+  .map-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+
+  .map-filters {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex-wrap: nowrap !important;
+    padding-bottom: 2px !important;
+  }
+
+  .map-filter-btn {
+    flex-shrink: 0 !important;
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+  }
+
+  /* Footer simplifié */
+  .footer-content {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+
+  .footer-bottom {
+    flex-direction: column !important;
+    gap: 6px !important;
+    text-align: center !important;
+  }
+
+  /* Topbar mobile */
+  .topbar {
+    padding: 0 12px !important;
+  }
+
+  .topbar-title {
+    font-size: 0.9rem !important;
+  }
+
+  /* Cache le panneau notifications en overlay sur mobile */
+  .notif-panel,
+  .kb-notif-panel {
+    width: 100vw !important;
+    right: -100vw !important;
+  }
+
+  .notif-panel.open,
+  .kb-notif-panel.open {
+    right: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-row {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .stat-value {
+    font-size: 1.5rem !important;
+  }
+}

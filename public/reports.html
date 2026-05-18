@@ -1,1238 +1,924 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rapports - KB Medizin Tool</title>
-<link rel="stylesheet" href="/css/tokens.css" />      <!-- 1. Variables -->
-<link rel="stylesheet" href="/css/base.css" />        <!-- 2. Reset & Base -->
-<link rel="stylesheet" href="/css/layout.css" />      <!-- 3. Layout -->
-<link rel="stylesheet" href="/css/forms.css" />       <!-- 4. Formulaires -->
-<link rel="stylesheet" href="/css/components.css" />  <!-- 5. Composants -->
-<link rel="stylesheet" href="/css/table.css" />       <!-- 6. Tableaux -->
-<link rel="stylesheet" href="/css/pages.css" />       <!-- 7. Pages -->
-<link rel="stylesheet" href="/css/utilities.css" />   <!-- 8. Utilitaires -->
-<link rel="stylesheet" href="/css/transitions.css" /> <!-- 9. Transitions -->
-<link rel="stylesheet" href="/css/responsive.css" />  <!-- 10. RESPONSIVE (doit être en DERNIER) -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
-    <link
-      rel="shortcut icon"
-      href="src/images/swiss_flag.webp"
-      type="image/x-icon"
-    />
-    <link
-      href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css"
-      rel="stylesheet"
-    />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
-    <script src="https://unpkg.com/slim-select@2.8.2/dist/slimselect.min.js"></script>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rapports — KB Med</title>
+  <link rel="shortcut icon" href="/src/images/swiss_flag.webp" type="image/x-icon">
+  <link rel="stylesheet" href="/css/design-tokens.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <link rel="stylesheet" href="/css/layout-shared.css">
+  <link rel="stylesheet" href="/css/toast.css">
+  <link rel="stylesheet" href="/css/responsive-fix.css">
+  <link rel="stylesheet" href="/css/global-fixes.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+  <script src="https://unpkg.com/slim-select@2.8.2/dist/slimselect.min.js"></script>
+  <style>
+    /* ── PAGE LAYOUT ── */
+    .report-container-fluid {
+      padding: 20px 28px;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 53px);
+      overflow: hidden;
+    }
 
-    <style>
-      /* --- CONFIGURATION GLOBALE --- */
-      .report-container-fluid {
-        width: 100%;
-        padding: 2rem 3rem;
-        display: flex;
-        flex-direction: column;
-        height: calc(100vh - 80px);
-        overflow: hidden;
-      }
+    /* ── TOOLBAR ── */
+    .toolbar-clean-bar {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      height: 52px;
+      margin-bottom: 16px;
+      flex-shrink: 0;
+      gap: 0;
+    }
 
-      /* --- BARRE D'OUTILS --- */
-      .toolbar-clean-bar {
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 0 1.5rem;
-        display: flex;
-        align-items: center;
-        height: 64px;
-        box-shadow: var(--shadow-sm);
-        margin-bottom: 1.5rem;
-        flex-shrink: 0;
-        gap: 1.5rem;
-      }
-      .toolbar-search-section {
-        display: flex;
-        align-items: center;
-        gap: 0.8rem;
-        color: var(--neutral-400);
-        flex: 0 0 320px;
-      }
-      .toolbar-search-section input {
-        border: none;
-        background: transparent;
-        width: 100%;
-        outline: none;
-        padding: 0;
-        font-size: 0.95rem;
-      }
-      .toolbar-divider {
-        width: 1px;
-        height: 32px;
-        background: var(--border-color);
-      }
+    .toolbar-search-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-tertiary);
+      flex: 0 0 280px;
+    }
 
-      .toolbar-nav-section {
-        display: flex;
-        gap: 1.5rem;
-        height: 100%;
-      }
-      .nav-text-btn {
-        background: transparent;
-        border: none;
-        border-bottom: 3px solid transparent;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        font-size: 0.95rem;
-        font-weight: 500;
-        color: var(--neutral-500);
-        cursor: pointer;
-        transition: all 0.2s;
-        padding: 0 5px;
-        gap: 8px;
-        margin-bottom: -1px;
-      }
-      .nav-text-btn:hover {
-        color: var(--color-primary);
-      }
-      .nav-text-btn.active {
-        color: var(--color-primary);
-        border-bottom-color: var(--color-primary);
-        font-weight: 600;
-      }
-      .nav-badge {
-        background: var(--neutral-100);
-        color: var(--neutral-600);
-        padding: 1px 8px;
-        border-radius: 10px;
-        font-size: 0.75rem;
-      }
-      .nav-text-btn.active .nav-badge {
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-      }
-      .nav-badge.danger {
-        background: #fee2e2;
-        color: #ef4444;
-      }
+    .toolbar-search-section input {
+      border: none;
+      background: transparent;
+      width: 100%;
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      outline: none;
+    }
 
-      .toolbar-filters-section select {
-        border: 1px solid var(--border-color);
-        padding: 0.4rem 2rem 0.4rem 0.8rem;
-        border-radius: 6px;
-        font-size: 0.9rem;
-        outline: none;
-      }
+    .toolbar-divider {
+      width: 1px; height: 28px;
+      background: var(--border-primary);
+      margin: 0 12px;
+      flex-shrink: 0;
+    }
 
-      /* --- TABLEAU LISTE --- */
-      .table-container {
-        flex: 1;
-        overflow: hidden;
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
-      }
-      .table-wrapper {
-        height: 100%;
-        overflow-y: auto;
-      }
+    .toolbar-nav-section {
+      display: flex;
+      height: 100%;
+    }
 
-      /* --- VUE ARCHIVES (LAYOUT FINAL : BLOC PLEINE LARGEUR) --- */
-      #archives-container {
-        display: block;
-        flex: 1; /* <--- AJOUTEZ CETTE LIGNE CRUCIALE */
-        width: 100%;
-        height: 100%;
-        overflow-y: auto;
-        padding-bottom: 2rem;
-      }
+    .nav-text-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      padding: 0 14px;
+      white-space: nowrap;
+    }
 
-      .folder-item {
-        display: block;
-        width: 100%; /* Force la pleine largeur */
-        height: auto; /* Hauteur automatique selon le contenu */
-        margin-bottom: 1rem; /* Espace entre les dossiers */
+    .nav-text-btn:hover { color: var(--color-primary); }
+    .nav-text-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: var(--font-semibold); }
 
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-lg);
-        overflow: hidden;
-        box-shadow: var(--shadow-sm);
-        transition: box-shadow 0.2s;
-      }
+    .nav-badge {
+      background: var(--bg-tertiary);
+      color: var(--text-tertiary);
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 10px;
+      font-weight: var(--font-semibold);
+    }
 
-      /* Header Dossier */
-      .folder-header {
-        padding: 1rem 1.5rem;
-        background: #f8fafc;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        font-weight: 600;
-        color: var(--neutral-800);
-        border-bottom: 1px solid transparent;
-        transition: background-color 0.2s;
-        min-height: 56px;
-      }
-      .folder-header:hover {
-        background: #f1f5f9;
-      }
+    .nav-text-btn.active .nav-badge {
+      background: rgba(44,90,160,0.1);
+      color: var(--color-primary);
+    }
 
-      /* Quand ouvert */
-      .folder-item.open .folder-header {
-        border-bottom: 1px solid var(--border-color-light);
-        background: #f8fafc;
-      }
+    .nav-badge.danger {
+      background: var(--color-danger-bg);
+      color: var(--color-danger);
+    }
 
-      .folder-header i.fa-folder {
-        color: #f59e0b;
-        margin-right: 12px;
-        font-size: 1.1em;
-      }
-      .folder-meta {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        font-size: 0.85rem;
-        color: var(--neutral-500);
-        font-weight: normal;
-      }
-      .folder-meta .date {
-        font-size: 0.8rem;
-      }
-      .folder-meta .count {
-        background: white;
-        border: 1px solid var(--border-color-light);
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-      }
+    .toolbar-filters-section {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-      /* Contenu */
-      .folder-content {
-        display: none;
-        background: white;
-      }
+    .minimal-select {
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      padding: 5px 10px;
+      font-size: var(--text-xs);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      height: 32px;
+      outline: none;
+      font-family: inherit;
+    }
 
-      /* Ligne Fichier */
-      .archive-row {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid var(--border-color-light);
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        transition: background 0.1s;
-      }
-      .archive-row:last-child {
-        border-bottom: none;
-      }
-      .archive-row:hover {
-        background: #f8fafc;
-      }
+    /* ── TABLE ── */
+    .table-container {
+      flex: 1;
+      overflow: hidden;
+      border: 1px solid var(--border-primary);
+      background: var(--bg-elevated);
+    }
 
-      .archive-main {
-        display: flex;
-        gap: 1rem;
-        align-items: flex-start;
-        flex: 1;
-      }
-      .archive-icon {
-        color: var(--neutral-400);
-        font-size: 1.1rem;
-        margin-top: 2px;
-      }
+    .table-wrapper { height: 100%; overflow-y: auto; }
 
-      .archive-details {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .archive-title {
-        font-weight: 700;
-        color: var(--neutral-800);
-        font-size: 0.95rem;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .archive-subtitle {
-        font-size: 0.85rem;
-        color: var(--neutral-500);
-      }
+    .erp-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    .erp-table thead { position: sticky; top: 0; z-index: 10; background: var(--bg-secondary); }
+    .erp-table th {
+      color: var(--text-tertiary);
+      font-weight: var(--font-semibold);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-primary);
+      text-align: left;
+    }
 
-      .archive-machine-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        background: var(--neutral-100);
-        color: var(--neutral-700);
-        border: 1px solid var(--border-color-light);
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        font-family: var(--font-family-mono);
-        margin-top: 4px;
-        width: fit-content;
-      }
-      .archive-machine-badge i {
-        font-size: 0.75rem;
-        color: var(--neutral-500);
-      }
+    .erp-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-primary);
+      vertical-align: middle;
+      color: var(--text-secondary);
+    }
 
-      /* Boutons d'action */
-      .archive-actions {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        margin-left: 1rem;
-      }
-      .btn-action-soft {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        background: #e0f2fe;
-        color: #0284c7;
-        border: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      .btn-action-soft:hover {
-        background: #bae6fd;
-        transform: translateY(-1px);
-      }
-      .btn-action-soft i {
-        font-size: 1rem;
-      }
+    .erp-table tbody tr {
+      cursor: pointer;
+      transition: background var(--transition-fast);
+      border-left: 3px solid transparent;
+    }
 
-      /* Alertes & Pagination */
-      .rejection-alert {
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-        color: #b91c1c;
-        padding: 1rem;
-        border-radius: var(--radius-md);
-        margin-bottom: 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
+    .erp-table tbody tr:hover { background: var(--bg-secondary); transform: translateX(1px); }
+    .erp-table tbody tr:last-child td { border-bottom: none; }
 
-      .pagination {
-        margin-top: 1rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      .pagination-info {
-        font-size: 0.9rem;
-        color: var(--neutral-500);
-      }
+    .row-status-draft { border-left-color: var(--neutral-400) !important; }
+    .row-status-pending { border-left-color: var(--color-danger) !important; }
+    .row-status-validated { border-left-color: var(--color-success) !important; }
+    .row-status-archived { border-left-color: var(--color-info) !important; }
 
-      /* --- NOUVEAU STYLE UX TABLEAU --- */
+    .cell-report-id { font-weight: var(--font-bold); color: var(--color-primary); font-family: var(--font-mono); font-size: var(--text-xs); }
+    .cell-client-name { font-weight: var(--font-semibold); color: var(--text-primary); display: block; }
+    .cell-meta-info { font-size: var(--text-xs); color: var(--text-tertiary); }
 
-      /* 1. Ligne Cliquable & Interactive */
-      .erp-table tbody tr {
-        cursor: pointer;
-        transition: all 0.2s ease;
-        border-left: 4px solid transparent; /* Prépare la bordure de couleur */
-      }
-      .erp-table tbody tr:hover {
-        background-color: #f1f5f9; /* Gris très clair au survol */
-        transform: translateX(2px); /* Petit effet de mouvement */
-      }
+    .table-actions button { position: relative; z-index: 2; }
 
-      /* 2. Code Couleur Latéral (Status) */
-      .row-status-draft {
-        border-left-color: #cbd5e1 !important;
-      } /* Gris */
-      .row-status-pending {
-        border-left-color: #ef4444 !important;
-      } /* Rouge */
-      .row-status-validated {
-        border-left-color: #10b981 !important;
-      } /* Vert */
-      .row-status-archived {
-        border-left-color: #3b82f6 !important;
-      } /* Bleu */
+    /* ── ARCHIVES ── */
+    #archives-container {
+      display: block;
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      padding-bottom: 20px;
+    }
 
-      /* 3. Typographie Hiérarchisée */
-      .cell-report-id {
-        font-weight: 700;
-        color: var(--color-primary);
-        font-family: var(--font-family-mono);
-      }
-      .cell-client-name {
-        font-weight: 700;
-        color: var(--neutral-800);
-        font-size: 0.95rem;
-        display: block;
-      }
-      .cell-meta-info {
-        font-size: 0.85rem;
-        color: var(--neutral-500);
-      }
+    .folder-item {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      overflow: hidden;
+    }
 
-      /* Empêcher le clic de traverser les boutons d'action */
-      .table-actions button {
-        position: relative;
-        z-index: 2; /* Passe au-dessus du clic de la ligne */
-      }
+    .folder-header {
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
+      border-bottom: 1px solid transparent;
+      transition: background var(--transition-fast);
+      min-height: 48px;
+    }
 
-      /* --- NOUVEAU MODAL UX --- */
-      .modal-body {
-        display: flex; /* Sidebar + Contenu */
-        padding: 0;
-        background: #f8fafc;
-        height: 100%;
-        overflow: hidden; /* C'est le contenu qui scrolle, pas le body entier */
-      }
+    .folder-header:hover { background: var(--bg-tertiary); }
+    .folder-item.open .folder-header { border-bottom-color: var(--border-primary); }
+    .folder-header i.fa-folder { color: var(--color-warning); margin-right: 10px; }
 
-      /* 1. Sidebar de Navigation */
-      .modal-sidebar {
-        width: 220px;
-        background: white;
-        border-right: 1px solid var(--border-color);
-        padding: 1.5rem 0;
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        flex-shrink: 0;
-        overflow-y: auto;
-      }
-      .sidebar-link {
-        padding: 10px 20px;
-        color: var(--neutral-600);
-        font-weight: 500;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        transition: all 0.2s;
-        border-left: 3px solid transparent;
-      }
-      .sidebar-link:hover,
-      .sidebar-link.active {
-        background: #f1f5f9;
-        color: var(--color-primary);
-      }
-      .sidebar-link.active {
-        border-left-color: var(--color-primary);
-      }
+    .folder-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      font-weight: var(--font-normal);
+    }
 
-      /* 2. Zone de Contenu Principale */
-      .modal-main-content {
-        flex: 1;
-        padding: 2rem;
-        overflow-y: auto;
-        scroll-behavior: smooth;
-      }
+    .folder-meta .count {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-primary);
+      padding: 1px 8px;
+      border-radius: 2px;
+      font-size: 11px;
+    }
 
-      /* 3. Sections Accordéon */
-      .ux-section {
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        margin-bottom: 2rem;
-        box-shadow: var(--shadow-sm);
-        overflow: hidden;
-      }
-      .ux-section-header {
-        padding: 1rem 1.5rem;
-        background: white;
-        font-weight: 700;
-        color: var(--neutral-800);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        cursor: pointer;
-        border-bottom: 1px solid transparent;
-        transition: background 0.2s;
-      }
-      .ux-section-header:hover {
-        background: #f8fafc;
-      }
-      .ux-section.open .ux-section-header {
-        border-bottom: 1px solid var(--border-color-light);
-        background: #f8fafc;
-      }
-      .ux-section-body {
-        display: none;
-        padding: 1.5rem;
-      }
-      .ux-section.open .ux-section-body {
-        display: block;
-      }
+    .folder-content { display: none; background: var(--bg-elevated); }
 
-      /* 4. Grilles (Matériel / Tech) */
-      .grid-header {
-        display: grid;
-        font-weight: 700;
-        color: var(--neutral-500);
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        padding: 0 10px 5px 40px; /* 40px left pour la poignée de drag */
-        margin-bottom: 5px;
-        border-bottom: 2px solid var(--border-color-light);
-      }
+    .archive-row {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      transition: background var(--transition-fast);
+    }
 
-      /* Lignes Draggables */
-      .draggable-item {
-        display: grid;
-        align-items: center;
-        background: white;
-        border: 1px solid var(--border-color-light);
-        border-radius: 6px;
-        margin-bottom: 8px;
-        padding: 8px;
-        padding-left: 0;
-        transition:
-          transform 0.2s,
-          box-shadow 0.2s;
-      }
-      .draggable-item:hover {
-        border-color: var(--neutral-400);
-        box-shadow: var(--shadow-sm);
-      }
-      .drag-handle {
-        cursor: grab;
-        color: var(--neutral-400);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 30px;
-        height: 100%;
-      }
-      .drag-handle:hover {
-        color: var(--neutral-800);
-      }
+    .archive-row:last-child { border-bottom: none; }
+    .archive-row:hover { background: var(--bg-secondary); }
 
-      /* --- CORRECTIF LARGEUR MODAL --- */
-      /* On force le modal à être plus large pour que le tableau respire */
-      .modal-content {
-        width: 95vw !important; /* 95% de la largeur de l'écran */
-        max-width: 1400px !important; /* Maximum raisonnable */
-      }
+    .archive-main { display: flex; gap: 12px; align-items: flex-start; flex: 1; }
+    .archive-icon { color: var(--text-tertiary); font-size: 15px; margin-top: 2px; }
 
-      /* --- NOUVELLE GRILLE MATÉRIEL (Alignée) --- */
-      .grid-cols-material {
-        display: grid;
-        /* Définition précise des 10 colonnes */
-        /* Grip | Cat | Nom | Code | Qté | Prix | Incl | Rab | Total | Del */
-        grid-template-columns:
-          30px /* Poignée */
-          220px /* Catalogue (Plus large pour lire) */
-          1fr /* Désignation (Prend tout le reste de la place) */
-          100px /* Code */
-          70px /* Qté */
-          90px /* Prix */
-          50px /* Incl */
-          60px /* Rab */
-          100px /* Total */
-          40px; /* Suppr */
-        gap: 12px; /* Espace entre les colonnes */
-        align-items: center;
-      }
-      /* Config Tech (6 colonnes) */
-      .grid-cols-tech {
-        grid-template-columns: 30px 1fr 140px 70px 70px 50px 40px;
-        gap: 10px;
-      }
-      /* Config Work (Simple) */
-      .work-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 6px;
-        background: white;
-        border: 1px solid var(--border-color-light);
-        border-radius: 6px;
-        margin-bottom: 6px;
-      }
-      /* Classes utilitaires pour aligner les textes (Headers + Inputs) */
-      .text-right {
-        text-align: right;
-      }
-      .text-center {
-        text-align: center;
-      }
+    .archive-details { display: flex; flex-direction: column; gap: 3px; }
+    .archive-title { font-weight: var(--font-semibold); color: var(--text-primary); font-size: var(--text-sm); display: flex; align-items: center; gap: 5px; }
+    .archive-subtitle { font-size: var(--text-xs); color: var(--text-tertiary); }
 
-      /* Pour que les inputs prennent toute la largeur de leur case */
-      .grid-cols-material input,
-      .grid-cols-material select {
-        width: 100%;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="app-container">
-      <aside class="sidebar">
-        <div class="sidebar-header"><h2>KB Medizin</h2></div>
-        <nav class="sidebar-nav">
-          <a href="/dashboard.html"
-            ><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a
-          >
-          <a href="/clients.html"
-            ><i class="fas fa-users"></i><span>Clients</span></a
-          >
-          <a href="/checklists.html"
-            ><i class="fas fa-clipboard-check"></i><span>Checklists</span></a
-          >
-          <a href="/reports.html" class="active"
-            ><i class="fas fa-file-alt"></i><span>Rapports</span></a
-          >
-          <a href="/stk.html"
-            ><i class="fas fa-file-signature"></i><span>STK</span></a
-          >
-          <a href="/tickets.html"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
-          <a href="/admin.html"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
-        </nav>
-        <div class="sidebar-footer">
-          <div class="user-info" id="user-info"></div>
-          <li style="list-style-type: none;;margin-top: auto; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-              <a href="#" onclick="openSettings(); return false;" style="display: flex; align-items: center; gap: 10px; padding: 10px 15px; color: #475569; text-decoration: none; border-radius: 8px; transition: 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                  <i class="fas fa-cog"></i> Mes Préférences
-              </a>
-          </li>
-          <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%"><i class="fas fa-sign-out-alt"></i>Déconnexion</button>
-        </div>
-      </aside>
+    .archive-machine-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-primary);
+      padding: 1px 8px;
+      border-radius: 2px;
+      font-size: var(--text-xs);
+      font-family: var(--font-mono);
+      margin-top: 3px;
+    }
 
-      <main class="main-content">
-        <div class="page-header">
-          <h1><i class="fas fa-file-signature"></i> Rapports d'Intervention</h1>
-          <button class="btn btn-primary" id="add-report-btn">
-            <i class="fas fa-plus"></i> Nouveau rapport
-          </button>
-        </div>
+    .archive-actions { display: flex; gap: 6px; align-items: center; margin-left: 12px; }
 
-        <div class="report-container-fluid">
-          <div class="toolbar-clean-bar">
-            <div class="toolbar-search-section">
-              <i class="fas fa-search"></i>
-              <input
-                type="text"
-                id="global-search"
-                placeholder="Rechercher un rapport, un client..."
-              />
-            </div>
+    .btn-action-soft {
+      width: 32px; height: 32px;
+      border-radius: 3px;
+      background: var(--color-info-bg);
+      color: var(--color-info);
+      border: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
 
-            <div class="toolbar-divider"></div>
+    .btn-action-soft:hover { background: rgba(59,130,246,0.2); transform: translateY(-1px); }
 
-            <div class="toolbar-nav-section">
-              <button class="nav-text-btn active" id="tab-draft">
-                Brouillons <span class="nav-badge" id="badge-draft">0</span>
-              </button>
-              <button class="nav-text-btn" id="tab-pending">
-                En attente <span class="nav-badge" id="badge-pending">0</span>
-              </button>
-              <button class="nav-text-btn" id="tab-validated">
-                Validés <span class="nav-badge" id="badge-validated">0</span>
-              </button>
-              <button class="nav-text-btn" id="tab-archived">
-                Archives <span class="nav-badge" id="badge-archived">0</span>
-              </button>
-            </div>
+    /* ── PAGINATION ── */
+    .pagination {
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
 
-            <div style="flex: 1"></div>
+    .pagination-info { font-size: var(--text-xs); color: var(--text-tertiary); }
+    .pagination-buttons { display: flex; gap: 6px; }
 
-            <div class="toolbar-filters-section">
-              <select
-                id="filter-type"
-                class="minimal-select"
-                style="
-                  border: 1px solid var(--border-color);
-                  padding: 0.4rem 2rem 0.4rem 0.8rem;
-                  border-radius: 6px;
-                  font-size: 0.9rem;
-                "
-              >
-                <option value="">Tous les types</option>
-                <option value="Mise en marche">Mise en marche</option>
-                <option value="Service d'entretien">Service d'entretien</option>
-                <option value="Réparation">Réparation</option>
-                <option value="Contrôle">Contrôle</option>
-              </select>
-            </div>
-          </div>
+    /* ── REJECTION ALERT ── */
+    .rejection-alert {
+      background: var(--color-danger-bg);
+      border: 1px solid var(--color-danger);
+      color: var(--color-danger);
+      padding: 12px 16px;
+      border-radius: 3px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-          <div
-            class="table-container erp-table-wrapper"
-            id="table-view-container"
-          >
-            <div class="table-wrapper">
-              <table class="table erp-table">
-                <thead>
-                  <tr>
-                    <th style="width: 120px">N° Rapport</th>
-                    <th style="width: 150px">Type</th>
-                    <th style="width: 200px">Client</th>
-                    <th>Installation</th>
-                    <th style="width: 120px">Date</th>
-                    <th style="width: 120px">Statut</th>
-                    <th style="text-align: right; width: 120px">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="reports-tbody">
-                  <tr>
-                    <td
-                      colspan="7"
-                      style="
-                        text-align: center;
-                        padding: 3rem;
-                        color: var(--neutral-400);
-                      "
-                    >
-                      <i class="fas fa-spinner fa-spin fa-2x"></i>
-                      <p>Chargement...</p>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+    /* ── MODAL LAYOUT ── */
+    .modal-body {
+      display: flex;
+      padding: 0;
+      background: var(--bg-secondary);
+      height: 100%;
+      overflow: hidden;
+    }
 
-          <div
-            id="archives-container"
-            class="folder-grid"
-            style="display: none; overflow-y: auto"
-          ></div>
+    .modal-sidebar {
+      width: 200px;
+      background: var(--bg-elevated);
+      border-right: 1px solid var(--border-primary);
+      padding: 12px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
 
-          <div class="pagination" id="pagination-controls">
-            <span class="pagination-info" id="pagination-info"
-              >Chargement...</span
-            >
-            <div class="pagination-buttons">
-              <button class="btn btn-secondary btn-sm" id="prev-page">
-                <i class="fas fa-chevron-left"></i>
-              </button>
-              <button class="btn btn-secondary btn-sm" id="next-page">
-                <i class="fas fa-chevron-right"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </main>
+    .sidebar-link {
+      padding: 9px 16px;
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all var(--transition-fast);
+      border-left: 2px solid transparent;
+    }
+
+    .sidebar-link:hover,
+    .sidebar-link.active { background: var(--bg-secondary); color: var(--color-primary); }
+    .sidebar-link.active { border-left-color: var(--color-primary); }
+
+    .modal-main-content {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
+    /* ── SECTIONS ── */
+    .ux-section {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .ux-section-header {
+      padding: 12px 16px;
+      background: var(--bg-elevated);
+      font-weight: var(--font-semibold);
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      border-bottom: 1px solid transparent;
+      transition: background var(--transition-fast);
+    }
+
+    .ux-section-header:hover { background: var(--bg-secondary); }
+    .ux-section.open .ux-section-header { border-bottom-color: var(--border-primary); background: var(--bg-secondary); }
+
+    .ux-section-body { display: none; padding: 16px; }
+    .ux-section.open .ux-section-body { display: block; }
+
+    /* ── GRID HEADERS ── */
+    .grid-header {
+      display: grid;
+      font-weight: var(--font-semibold);
+      color: var(--text-tertiary);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0 10px 5px 40px;
+      margin-bottom: 5px;
+      border-bottom: 1px solid var(--border-primary);
+    }
+
+    /* ── DRAGGABLE ITEMS ── */
+    .draggable-item {
+      display: grid;
+      align-items: center;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      border-radius: 2px;
+      margin-bottom: 6px;
+      padding: 6px;
+      padding-left: 0;
+      transition: all var(--transition-fast);
+    }
+
+    .draggable-item:hover { border-color: var(--border-secondary); box-shadow: var(--shadow-sm); }
+
+    .drag-handle {
+      cursor: grab;
+      color: var(--text-tertiary);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 30px;
+      height: 100%;
+    }
+
+    .drag-handle:hover { color: var(--text-primary); }
+
+    /* ── GRID COLUMNS ── */
+    .grid-cols-material {
+      display: grid;
+      grid-template-columns: 30px 200px 1fr 90px 60px 80px 50px 55px 90px 36px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .grid-cols-tech {
+      grid-template-columns: 30px 1fr 130px 65px 65px 50px 36px;
+      gap: 10px;
+    }
+
+    .work-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      border-radius: 2px;
+      margin-bottom: 5px;
+    }
+
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+
+    .grid-cols-material input,
+    .grid-cols-material select { width: 100%; }
+
+    /* ── STATUS IN MODAL ── */
+    #current-status-badge {
+      font-size: 11px;
+      font-weight: var(--font-semibold);
+      padding: 2px 8px;
+      border-radius: 2px;
+      text-transform: uppercase;
+    }
+
+    /* ── MODAL WIDE ── */
+    #report-modal .modal-content {
+      width: 95vw !important;
+      max-width: 1400px !important;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .report-container-fluid { padding: 12px; height: auto; overflow: visible; }
+      .toolbar-clean-bar { height: auto; flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
+      .toolbar-search-section { flex: 1 1 100%; }
+      .toolbar-divider { display: none; }
+      .toolbar-nav-section { flex-wrap: wrap; height: auto; gap: 0; }
+      .toolbar-filters-section { margin-left: 0; }
+      .modal-sidebar { display: none; }
+      .grid-cols-material { grid-template-columns: 1fr; }
+      .grid-cols-tech { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-container">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <img src="/src/images/logo-kbmed-short.svg" alt="KB Med">
     </div>
-
-    <div class="modal" id="report-modal">
-      <div class="modal-content" style="max-width: 1100px; height: 95vh">
-        <div class="modal-header">
-          <div>
-            <h2 id="report-modal-title">
-              <i class="fas fa-file-alt"></i> Rapport
-            </h2>
-            <div
-              id="report-meta-info"
-              style="
-                font-size: 0.8rem;
-                color: var(--neutral-500);
-                margin-top: 4px;
-              "
-            ></div>
-          </div>
-
-          <div style="display: flex; gap: 10px; align-items: center">
-            <button
-              class="btn btn-secondary btn-sm"
-              id="header-pdf-btn"
-              style="display: none"
-            >
-              <i class="fas fa-file-pdf"></i> PDF
-            </button>
-            <button class="modal-close" onclick="closeReportModal()">
-              &times;
-            </button>
-          </div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
+      <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
+      <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
+      <a href="/reports.html" class="active"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+      <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
+      <a href="/tickets.html"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
+      <a href="/admin.html"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card" id="user-info">
+        <div class="user-avatar" id="u-avatar">?</div>
+        <div>
+          <div class="user-name" id="u-name">...</div>
+          <div class="user-role" id="u-role">...</div>
         </div>
+      </div>
+      <div class="sidebar-btn-row">
+        <button class="sidebar-btn" onclick="openPreferencesModal()">
+          <i class="fas fa-cog"></i> Mes préférences
+        </button>
+        <button class="sidebar-btn danger" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Quitter</button>
+      </div>
+    </div>
+  </aside>
 
-        <div class="modal-body" style="padding: 0; display: flex">
-          <nav class="modal-sidebar">
-            <div
-              class="sidebar-link active"
-              onclick="scrollToSection('sec-info')"
-            >
-              <i class="fas fa-info-circle"></i> Général
-            </div>
-            <div class="sidebar-link" onclick="scrollToSection('sec-client')">
-              <i class="fas fa-building"></i> Client
-            </div>
-            <div class="sidebar-link" onclick="scrollToSection('sec-tech')">
-              <i class="fas fa-tools"></i> Techniciens
-            </div>
-            <div class="sidebar-link" onclick="scrollToSection('sec-work')">
-              <i class="fas fa-clipboard-list"></i> Travaux
-            </div>
-            <div class="sidebar-link" onclick="scrollToSection('sec-stk')">
-              <i class="fas fa-bolt"></i> Tests STK
-            </div>
-            <div class="sidebar-link" onclick="scrollToSection('sec-material')">
-              <i class="fas fa-box-open"></i> Matériel
-            </div>
-            <div class="sidebar-link" onclick="scrollToSection('sec-travel')">
-              <i class="fas fa-car"></i> Déplacement
-            </div>
-            <div class="sidebar-link" onclick="scrollToSection('sec-close')">
-              <i class="fas fa-check-double"></i> Clôture
-            </div>
-          </nav>
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="page-header">
+      <div class="header-title-group">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+        <h1><i class="fas fa-file-signature"></i> Rapports d'Intervention</h1>
+      </div>
+      <div class="header-actions-group">
+        <button class="btn btn-primary" id="add-report-btn">
+          <i class="fas fa-plus"></i> <span class="btn-label">Nouveau rapport</span>
+        </button>
 
-          <div class="modal-main-content" id="main-scroll-area">
-            <div
-              id="rejection-msg-box"
-              class="rejection-alert"
-              style="display: none; margin-bottom: 20px"
-            >
-              <i class="fas fa-exclamation-circle fa-lg"></i>
-              <div>
-                <strong>Rapport refusé</strong><br /><span
-                  id="rejection-reason-text"
-                ></span>
-              </div>
-            </div>
-
-            <div
-              style="
-                background: white;
-                padding: 1rem;
-                border: 1px solid var(--border-color);
-                border-radius: 8px;
-                margin-bottom: 2rem;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-              "
-            >
-              <div style="display: flex; align-items: center; gap: 10px">
-                <strong>État :</strong>
-                <span id="current-status-badge" class="badge badge-secondary"
-                  >Brouillon</span
-                >
-              </div>
-              <div
-                id="validator-info"
-                style="font-size: 0.85rem; color: var(--neutral-500)"
-              ></div>
-            </div>
-
-            <form id="report-form" autocomplete="off">
-              <input type="hidden" id="report-id" />
-
-              <div id="sec-info" class="ux-section open">
-                <div class="ux-section-header" onclick="toggleSection(this)">
-                  <span
-                    ><i class="fas fa-info-circle"></i> Informations
-                    Générales</span
-                  >
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="ux-section-body">
-                  <div class="form-row">
-                    <div class="form-group" style="flex: 1">
-                      <label>Langue</label
-                      ><select id="report-language">
-                        <option value="fr">Français 🇫🇷</option>
-                        <option value="de">Allemand 🇩🇪</option>
-                      </select>
-                    </div>
-                    <div class="form-group" style="flex: 1">
-                      <label>Titre (Optionnel)</label
-                      ><input
-                        type="text"
-                        id="report-custom-title"
-                        placeholder="Ex: Maintenance Annuelle"
-                      />
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label>Type de travaux *</label
-                    ><select id="report-type" multiple required>
-                      <option value="Mise en marche">Mise en marche</option>
-                      <option value="Service d'entretien">
-                        Service d'entretien
-                      </option>
-                      <option value="Réparation">Réparation</option>
-                      <option value="Contrôle">Contrôle</option>
-                      <option value="Réparation / Garantie">
-                        Réparation / Garantie
-                      </option>
-                      <option value="Première validation">
-                        Première validation
-                      </option>
-                      <option value="Montage">Montage</option>
-                      <option value="Instruction">Instruction</option>
-                      <option value="Re-validation">Re-validation</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div id="sec-client" class="ux-section open">
-                <div class="ux-section-header" onclick="toggleSection(this)">
-                  <span><i class="fas fa-building"></i> Client & Lieu</span>
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="ux-section-body">
-                  <div class="form-group">
-                    <label>Sélection Client *</label
-                    ><select id="client-select" required>
-                      <option value="">-- Rechercher --</option>
-                    </select>
-                  </div>
-                  <div
-                    style="
-                      background: var(--neutral-50);
-                      padding: 1rem;
-                      border-radius: 6px;
-                    "
-                  >
-                    <div class="form-row">
-                      <div class="form-group">
-                        <label>Cabinet</label
-                        ><input
-                          type="text"
-                          id="cabinet-name"
-                          required
-                          autocomplete="none"
-                        />
-                      </div>
-                      <div class="form-group">
-                        <label>Interlocuteur</label
-                        ><input
-                          type="text"
-                          id="interlocutor"
-                          autocomplete="none"
-                        />
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label>Adresse</label
-                      ><input
-                        type="text"
-                        id="address"
-                        required
-                        autocomplete="none"
-                      />
-                    </div>
-                    <div class="form-row">
-                      <div class="form-group">
-                        <label>NPA</label
-                        ><input
-                          type="text"
-                          id="postal-code"
-                          autocomplete="none"
-                        />
-                      </div>
-                      <div class="form-group" style="flex: 2">
-                        <label>Ville</label
-                        ><input
-                          type="text"
-                          id="city"
-                          required
-                          autocomplete="none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div class="form-group" style="margin-top: 1rem">
-                    <label>Installation (Résumé) :</label
-                    ><textarea id="installation-text" rows="2"></textarea>
-                  </div>
-                  <div class="form-group">
-                    <div
-                      id="client-equipment-list"
-                      style="
-                        max-height: 150px;
-                        overflow-y: auto;
-                        border: 1px solid #ddd;
-                        padding: 5px;
-                        border-radius: 4px;
-                      "
-                    ></div>
-                  </div>
-                </div>
-              </div>
-
-              <div id="sec-tech" class="ux-section open">
-                <div class="ux-section-header" onclick="toggleSection(this)">
-                  <span><i class="fas fa-tools"></i> Techniciens</span>
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="ux-section-body">
-                  <div class="grid-header grid-cols-tech">
-                    <div></div>
-                    <div>Nom</div>
-                    <div>Date</div>
-                    <div>Heures</div>
-                    <div>Sup.</div>
-                    <div>Incl.</div>
-                    <div></div>
-                  </div>
-                  <div id="technicians-list"></div>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-secondary"
-                    id="add-technician-btn"
-                    style="margin-top: 10px"
-                  >
-                    <i class="fas fa-plus"></i> Ajouter Technicien
-                  </button>
-                </div>
-              </div>
-
-              <div id="sec-work" class="ux-section open">
-                <div class="ux-section-header" onclick="toggleSection(this)">
-                  <span
-                    ><i class="fas fa-clipboard-list"></i> Travaux
-                    Accomplis</span
-                  >
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="ux-section-body">
-                  <div id="work-list"></div>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-secondary"
-                    id="add-work-btn"
-                  >
-                    <i class="fas fa-plus"></i> Ajouter Ligne
-                  </button>
-                </div>
-              </div>
-
-              <div id="sec-stk" class="ux-section open">
-                <div class="ux-section-header" onclick="toggleSection(this)">
-                  <span><i class="fas fa-bolt"></i> Tests STK</span>
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="ux-section-body">
-                  <div id="stk-tests-list"></div>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-secondary"
-                    id="add-stk-test-btn"
-                  >
-                    <i class="fas fa-plus"></i> Ajouter Test
-                  </button>
-                </div>
-              </div>
-
-              <div id="sec-material" class="ux-section open">
-                <div class="ux-section-header" onclick="toggleSection(this)">
-                  <span><i class="fas fa-box-open"></i> Matériel & Pièces</span>
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="ux-section-body">
-                  <div class="grid-header grid-cols-material">
-                    <div></div>
-                    <div>Catalogue</div>
-                    <div>Désignation</div>
-                    <div>Code</div>
-                    <div class="text-right">Qté</div>
-                    <div class="text-right">Prix</div>
-                    <div class="text-center">Incl.</div>
-                    <div class="text-right">Rab%</div>
-                    <div class="text-right">Total</div>
-                    <div></div>
-                  </div>
-                  <div id="materials-list"></div>
-                  <div
-                    style="
-                      display: flex;
-                      justify-content: space-between;
-                      align-items: center;
-                      margin-top: 10px;
-                    "
-                  >
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-secondary"
-                      id="add-material-btn"
-                    >
-                      <i class="fas fa-plus"></i> Ajouter Matériel
-                    </button>
-                    <div
-                      style="
-                        font-weight: 700;
-                        font-size: 1.1rem;
-                        color: var(--color-primary);
-                      "
-                    >
-                      Total Matériel: <span id="materials-total">0.00</span> CHF
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div id="sec-travel" class="ux-section open">
-                <div class="ux-section-header" onclick="toggleSection(this)">
-                  <span><i class="fas fa-car"></i> Déplacement</span>
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="ux-section-body">
-                  <div class="form-row">
-                    <div class="form-group" style="flex: 2">
-                      <label>Ville Départ</label
-                      ><input type="text" id="travel-city" />
-                    </div>
-                    <div class="form-group">
-                      <label>Canton</label
-                      ><select id="travel-canton">
-                        <option value="">--</option>
-                        <option value="AG">AG</option>
-                        <option value="BE">BE</option>
-                        <option value="BL">BL</option>
-                        <option value="BS">BS</option>
-                        <option value="FR">FR</option>
-                        <option value="GE">GE</option>
-                        <option value="GL">GL</option>
-                        <option value="JU">JU</option>
-                        <option value="LU">LU</option>
-                        <option value="NE">NE</option>
-                        <option value="SG">SG</option>
-                        <option value="SO">SO</option>
-                        <option value="SZ">SZ</option>
-                        <option value="TG">TG</option>
-                        <option value="TI">TI</option>
-                        <option value="VD">VD</option>
-                        <option value="VS">VS</option>
-                        <option value="ZG">ZG</option>
-                        <option value="ZH">ZH</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Prix (CHF)</label
-                      ><input type="number" id="travel-costs" step="0.01" />
-                    </div>
-                    <div
-                      class="form-group"
-                      style="
-                        display: flex;
-                        align-items: flex-end;
-                        padding-bottom: 12px;
-                      "
-                    >
-                      <div class="checkbox-group">
-                        <input type="checkbox" id="travel-incl" /><label
-                          for="travel-incl"
-                          >Inclus</label
-                        >
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div id="sec-close" class="ux-section open">
-                <div class="ux-section-header" onclick="toggleSection(this)">
-                  <span><i class="fas fa-check-double"></i> Clôture</span>
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="ux-section-body">
-                  <div class="form-group">
-                    <label>Remarques / Notes internes</label
-                    ><textarea id="remarks" rows="2"></textarea>
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label>Date Signature Technicien</label
-                      ><input type="date" id="tech-signature-date" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </form>
-            <div style="height: 100px"></div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <div style="flex: 1"></div>
-          <button class="btn btn-secondary" onclick="closeReportModal()">
-            Fermer
-          </button>
-          <div id="workflow-buttons" style="display: flex; gap: 10px"></div>
-        </div>
       </div>
     </div>
 
-    <div class="modal" id="reject-modal">
-      <div class="modal-content" style="max-width: 500px">
-        <div class="modal-header">
-          <h2>Refuser le rapport</h2>
-          <button
-            class="modal-close"
-            onclick="
-              document.getElementById('reject-modal').classList.remove('active')
-            "
-          >
-            &times;
+    <div class="report-container-fluid">
+      <!-- TOOLBAR -->
+      <div class="toolbar-clean-bar">
+        <div class="toolbar-search-section">
+          <i class="fas fa-search"></i>
+          <input type="text" id="global-search" placeholder="Rechercher un rapport, un client...">
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="toolbar-nav-section">
+          <button class="nav-text-btn active" id="tab-draft">
+            Brouillons <span class="nav-badge" id="badge-draft">0</span>
+          </button>
+          <button class="nav-text-btn" id="tab-pending">
+            En attente <span class="nav-badge" id="badge-pending">0</span>
+          </button>
+          <button class="nav-text-btn" id="tab-validated">
+            Validés <span class="nav-badge" id="badge-validated">0</span>
+          </button>
+          <button class="nav-text-btn" id="tab-archived">
+            Archives <span class="nav-badge" id="badge-archived">0</span>
           </button>
         </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Motif du refus</label>
-            <textarea
-              id="reject-reason"
-              rows="4"
-              placeholder="Expliquez pourquoi le rapport est refusé..."
-            ></textarea>
+
+        <div class="toolbar-filters-section">
+          <select id="filter-type" class="minimal-select">
+            <option value="">Tous les types</option>
+            <option value="Mise en marche">Mise en marche</option>
+            <option value="Service d'entretien">Service d'entretien</option>
+            <option value="Réparation">Réparation</option>
+            <option value="Contrôle">Contrôle</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- TABLE VIEW -->
+      <div class="table-container erp-table-wrapper" id="table-view-container">
+        <div class="table-wrapper">
+          <table class="table erp-table">
+            <thead>
+              <tr>
+                <th style="width:110px">N° Rapport</th>
+                <th style="width:140px">Type</th>
+                <th style="width:200px">Client</th>
+                <th>Installation</th>
+                <th style="width:110px">Date</th>
+                <th style="width:110px">Statut</th>
+                <th style="text-align:right;width:110px">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="reports-tbody">
+              <tr>
+                <td colspan="7" style="text-align:center;padding:40px;color:var(--text-tertiary)">
+                  <i class="fas fa-spinner fa-spin"></i><br><br>Chargement...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ARCHIVES VIEW -->
+      <div id="archives-container" class="folder-grid" style="display:none;overflow-y:auto">
+      </div>
+
+      <!-- PAGINATION -->
+      <div class="pagination" id="pagination-controls">
+        <span class="pagination-info" id="pagination-info">Chargement...</span>
+        <div class="pagination-buttons">
+          <button class="btn btn-secondary btn-sm" id="prev-page"><i class="fas fa-chevron-left"></i></button>
+          <button class="btn btn-secondary btn-sm" id="next-page"><i class="fas fa-chevron-right"></i></button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- OVERLAY mobile -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- ═══ REPORT MODAL ═══ -->
+<div class="modal" id="report-modal">
+  <div class="modal-content" style="height:95vh">
+    <div class="modal-header">
+      <div>
+        <h2 id="report-modal-title"><i class="fas fa-file-alt"></i> Rapport</h2>
+        <div id="report-meta-info" style="font-size:var(--text-xs);color:var(--text-tertiary);margin-top:3px;"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-secondary btn-sm" id="header-pdf-btn" style="display:none">
+          <i class="fas fa-file-pdf"></i> PDF
+        </button>
+        <button class="modal-close" onclick="closeReportModal()">&times;</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <!-- Sidebar nav -->
+      <nav class="modal-sidebar">
+        <div class="sidebar-link active" onclick="scrollToSection('sec-info')"><i class="fas fa-info-circle"></i> Général</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-client')"><i class="fas fa-building"></i> Client</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-tech')"><i class="fas fa-tools"></i> Techniciens</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-work')"><i class="fas fa-clipboard-list"></i> Travaux</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-stk')"><i class="fas fa-bolt"></i> Tests STK</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-material')"><i class="fas fa-box-open"></i> Matériel</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-travel')"><i class="fas fa-car"></i> Déplacement</div>
+        <div class="sidebar-link" onclick="scrollToSection('sec-close')"><i class="fas fa-check-double"></i> Clôture</div>
+      </nav>
+
+      <div class="modal-main-content" id="main-scroll-area">
+        <!-- Rejection alert -->
+        <div id="rejection-msg-box" class="rejection-alert" style="display:none">
+          <i class="fas fa-exclamation-circle fa-lg"></i>
+          <div><strong>Rapport refusé</strong><br><span id="rejection-reason-text"></span></div>
+        </div>
+
+        <!-- Status bar -->
+        <div style="background:var(--bg-elevated);padding:12px 16px;border:1px solid var(--border-primary);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <strong style="font-size:var(--text-sm);">État :</strong>
+            <span id="current-status-badge" class="badge badge-neutral">Brouillon</span>
           </div>
+          <div id="validator-info" style="font-size:var(--text-xs);color:var(--text-tertiary)"></div>
         </div>
-        <div class="modal-footer">
-          <button
-            class="btn btn-secondary"
-            onclick="
-              document.getElementById('reject-modal').classList.remove('active')
-            "
-          >
-            Annuler</button
-          ><button class="btn btn-danger" id="confirm-reject-btn">
-            Confirmer le refus
-          </button>
-        </div>
+
+        <form id="report-form" autocomplete="off">
+          <!-- Leurre anti-autofill Chrome -->
+<input type="text"     style="display:none" aria-hidden="true" name="prevent_autofill">
+<input type="password" style="display:none" aria-hidden="true" name="prevent_pwd">
+          <input type="hidden" id="report-id">
+
+          <!-- Général -->
+          <div id="sec-info" class="ux-section open">
+            <div class="ux-section-header" onclick="toggleSection(this)">
+              <span><i class="fas fa-info-circle"></i> Informations Générales</span>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="ux-section-body">
+              <div class="form-row">
+                <div class="form-group" style="flex:1">
+                  <label>Langue</label>
+                  <select id="report-language">
+                    <option value="fr">Français 🇫🇷</option>
+                    <option value="de">Allemand 🇩🇪</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex:1">
+                  <label>Titre (Optionnel)</label>
+                  <input type="text" id="report-custom-title" placeholder="Ex: Maintenance Annuelle">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Type de travaux *</label>
+                <select id="report-type" multiple required>
+                  <option value="Mise en marche">Mise en marche</option>
+                  <option value="Service d'entretien">Service d'entretien</option>
+                  <option value="Réparation">Réparation</option>
+                  <option value="Contrôle">Contrôle</option>
+                  <option value="Réparation / Garantie">Réparation / Garantie</option>
+                  <option value="Première validation">Première validation</option>
+                  <option value="Montage">Montage</option>
+                  <option value="Instruction">Instruction</option>
+                  <option value="Re-validation">Re-validation</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Client -->
+          <div id="sec-client" class="ux-section open">
+            <div class="ux-section-header" onclick="toggleSection(this)">
+              <span><i class="fas fa-building"></i> Client & Lieu</span>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="ux-section-body">
+              <div class="form-group">
+                <label>Sélection Client *</label>
+                <select id="client-select" required><option value="">-- Rechercher --</option></select>
+                <div id="contract-indicator"
+  style="display:none;align-items:center;gap:8px;padding:7px 12px;
+  border-radius:3px;border:1px solid var(--border-primary);
+  background:var(--bg-secondary);font-size:var(--text-xs);margin-top:6px;">
+</div>
+              </div>
+              <div style="background:var(--bg-secondary);padding:14px;border-radius:3px;">
+                <div class="form-row">
+                  <div class="form-group"><label>Cabinet</label><input type="text" id="cabinet-name" required autocomplete="off"
+    onfocus="this.setAttribute('autocomplete','off')" name="kb-cabinet"></div>
+                  <div class="form-group"><label>Interlocuteur</label><input type="text" id="interlocutor" autocomplete="off"
+    onfocus="this.setAttribute('autocomplete','off')" name="kb-contact"></div>
+                </div>
+                <div class="form-group"><label>Adresse</label><input type="text" id="address" required autocomplete="off"
+    onfocus="this.setAttribute('autocomplete','off')" name="kb-address"></div>
+                <div class="form-row">
+                  <div class="form-group"><label>NPA</label><input type="text" id="postal-code" autocomplete="off"
+    onfocus="this.setAttribute('autocomplete','off')" name="kb-npa"></div>
+                  <div class="form-group" style="flex:2"><label>Ville</label><input type="text" id="city" required autocomplete="off"
+    onfocus="this.setAttribute('autocomplete','off')" name="kb-city"></div>
+                </div>
+              </div>
+              <div class="form-group" style="margin-top:14px">
+                <label>Installation (Résumé)</label>
+                <textarea id="installation-text" rows="2"></textarea>
+              </div>
+              <div class="form-group">
+                <div id="client-equipment-list" style="max-height:130px;overflow-y:auto;border:1px solid var(--border-primary);padding:5px;border-radius:3px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Techniciens -->
+          <div id="sec-tech" class="ux-section open">
+            <div class="ux-section-header" onclick="toggleSection(this)">
+              <span><i class="fas fa-tools"></i> Techniciens</span>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="ux-section-body">
+              <div class="grid-header grid-cols-tech">
+                <div></div><div>Nom</div><div>Date</div><div>Heures</div><div>Sup.</div><div>Incl.</div><div></div>
+              </div>
+              <div id="technicians-list"></div>
+              <button type="button" class="btn btn-sm btn-secondary" id="add-technician-btn" style="margin-top:8px">
+                <i class="fas fa-plus"></i> Ajouter Technicien
+              </button>
+            </div>
+          </div>
+
+          <!-- Travaux -->
+          <div id="sec-work" class="ux-section open">
+            <div class="ux-section-header" onclick="toggleSection(this)">
+              <span><i class="fas fa-clipboard-list"></i> Travaux Accomplis</span>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="ux-section-body">
+              <div id="work-list"></div>
+              <button type="button" class="btn btn-sm btn-secondary" id="add-work-btn">
+                <i class="fas fa-plus"></i> Ajouter Ligne
+              </button>
+            </div>
+          </div>
+
+          <!-- STK -->
+          <div id="sec-stk" class="ux-section open">
+            <div class="ux-section-header" onclick="toggleSection(this)">
+              <span><i class="fas fa-bolt"></i> Tests STK</span>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="ux-section-body">
+              <div id="stk-tests-list"></div>
+              <button type="button" class="btn btn-sm btn-secondary" id="add-stk-test-btn">
+                <i class="fas fa-plus"></i> Ajouter Test
+              </button>
+            </div>
+          </div>
+
+          <!-- Matériel -->
+          <div id="sec-material" class="ux-section open">
+            <div class="ux-section-header" onclick="toggleSection(this)">
+              <span><i class="fas fa-box-open"></i> Matériel & Pièces</span>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="ux-section-body">
+              <div class="grid-header grid-cols-material">
+                <div></div><div>Catalogue</div><div>Désignation</div><div>Code</div>
+                <div class="text-right">Qté</div><div class="text-right">Prix</div>
+                <div class="text-center">Incl.</div><div class="text-right">Rab%</div>
+                <div class="text-right">Total</div><div></div>
+              </div>
+              <div id="materials-list"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <button type="button" class="btn btn-sm btn-secondary" id="add-material-btn">
+                  <i class="fas fa-plus"></i> Ajouter Matériel
+                </button>
+                <div style="font-weight:var(--font-bold);font-size:var(--text-base);color:var(--color-primary);">
+                  Total: <span id="materials-total">0.00</span> CHF
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Déplacement -->
+          <div id="sec-travel" class="ux-section open">
+            <div class="ux-section-header" onclick="toggleSection(this)">
+              <span><i class="fas fa-car"></i> Déplacement</span>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="ux-section-body">
+              <div class="form-row">
+                <div class="form-group" style="flex:2"><label>Ville Départ</label><input type="text" id="travel-city"></div>
+                <div class="form-group">
+                  <label>Canton</label>
+                  <select id="travel-canton">
+                    <option value="">--</option>
+                    <option value="AG">AG</option><option value="BE">BE</option><option value="BL">BL</option>
+                    <option value="BS">BS</option><option value="FR">FR</option><option value="GE">GE</option>
+                    <option value="GL">GL</option><option value="JU">JU</option><option value="LU">LU</option>
+                    <option value="NE">NE</option><option value="SG">SG</option><option value="SO">SO</option>
+                    <option value="SZ">SZ</option><option value="TG">TG</option><option value="TI">TI</option>
+                    <option value="VD">VD</option><option value="VS">VS</option><option value="ZG">ZG</option>
+                    <option value="ZH">ZH</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Prix (CHF)</label><input type="number" id="travel-costs" step="0.01"></div>
+                <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:10px;">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);text-transform:none;letter-spacing:0;cursor:pointer;">
+                    <input type="checkbox" id="travel-incl" style="accent-color:var(--color-primary)"> Inclus
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Clôture -->
+          <div id="sec-close" class="ux-section open">
+            <div class="ux-section-header" onclick="toggleSection(this)">
+              <span><i class="fas fa-check-double"></i> Clôture</span>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="ux-section-body">
+              <div class="form-group"><label>Remarques / Notes internes</label><textarea id="remarks" rows="2"></textarea></div>
+              <div class="form-row">
+                <div class="form-group"><label>Date Signature Technicien</label><input type="date" id="tech-signature-date"></div>
+              </div>
+            </div>
+          </div>
+        </form>
+        <div style="height:80px"></div>
       </div>
     </div>
 
-    <div class="modal" id="delete-modal">
-      <div class="modal-content" style="max-width: 450px">
-        <div class="modal-header">
-          <h2 class="text-danger"><i class="fas fa-trash"></i> Supprimer</h2>
-          <button class="modal-close" onclick="closeDeleteModal()">
-            &times;
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>
-            Voulez-vous vraiment supprimer ce rapport définitivement ? Cette
-            action est irréversible.
-          </p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" id="cancel-delete-btn">
-            Non, annuler
-          </button>
-          <button class="btn btn-danger" id="confirm-delete-btn">
-            Oui, supprimer
-          </button>
-        </div>
+    <div class="modal-footer">
+      <div style="flex:1"></div>
+      <button class="btn btn-secondary" onclick="closeReportModal()">Fermer</button>
+      <div id="workflow-buttons" style="display:flex;gap:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- REJECT MODAL -->
+<div class="modal" id="reject-modal">
+  <div class="modal-content" style="max-width:500px">
+    <div class="modal-header">
+      <h2><i class="fas fa-times-circle" style="color:var(--color-danger)"></i> Refuser le rapport</h2>
+      <button class="modal-close" onclick="document.getElementById('reject-modal').classList.remove('active')">&times;</button>
+    </div>
+    <div class="modal-body" style="display:block;padding:20px">
+      <div class="form-group">
+        <label>Motif du refus</label>
+        <textarea id="reject-reason" rows="4" placeholder="Expliquez pourquoi le rapport est refusé..."></textarea>
       </div>
     </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('reject-modal').classList.remove('active')">Annuler</button>
+      <button class="btn btn-danger" id="confirm-reject-btn">Confirmer le refus</button>
+    </div>
+  </div>
+</div>
 
-    <div id="notification-container" class="notification-container"></div>
-    <script type="module" src="/js/init-selects.js"></script>
-    <script src="/js/loader.js"></script>
-    <script src="/js/reports.js"></script>
-    <script src="/js/notifications.js"></script>
-    <script src="/js/ticket-badge.js"></script>
-    <script src="/js/mobile-menu.js"></script>
-    <script src="/js/responsive-fixes.js"></script>
-  </body>
+<!-- DELETE MODAL -->
+<div class="modal" id="delete-modal">
+  <div class="modal-content" style="max-width:450px">
+    <div class="modal-header">
+      <h2 style="color:var(--color-danger)"><i class="fas fa-trash"></i> Supprimer</h2>
+      <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="display:block;padding:20px">
+      <p style="color:var(--text-secondary)">Voulez-vous vraiment supprimer ce rapport définitivement ? Cette action est irréversible.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="cancel-delete-btn">Non, annuler</button>
+      <button class="btn btn-danger" id="confirm-delete-btn">Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<div id="notification-container"></div>
+
+<script src="/js/confirm.js"></script>
+<script type="module" src="/js/init-selects.js"></script>
+<script src="/js/loader.js"></script>
+<script src="/js/reports.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/mobile-menu.js"></script>
+<script src="/js/theme-switcher.js"></script>
+<script src="/js/sidebar-init.js"></script>
+<script>
+
+function openSettings() { window.location.href = '/admin.html'; }
+
+fetch('/api/auth/me').then(r => r.json()).then(d => {
+  if (!d.user) return;
+  document.getElementById('u-avatar').textContent = d.user.name[0].toUpperCase();
+  document.getElementById('u-name').textContent = d.user.name;
+  document.getElementById('u-role').textContent = d.user.role;
+}).catch(() => {});
+</script>
+</body>
 </html>

@@ -1,907 +1,984 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Administration - KB Medizin Tool</title>
-    <link rel="stylesheet" href="/css/tokens.css" />      <!-- 1. Variables -->
-<link rel="stylesheet" href="/css/base.css" />        <!-- 2. Reset & Base -->
-<link rel="stylesheet" href="/css/layout.css" />      <!-- 3. Layout -->
-<link rel="stylesheet" href="/css/forms.css" />       <!-- 4. Formulaires -->
-<link rel="stylesheet" href="/css/components.css" />  <!-- 5. Composants -->
-<link rel="stylesheet" href="/css/table.css" />       <!-- 6. Tableaux -->
-<link rel="stylesheet" href="/css/pages.css" />       <!-- 7. Pages -->
-<link rel="stylesheet" href="/css/utilities.css" />   <!-- 8. Utilitaires -->
-<link rel="stylesheet" href="/css/transitions.css" /> <!-- 9. Transitions -->
-<link rel="stylesheet" href="/css/responsive.css" />  <!-- 10. RESPONSIVE (doit être en DERNIER) -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
-    <link
-      rel="shortcut icon"
-      href="src/images/swiss_flag.webp"
-      type="image/x-icon"
-    />
-    <link
-      href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css"
-      rel="stylesheet"
-    />
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration — KB Med</title>
+  <link rel="shortcut icon" href="/src/images/swiss_flag.webp" type="image/x-icon">
+  <link rel="stylesheet" href="/css/design-tokens.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <link rel="stylesheet" href="/css/layout-shared.css">
+  <link rel="stylesheet" href="/css/toast.css">
+  <link rel="stylesheet" href="/css/responsive-fix.css">
+  <link rel="stylesheet" href="/css/global-fixes.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css" rel="stylesheet">
+  <style>
+    .admin-container-fluid {
+    padding: 20px 28px;
+}
 
-    <style>
-      /* --- STYLES SPÉCIFIQUES ADMIN --- */
-      .admin-container-fluid {
-        padding: 1.5rem 3rem;
-        width: 100%;
-        max-width: 1800px;
-        margin: 0 auto;
-      }
+    /* TOOLBAR */
+    .toolbar-clean-bar {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      height: 52px;
+      margin-bottom: 20px;
+    }
 
-      .toolbar-clean-bar {
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 0 1.5rem;
-        display: flex;
-        align-items: center;
-        height: 64px;
-        box-shadow: var(--shadow-sm);
-        margin-bottom: 2rem;
-        flex-shrink: 0;
-        gap: 1.5rem;
-      }
+    .toolbar-nav-section { display: flex; height: 100%; }
 
-      .toolbar-nav-section {
-        display: flex;
-        gap: 2rem;
-        height: 100%;
-      }
+    .nav-text-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      padding: 0 14px;
+      white-space: nowrap;
+    }
 
-      .nav-text-btn {
-        background: transparent;
-        border: none;
-        border-bottom: 3px solid transparent;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        font-size: 0.95rem;
-        font-weight: 500;
-        color: var(--neutral-500);
-        cursor: pointer;
-        transition: all 0.2s;
-        padding: 0 5px;
-        gap: 8px;
-        margin-bottom: -1px;
-      }
-      .nav-text-btn:hover {
-        color: var(--color-primary);
-      }
-      .nav-text-btn.active {
-        color: var(--color-primary);
-        border-bottom-color: var(--color-primary);
-        font-weight: 600;
-      }
-      .nav-text-btn i {
-        font-size: 1rem;
-      }
+    .nav-text-btn:hover { color: var(--color-primary); }
+    .nav-text-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: var(--font-semibold); }
 
-      .view-section {
-        display: none;
-        animation: fadeIn 0.3s ease-out;
-      }
-      .view-section.active {
-        display: block;
-      }
+    /* SECTIONS */
+    .view-section { display: none; animation: fadeIn 0.2s ease-out; }
+    .view-section.active { display: block; }
 
-      .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-        padding: 1rem 1.5rem;
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        box-shadow: var(--shadow-sm);
-      }
-      .section-info h3 {
-        margin: 0;
-        font-size: 1.1rem;
-        color: var(--neutral-800);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .section-info p {
-        margin: 4px 0 0 0;
-        font-size: 0.85rem;
-        color: var(--neutral-500);
-      }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+    }
 
-      .erp-table-wrapper {
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: var(--shadow-sm);
-      }
-      .erp-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-      }
+    .section-info h3 {
+      margin: 0;
+      font-size: var(--text-base);
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-      .erp-table th {
-        background: var(--neutral-50);
-        padding: 1rem 1.25rem;
-        text-align: left;
-        color: var(--neutral-600);
-        font-weight: 600;
-        border-bottom: 1px solid var(--border-color);
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
+    .section-info p {
+      margin: 3px 0 0 0;
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+    }
 
-      .erp-table td {
-        padding: 1rem 1.25rem;
-        border-bottom: 1px solid var(--border-color-light);
-        vertical-align: middle;
-        color: var(--neutral-800);
-        font-size: 0.9rem;
-      }
-      .erp-table tr:last-child td {
-        border-bottom: none;
-      }
-      .erp-table tr:hover {
-        background: var(--neutral-50);
-      }
+    .section-actions { display: flex; gap: 8px; align-items: center; }
 
-      .table-actions {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 0.5rem;
-      }
+    /* TABLE */
+    .erp-table-wrapper {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      overflow: hidden;
+    }
 
-      .btn-icon-sm {
-        width: 32px;
-        height: 32px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-size: 0.9rem;
-      }
+    .erp-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
 
-      .btn-icon-primary {
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-      }
-      .btn-icon-primary:hover {
-        background: #b3e5fc;
-        color: var(--color-primary-hover);
-        transform: translateY(-1px);
-      }
+    .erp-table th {
+      background: var(--bg-secondary);
+      padding: 10px 14px;
+      text-align: left;
+      color: var(--text-tertiary);
+      font-weight: var(--font-semibold);
+      border-bottom: 1px solid var(--border-primary);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
 
-      .btn-icon-secondary {
-        background: var(--neutral-100);
-        color: var(--neutral-600);
-      }
-      .btn-icon-secondary:hover {
-        background: var(--neutral-200);
-        color: var(--neutral-800);
-        transform: translateY(-1px);
-      }
+    .erp-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-primary);
+      vertical-align: middle;
+      color: var(--text-secondary);
+    }
 
-      .btn-icon-danger {
-        background: #fee2e2;
-        color: #ef4444;
-      }
-      .btn-icon-danger:hover {
-        background: #fecaca;
-        color: #b91c1c;
-        transform: translateY(-1px);
-      }
+    .erp-table tr:last-child td { border-bottom: none; }
+    .erp-table tr:hover td { background: var(--bg-secondary); }
 
-      .permissions-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 0.75rem;
-        max-height: 350px;
-        overflow-y: auto;
-        padding: 1rem;
-        background: var(--neutral-50);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-      }
-      .perm-item {
-        background: white;
-        padding: 0.75rem;
-        border-radius: 6px;
-        border: 1px solid var(--border-color-light);
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        transition: border-color 0.2s;
-      }
-      .perm-item:hover {
-        border-color: var(--color-primary-light);
-      }
-      .perm-item label {
-        cursor: pointer;
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: var(--neutral-700);
-        user-select: none;
-      }
-      .perm-item input {
-        width: 18px;
-        height: 18px;
-        accent-color: var(--color-primary);
-      }
+    .table-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+    }
 
-      .log-filters {
-        display: flex;
-        gap: 5px;
-        background: var(--neutral-100);
-        padding: 4px;
-        border-radius: 6px;
-      }
-      .log-filter-btn {
-        padding: 6px 12px;
-        border: none;
-        background: transparent;
-        border-radius: 4px;
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: var(--neutral-600);
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      .log-filter-btn.active {
-        background: white;
-        color: var(--color-primary);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      }
-    </style>
-  </head>
-  <body>
-    <div class="app-container">
-      <aside class="sidebar">
-        <div class="sidebar-header">
-          <h2>KB Medizin</h2>
-        </div>
-        <nav class="sidebar-nav">
-          <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
-          <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
-          <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
-          <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
-          <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
-          <a href="/tickets.html"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
-          <a href="/admin.html" class="active"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
-        </nav>
-        <div class="sidebar-footer">
-          <div class="user-info" id="user-info"></div>
-          <li style="list-style-type: none;;margin-top: auto; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-              <a href="#" onclick="openSettings(); return false;" style="display: flex; align-items: center; gap: 10px; padding: 10px 15px; color: #475569; text-decoration: none; border-radius: 8px; transition: 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                  <i class="fas fa-cog"></i> Mes Préférences
-              </a>
-          </li>
-          <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%"><i class="fas fa-sign-out-alt"></i>Déconnexion</button>
-        </div>
-      </aside>
+    /* PERMISSIONS GRID */
+    .permissions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+      max-height: 320px;
+      overflow-y: auto;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+    }
 
-      <main class="main-content">
-        <div class="page-header">
-          <h1><i class="fas fa-cog"></i> Administration</h1>
-        </div>
+    .perm-item {
+      background: var(--bg-elevated);
+      padding: 10px 12px;
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: border-color var(--transition-fast);
+    }
 
-        <div class="admin-container-fluid">
-          <div class="toolbar-clean-bar">
-                <div class="toolbar-nav-section" id="admin-tabs">
-                    <button class="nav-text-btn admin-only" data-tab="users" style="display:none;"><i class="fas fa-users"></i> Utilisateurs</button>
-                    <button class="nav-text-btn admin-only" data-tab="roles" style="display:none;"><i class="fas fa-user-shield"></i> Rôles</button>
-                    
-                    <button class="nav-text-btn" data-tab="equipment" id="tab-btn-eq"><i class="fas fa-server"></i> Catalogue</button>
-                    <button class="nav-text-btn" data-tab="device-types"><i class="fas fa-tags"></i> Types</button>
-                    <button class="nav-text-btn" data-tab="sectors"><i class="fas fa-clinic-medical"></i> Secteurs</button>
-                    <button class="nav-text-btn" data-tab="materials"><i class="fas fa-boxes"></i> Matériel</button>
-                    
-                    <button class="nav-text-btn admin-only" data-tab="logs" style="display:none;"><i class="fas fa-history"></i> Logs</button>
-                </div>
-            </div>
+    .perm-item:hover { border-color: var(--color-primary); }
+    .perm-item label { cursor: pointer; font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-primary); user-select: none; }
+    .perm-item input { width: 16px; height: 16px; accent-color: var(--color-primary); cursor: pointer; }
 
-          <div class="view-section active" id="tab-users">
-            <div class="section-header">
-              <div class="section-info">
-                <h3>
-                  <i
-                    class="fas fa-users"
-                    style="color: var(--color-primary)"
-                  ></i>
-                  Gestion des Utilisateurs
-                </h3>
-                <p>Gérez les accès et les comptes du personnel.</p>
-              </div>
-              <button class="btn btn-primary" id="add-user-btn">
-                <i class="fas fa-user-plus"></i> Nouvel utilisateur
-              </button>
-            </div>
-            <div class="erp-table-wrapper">
-              <table class="erp-table">
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th>Email</th>
-                    <th>Rôle</th>
-                    <th>Tél</th>
-                    <th>Statut</th>
-                    <th>Dernière connexion</th>
-                    <th style="text-align: right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="users-tbody">
-                  <tr>
-                    <td colspan="7" class="text-center" style="padding: 2rem">
-                      Chargement...
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+    /* LOGS */
+    .log-filters {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-tertiary);
+      padding: 4px;
+      border-radius: 3px;
+    }
 
-          <div class="view-section" id="tab-roles">
-            <div class="section-header">
-              <div class="section-info">
-                <h3>
-                  <i
-                    class="fas fa-shield-alt"
-                    style="color: var(--color-primary)"
-                  ></i>
-                  Rôles & Permissions
-                </h3>
-                <p>Définissez les niveaux d'accès de l'application.</p>
-              </div>
-              <button class="btn btn-primary" id="add-role-btn">
-                <i class="fas fa-plus"></i> Créer un rôle
-              </button>
-            </div>
-            <div class="erp-table-wrapper">
-              <table class="erp-table">
-                <thead>
-                  <tr>
-                    <th>Nom du rôle</th>
-                    <th>Identifiant (Slug)</th>
-                    <th>Permissions</th>
-                    <th style="text-align: right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="roles-tbody">
-                  <tr>
-                    <td colspan="4" class="text-center">Chargement...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+    .log-filter-btn {
+      padding: 5px 12px;
+      border: none;
+      background: transparent;
+      border-radius: 2px;
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
 
-          <div class="view-section" id="tab-equipment">
-            <div class="section-header">
-              <div class="section-info">
-                <h3>
-                  <i
-                    class="fas fa-server"
-                    style="color: var(--color-primary)"
-                  ></i>
-                  Catalogue Équipements
-                </h3>
-                <p>
-                  Base de données des machines installables chez les clients.
-                </p>
-              </div>
-              <button class="btn btn-primary" id="add-equipment-btn">
-                <i class="fas fa-plus"></i> Ajouter un modèle
-              </button>
-            </div>
-            <div class="erp-table-wrapper">
-              <table class="erp-table">
-                <thead>
-                  <tr>
-                    <th>Modèle</th>
-                    <th>Marque</th>
-                    <th>Type Appareil</th>
-                    <th>Secteur</th>
-                    <th style="text-align: right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="equipment-tbody">
-                  <tr>
-                    <td colspan="5" class="text-center">Chargement...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+    .log-filter-btn.active { background: var(--bg-elevated); color: var(--color-primary); box-shadow: var(--shadow-sm); }
 
-          <div class="view-section" id="tab-device-types">
-            <div class="section-header">
-              <div class="section-info">
-                <h3>Types d'Appareils</h3>
-                <p>Catégories (ex: Fauteuil, Microscope).</p>
-              </div>
-              <button class="btn btn-primary" id="add-device-type-btn">
-                <i class="fas fa-plus"></i> Ajouter un type
-              </button>
-            </div>
-            <div class="erp-table-wrapper">
-              <table class="erp-table">
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th style="text-align: right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="device-types-tbody">
-                  <tr>
-                    <td colspan="2" class="text-center">Chargement...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+    /* CHECKBOX GROUP */
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+    }
 
-          <div class="view-section" id="tab-sectors">
-            <div class="section-header">
-              <div class="section-info">
-                <h3>Secteurs d'activité</h3>
-                <p>Départements médicaux.</p>
-              </div>
-              <button class="btn btn-primary" id="add-sector-btn">
-                <i class="fas fa-plus"></i> Ajouter secteur
-              </button>
-            </div>
-            <div class="erp-table-wrapper">
-              <table class="erp-table">
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th>Slug</th>
-                    <th>Date création</th>
-                    <th style="text-align: right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="sectors-tbody">
-                  <tr>
-                    <td colspan="4" class="text-center">Chargement...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+    .checkbox-group input { width: 16px; height: 16px; accent-color: var(--color-primary); cursor: pointer; }
+    .checkbox-group label { font-size: var(--text-sm); color: var(--text-primary); cursor: pointer; }
 
-          <div class="view-section" id="tab-materials">
-            <div class="section-header">
-              <div class="section-info">
-                <h3>Pièces & Matériel</h3>
-                <p>Liste des consommables pour les rapports.</p>
-              </div>
+    /* TEXT CENTER */
+    .text-center { text-align: center; }
 
-              <div style="display: flex; gap: 10px">
-                <input
-                  type="file"
-                  id="import-material-input"
-                  accept=".csv, .xlsx"
-                  style="display: none"
-                />
+    /* Danger btn variant */
+    .btn-icon-danger {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid var(--color-danger);
+      border-radius: 3px;
+      background: var(--color-danger-bg);
+      color: var(--color-danger);
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
 
-                <button
-                  class="btn btn-icon-danger"
-                  id="delete-all-materials-btn"
-                  style="
-                    height: 38px;
-                    padding: 0 15px;
-                    font-weight: 500;
-                    font-size: 0.9rem;
-                  "
-                  title="Supprimer tout le matériel"
-                >
-                  <i class="fas fa-trash"></i> Tout vider
-                </button>
+    .btn-icon-danger:hover { background: var(--color-danger); color: #fff; }
 
-                <button
-                  class="btn btn-secondary"
-                  onclick="
-                    document.getElementById('import-material-input').click()
-                  "
-                >
-                  <i class="fas fa-file-import"></i> Importer
-                </button>
+    .log-filter-select {
+      height: 36px !important;
+      padding: 0 10px !important;
+      border: 1px solid var(--border-primary) !important;
+      border-radius: 3px !important;
+      font-size: var(--text-sm) !important;
+      background: var(--bg-elevated) !important;
+      color: var(--text-primary) !important;
+      font-family: inherit !important;
+      outline: none !important;
+      display: inline-block !important;
+      width: auto !important;
+      min-width: 160px !important;
+    }
 
-                <button class="btn btn-primary" id="add-material-btn">
-                  <i class="fas fa-plus"></i> Ajouter
-                </button>
-              </div>
-            </div>
-            <div class="erp-table-wrapper">
-              <table class="erp-table">
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th>Code</th>
-                    <th>Prix</th>
-                    <th style="text-align: right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="materials-tbody">
-                  <tr>
-                    <td colspan="4" class="text-center">Chargement...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="view-section" id="tab-logs">
-            <div class="section-header">
-              <div class="section-info">
-                <h3>Journal Système</h3>
-                <p>Historique des actions importantes.</p>
-              </div>
-              <div class="log-filters">
-                <button
-                  class="log-filter-btn active"
-                  onclick="filterLogs('all', this)"
-                >
-                  Tous
-                </button>
-                <button
-                  class="log-filter-btn"
-                  onclick="filterLogs('auth', this)"
-                >
-                  Auth
-                </button>
-                <button
-                  class="log-filter-btn"
-                  onclick="filterLogs('users', this)"
-                >
-                  Users
-                </button>
-                <button
-                  class="log-filter-btn"
-                  onclick="filterLogs('reports', this)"
-                >
-                  Rapports
-                </button>
-              </div>
-            </div>
-            <div class="erp-table-wrapper">
-              <table class="erp-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Utilisateur</th>
-                    <th>Action</th>
-                    <th>Entité</th>
-                    <th>ID</th>
-                  </tr>
-                </thead>
-                <tbody id="logs-tbody">
-                  <tr>
-                    <td colspan="5" class="text-center">Chargement...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal" id="user-modal">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h2 id="user-modal-title"></h2>
-              <button class="modal-close" onclick="closeUserModal()">
-                &times;
-              </button>
-            </div>
-            <div class="modal-body">
-              <form id="user-form" enctype="multipart/form-data">
-                <input type="hidden" id="user-id" />
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>Nom complet *</label
-                    ><input type="text" id="user-name" required />
-                  </div>
-                  <div class="form-group">
-                    <label>Email *</label
-                    ><input type="email" id="user-email" required />
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label>Photo</label
-                  ><input type="file" id="user-photo" accept="image/*" />
-                </div>
-                <div class="form-group" id="password-group">
-                  <label>Mot de passe *</label
-                  ><input type="password" id="user-password" />
-                </div>
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>Rôle *</label
-                    ><select id="user-role" required></select>
-                  </div>
-                  <div class="form-group">
-                    <label>Téléphone</label><input type="tel" id="user-phone" />
-                  </div>
-                </div>
-                <div class="checkbox-group">
-                  <input type="checkbox" id="user-active" checked /><label
-                    >Compte actif (Peut se connecter)</label
-                  >
-                </div>
-              </form>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" id="cancel-user-btn">
-                Annuler</button
-              ><button class="btn btn-primary" id="save-user-btn">
-                Enregistrer
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal" id="role-modal">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h2 id="role-modal-title">Nouveau Rôle</h2>
-              <button class="modal-close" onclick="closeRoleModal()">
-                &times;
-              </button>
-            </div>
-            <div class="modal-body">
-              <input type="hidden" id="role-slug-original" />
-              <div class="form-group">
-                <label>Nom du rôle *</label
-                ><input
-                  type="text"
-                  id="role-name"
-                  placeholder="Ex: Stagiaire"
-                  required
-                />
-              </div>
-
-              <div class="form-group">
-                <label
-                  style="margin-bottom: 10px; display: block; font-weight: 600"
-                  >Permissions</label
-                >
-                <div id="permissions-container" class="permissions-grid"></div>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" onclick="closeRoleModal()">
-                Annuler</button
-              ><button class="btn btn-primary" id="save-role-btn">
-                Enregistrer
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal" id="equipment-modal">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h2 id="equipment-modal-title"></h2>
-              <button class="modal-close" onclick="closeEquipmentModal()">
-                &times;
-              </button>
-            </div>
-            <div class="modal-body">
-              <form id="equipment-form">
-                <input type="hidden" id="equipment-id" />
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>Modèle (FR) *</label
-                    ><input type="text" id="equipment-name" required />
-                  </div>
-                  <div class="form-group">
-                    <label>Modèle (DE)</label
-                    ><input
-                      type="text"
-                      id="equipment-name-de"
-                      placeholder="Optionnel"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label>Marque *</label
-                    ><input type="text" id="equipment-brand" required />
-                  </div>
-                </div>
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>Appareil *</label
-                    ><select id="equipment-device-type" required></select>
-                  </div>
-                  <div class="form-group">
-                    <label>Secteur *</label
-                    ><select id="equipment-type" required></select>
-                  </div>
-                </div>
-                <div
-                  class="form-group"
-                  style="
-                    background: #f8fafc;
-                    padding: 10px;
-                    border-radius: 6px;
-                    border: 1px solid #e2e8f0;
-                    margin-top: 10px;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                  "
-                >
-                  <input
-                    type="checkbox"
-                    id="equipment-secondary"
-                    style="width: 20px; height: 20px; cursor: pointer"
-                  />
-                  <div style="display: flex; flex-direction: column">
-                    <label
-                      for="equipment-secondary"
-                      style="margin: 0; font-weight: 600; cursor: pointer"
-                      >Appareil Secondaire</label
-                    >
-                    <small style="color: #64748b; font-size: 0.8rem"
-                      >(Ne déclenche pas d'alerte rouge "Maintenance
-                      Expirée")</small
-                    >
-                  </div>
-                </div>
-              </form>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" onclick="closeEquipmentModal()">
-                Annuler</button
-              ><button class="btn btn-primary" id="save-equipment-btn">
-                Enregistrer
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal" id="device-type-modal">
-          <div class="modal-content" style="max-width: 400px">
-            <div class="modal-header">
-              <h2>Ajouter Type</h2>
-              <button class="modal-close" onclick="closeDeviceTypeModal()">
-                &times;
-              </button>
-            </div>
-            <div class="modal-body">
-              <div class="form-group">
-                <label>Nom *</label
-                ><input type="text" id="device-type-name" required />
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button
-                class="btn btn-secondary"
-                onclick="closeDeviceTypeModal()"
-              >
-                Annuler</button
-              ><button class="btn btn-primary" id="save-device-type-btn">
-                Enregistrer
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal" id="material-modal">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h2 id="material-modal-title"></h2>
-              <button class="modal-close" onclick="closeMaterialModal()">
-                &times;
-              </button>
-            </div>
-            <div class="modal-body">
-              <form id="material-form">
-                <input type="hidden" id="material-id" />
-                <div class="form-group">
-                  <label>Nom *</label
-                  ><input type="text" id="material-name" required />
-                </div>
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>Code *</label
-                    ><input type="text" id="material-code" required />
-                  </div>
-                  <div class="form-group">
-                    <label>Prix (CHF) *</label
-                    ><input
-                      type="number"
-                      id="material-price"
-                      step="0.01"
-                      required
-                    />
-                  </div>
-                </div>
-              </form>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" onclick="closeMaterialModal()">
-                Annuler</button
-              ><button class="btn btn-primary" id="save-material-btn">
-                Enregistrer
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal" id="sector-modal">
-          <div class="modal-content" style="max-width: 400px">
-            <div class="modal-header">
-              <h2>Ajouter Secteur</h2>
-              <button class="modal-close" onclick="closeSectorModal()">
-                &times;
-              </button>
-            </div>
-            <div class="modal-body">
-              <div class="form-group">
-                <label>Nom *</label
-                ><input type="text" id="sector-name" required />
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" onclick="closeSectorModal()">
-                Annuler</button
-              ><button class="btn btn-primary" id="save-sector-btn">
-                Enregistrer
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal" id="reset-password-modal">
-          <div class="modal-content" style="max-width: 400px">
-            <div class="modal-header">
-              <h2>Réinitialiser MDP</h2>
-              <button class="modal-close" onclick="closeResetModal()">
-                &times;
-              </button>
-            </div>
-            <div class="modal-body">
-              <input type="hidden" id="reset-user-id" />
-              <div class="form-group">
-                <label>Nouveau MDP</label
-                ><input type="password" id="new-password" required />
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button class="btn btn-secondary" onclick="closeResetModal()">
-                Annuler</button
-              ><button class="btn btn-primary" id="confirm-reset-btn">
-                Valider
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div id="notification-container" class="notification-container"></div>
-        <script type="module" src="/js/init-selects.js"></script>
-        <script src="/js/loader.js"></script>
-        <script src="/js/admin.js"></script>
-        <script src="/js/ticket-badge.js"></script>
-        <script src="/js/notifications.js"></script>
-        <script src="/js/page-transitions.js"></script>
-        <script src="/js/mobile-menu.js"></script>
-        <script src="/js/responsive-fixes.js"></script>
-      </main>
+    @media (max-width: 768px) {
+      .admin-container-fluid { padding: 12px; }
+      .toolbar-nav-section { overflow-x: auto; }
+      .permissions-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-container">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <img src="/src/images/logo-kbmed-short.svg" alt="KB Med">
     </div>
-  </body>
+    <nav class="sidebar-nav">
+      <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
+      <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
+      <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
+      <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+      <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
+      <a href="/tickets.html"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
+      <a href="/admin.html" class="active"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card" id="user-info">
+        <div class="user-avatar" id="u-avatar">?</div>
+        <div>
+          <div class="user-name" id="u-name">...</div>
+          <div class="user-role" id="u-role">...</div>
+        </div>
+      </div>
+      <div class="sidebar-btn-row">
+        <button class="sidebar-btn" onclick="openPreferencesModal()">
+          <i class="fas fa-cog"></i> Mes préférences
+        </button>
+        <button class="sidebar-btn danger" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Quitter</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="page-header">
+      <div class="header-title-group">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+        <h1><i class="fas fa-cog"></i> Administration</h1>
+      </div>
+    </div>
+
+    <div class="admin-container-fluid">
+      <!-- TABS TOOLBAR -->
+      <div class="toolbar-clean-bar">
+        <div class="toolbar-nav-section" id="admin-tabs">
+          <button class="nav-text-btn admin-only" data-tab="users" style="display:none"><i class="fas fa-users"></i> Utilisateurs</button>
+          <button class="nav-text-btn admin-only" data-tab="roles" style="display:none"><i class="fas fa-user-shield"></i> Rôles</button>
+          <button class="nav-text-btn" data-tab="equipment" id="tab-btn-eq"><i class="fas fa-server"></i> Catalogue</button>
+          <button class="nav-text-btn" data-tab="device-types"><i class="fas fa-tags"></i> Types</button>
+          <button class="nav-text-btn" data-tab="sectors"><i class="fas fa-clinic-medical"></i> Secteurs</button>
+          <button class="nav-text-btn" data-tab="materials"><i class="fas fa-boxes"></i> Matériel</button>
+          <button class="nav-text-btn admin-only" data-tab="contract-prices" style="display:none">
+            <i class="fas fa-file-invoice-dollar"></i> Tarifs Contrats
+          </button>
+          <button class="nav-text-btn admin-only" data-tab="logs" style="display:none"><i class="fas fa-history"></i> Logs</button>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="view-section active" id="tab-users">
+        <div class="section-header">
+          <div class="section-info">
+            <h3><i class="fas fa-users" style="color:var(--color-primary)"></i> Gestion des Utilisateurs</h3>
+            <p>Gérez les accès et les comptes du personnel.</p>
+          </div>
+          <button class="btn btn-primary" id="add-user-btn"><i class="fas fa-user-plus"></i> Nouvel utilisateur</button>
+        </div>
+        <div class="erp-table-wrapper">
+          <table class="erp-table">
+            <thead>
+              <tr>
+                <th>Nom</th><th>Email</th><th>Rôle</th><th>Tél</th>
+                <th>Statut</th><th>Dernière connexion</th><th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="7" class="text-center" style="padding:32px;color:var(--text-tertiary)">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ROLES -->
+      <div class="view-section" id="tab-roles">
+        <div class="section-header">
+          <div class="section-info">
+            <h3><i class="fas fa-shield-alt" style="color:var(--color-primary)"></i> Rôles & Permissions</h3>
+            <p>Définissez les niveaux d'accès de l'application.</p>
+          </div>
+          <button class="btn btn-primary" id="add-role-btn"><i class="fas fa-plus"></i> Créer un rôle</button>
+        </div>
+        <div class="erp-table-wrapper">
+          <table class="erp-table">
+            <thead>
+              <tr><th>Nom du rôle</th><th>Identifiant (Slug)</th><th>Permissions</th><th style="text-align:right">Actions</th></tr>
+            </thead>
+            <tbody id="roles-tbody">
+              <tr><td colspan="4" class="text-center" style="padding:32px;color:var(--text-tertiary)">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CATALOGUE EQUIPMENT -->
+      <div class="view-section" id="tab-equipment">
+        <div class="section-header">
+          <div class="section-info">
+            <h3><i class="fas fa-server" style="color:var(--color-primary)"></i> Catalogue Équipements</h3>
+            <p>Base de données des machines installables chez les clients.</p>
+          </div>
+          <button class="btn btn-primary" id="add-equipment-btn"><i class="fas fa-plus"></i> Ajouter un modèle</button>
+        </div>
+        <div class="erp-table-wrapper">
+          <table class="erp-table">
+            <thead>
+              <tr><th>Modèle</th><th>Marque</th><th>Type Appareil</th><th>Secteur</th><th style="text-align:right">Actions</th></tr>
+            </thead>
+            <tbody id="equipment-tbody">
+              <tr><td colspan="5" class="text-center" style="padding:32px;color:var(--text-tertiary)">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DEVICE TYPES -->
+      <div class="view-section" id="tab-device-types">
+        <div class="section-header">
+          <div class="section-info">
+            <h3>Types d'Appareils</h3>
+            <p>Catégories (ex: Fauteuil, Microscope).</p>
+          </div>
+          <button class="btn btn-primary" id="add-device-type-btn"><i class="fas fa-plus"></i> Ajouter un type</button>
+        </div>
+        <div class="erp-table-wrapper">
+          <table class="erp-table">
+            <thead><tr><th>Nom</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="device-types-tbody">
+              <tr><td colspan="2" class="text-center" style="padding:32px;color:var(--text-tertiary)">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTORS -->
+      <div class="view-section" id="tab-sectors">
+        <div class="section-header">
+          <div class="section-info">
+            <h3>Secteurs d'activité</h3>
+            <p>Départements médicaux.</p>
+          </div>
+          <button class="btn btn-primary" id="add-sector-btn"><i class="fas fa-plus"></i> Ajouter secteur</button>
+        </div>
+        <div class="erp-table-wrapper">
+          <table class="erp-table">
+            <thead><tr><th>Nom</th><th>Slug</th><th>Date création</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="sectors-tbody">
+              <tr><td colspan="4" class="text-center" style="padding:32px;color:var(--text-tertiary)">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- MATERIALS -->
+      <div class="view-section" id="tab-materials">
+        <div class="section-header">
+          <div class="section-info">
+            <h3>Pièces & Matériel</h3>
+            <p>Synchronisé avec Bexio. <span id="bexio-last-sync" style="color:var(--text-tertiary);font-size:11px;"></span></p>
+          </div>
+          <div class="section-actions">
+            <button class="btn-icon-danger" id="delete-all-materials-btn">
+              <i class="fas fa-trash"></i> Tout vider
+            </button>
+            <button class="btn btn-secondary" onclick="document.getElementById('import-material-input').click()">
+              <i class="fas fa-file-import"></i> Importer CSV
+            </button>
+            <button class="btn btn-secondary" id="bexio-sync-btn" onclick="triggerBexioSync()" title="Synchroniser depuis Bexio">
+              <i class="fas fa-sync-alt" id="bexio-sync-icon"></i> Sync Bexio
+            </button>
+            <button class="btn btn-primary" id="add-material-btn">
+              <i class="fas fa-plus"></i> Ajouter
+            </button>
+          </div>
+        </div>
+        <div class="erp-table-wrapper">
+          <table class="erp-table">
+            <thead><tr><th>Nom</th><th>Code</th><th>Prix</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="materials-tbody">
+              <tr><td colspan="4" class="text-center" style="padding:32px;color:var(--text-tertiary)">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="view-section" id="tab-contract-prices">
+    <div class="section-header">
+      <div class="section-info">
+        <h3><i class="fas fa-file-invoice-dollar" style="color:var(--color-primary)"></i>
+          Tarifs Contractuels</h3>
+        <p>Associe une marque d'équipement à une prestation existante du catalogue.
+           Appliqué automatiquement dans les rapports.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openContractPriceModal()">
+        <i class="fas fa-plus"></i> Ajouter
+      </button>
+    </div>
+    
+    <!-- Toolbar bulk (masqué par défaut) -->
+<div id="cp-bulk-toolbar" style="display:none;align-items:center;gap:10px;
+padding:10px 14px;background:rgba(44,90,160,0.06);border:1px solid rgba(44,90,160,0.2);
+border-radius:3px;margin-bottom:10px;">
+<span style="font-size:var(--text-sm);font-weight:600;color:var(--color-primary);">
+  <span id="cp-selected-count">0</span> tarif(s) sélectionné(s)
+</span>
+<button class="btn btn-danger btn-sm" onclick="deleteBulkContractPrices()" style="margin-left:auto;">
+  <i class="fas fa-trash"></i> Supprimer la sélection
+</button>
+<button class="btn btn-secondary btn-sm" onclick="selectedContractPrices.clear(); renderContractPrices()">
+  Annuler
+</button>
+</div>
+
+<!-- Barre de filtres -->
+<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+<div style="display:flex;align-items:center;gap:7px;background:var(--bg-secondary);
+  border:1px solid var(--border-primary);border-radius:3px;padding:0 12px;
+  flex:1;max-width:200px;height:36px;">
+  <i class="fas fa-search" style="color:var(--text-tertiary);font-size:12px;"></i>
+  <input type="text" id="cp-filter-brand" placeholder="Marque..."
+    oninput="renderContractPrices()"
+    style="border:none;background:transparent;outline:none;font-size:var(--text-sm);
+      color:var(--text-primary);width:100%;font-family:inherit;">
+</div>
+<div style="display:flex;align-items:center;gap:7px;background:var(--bg-secondary);
+  border:1px solid var(--border-primary);border-radius:3px;padding:0 12px;
+  flex:1;max-width:200px;height:36px;">
+  <i class="fas fa-search" style="color:var(--text-tertiary);font-size:12px;"></i>
+  <input type="text" id="cp-filter-model" placeholder="Modèle..."
+    oninput="renderContractPrices()"
+    style="border:none;background:transparent;outline:none;font-size:var(--text-sm);
+      color:var(--text-primary);width:100%;font-family:inherit;">
+</div>
+<div style="display:flex;align-items:center;gap:7px;background:var(--bg-secondary);
+  border:1px solid var(--border-primary);border-radius:3px;padding:0 12px;
+  flex:1;max-width:220px;height:36px;">
+  <i class="fas fa-search" style="color:var(--text-tertiary);font-size:12px;"></i>
+  <input type="text" id="cp-filter-material" placeholder="Prestation..."
+    oninput="renderContractPrices()"
+    style="border:none;background:transparent;outline:none;font-size:var(--text-sm);
+      color:var(--text-primary);width:100%;font-family:inherit;">
+</div>
+<button onclick="clearCpFilters()"
+  style="height:36px;padding:0 14px;background:var(--bg-secondary);
+    border:1px solid var(--border-primary);border-radius:3px;cursor:pointer;
+    font-size:var(--text-sm);color:var(--text-secondary);font-family:inherit;">
+  <i class="fas fa-times"></i> Effacer
+</button>
+</div>
+    <div class="erp-table-wrapper">
+
+      
+      <table class="erp-table">
+        <thead>
+          <tr>
+            <th style="width:36px;padding:10px 14px;">
+              <input type="checkbox" id="cp-select-all" onchange="toggleAllCpSelection(this)"
+                style="width:16px;height:16px;accent-color:var(--color-primary);cursor:pointer;">
+            </th>
+            <th>Marque</th>
+            <th>Modèle</th>
+            <th>Prestation</th>
+            <th>Code</th>
+            <th style="text-align:right">Prix CHF</th>
+            <th>Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="contract-prices-tbody">
+          <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-tertiary)">
+            Chargement...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+ 
+  <!-- Modal Tarif Contractuel -->
+  <div class="modal" id="contract-price-modal">
+    <div class="modal-content" style="max-width:520px">
+      <div class="modal-header">
+        <h2 id="cp-modal-title">Nouveau tarif</h2>
+        <button class="modal-close" onclick="closeContractPriceModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="display:block;padding:20px">
+        <input type="hidden" id="cp-id">
+ 
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+          <!-- REMPLACE les 2 selects (cp-brand + cp-model) par : -->
+          <!-- Étape 1 : Marque -->
+<div style="margin-bottom:14px;">
+  <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;
+    letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">
+    Marque *
+  </label>
+  <select id="cp-brand-select"
+    style="width:100%;padding:0 10px;border:1px solid var(--border-primary);
+    border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);
+    color:var(--text-primary);font-family:inherit;outline:none;">
+    <option value="">-- Sélectionner une marque --</option>
+  </select>
+</div>
+
+<!-- Étape 2 : Modèles (apparaît après sélection de la marque) -->
+<div id="cp-models-wrapper" style="display:none;margin-bottom:14px;">
+  <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;
+    letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">
+    Modèles concernés *
+    <span style="font-weight:400;text-transform:none"> — coche tous ceux qui s'appliquent</span>
+  </label>
+  <div id="cp-models-list"
+    style="border:1px solid var(--border-primary);border-radius:3px;
+    max-height:180px;overflow-y:auto;background:var(--bg-primary);">
+  </div>
+  <div style="margin-top:6px;display:flex;gap:8px;">
+    <button type="button" onclick="cpSelectAllModels(true)"
+      style="font-size:11px;border:none;background:none;color:var(--color-primary);
+      cursor:pointer;padding:0;">Tout sélectionner</button>
+    <span style="color:var(--text-tertiary)">·</span>
+    <button type="button" onclick="cpSelectAllModels(false)"
+      style="font-size:11px;border:none;background:none;color:var(--text-tertiary);
+      cursor:pointer;padding:0;">Tout désélectionner</button>
+  </div>
+</div>
+        </div>
+ 
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;
+            letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">
+            Prestation du catalogue *
+          </label>
+          <select id="cp-material-id"
+            style="width:100%;padding:0 10px;border:1px solid var(--border-primary);
+            border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);
+            color:var(--text-primary);font-family:inherit;outline:none;">
+            <option value="">-- Sélectionner une prestation --</option>
+          </select>
+          <!-- Aperçu du matériau sélectionné -->
+          <div id="cp-material-preview"
+            style="margin-top:8px;padding:8px 12px;background:var(--bg-secondary);
+            border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-xs);
+            color:var(--text-secondary);display:none;">
+          </div>
+        </div>
+ 
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;
+            letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">
+            Notes internes
+          </label>
+          <textarea id="cp-notes" rows="2"
+            placeholder="Ex: Valable pour contrats signés après 2023..."
+            style="width:100%;padding:8px 10px;border:1px solid var(--border-primary);
+            border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);
+            color:var(--text-primary);font-family:inherit;outline:none;resize:vertical;">
+          </textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeContractPriceModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveContractPrice()">
+          <i class="fas fa-save"></i> Enregistrer
+        </button>
+      </div>
+    </div>
+  </div>
+
+    <div class="view-section" id="tab-logs">
+  <div class="section-header">
+    <div>
+      <h2><i class="fas fa-history"></i> Journal d'activité</h2>
+      <p>Toutes les actions effectuées sur le site, en temps réel.</p>
+    </div>
+  </div>
+
+  <!-- Filtres statiques — pas de SlimSelect ici -->
+  <div style="display:flex;align-items:center;gap:10px;padding:14px 0;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:7px;background:var(--bg-secondary);
+      border:1px solid var(--border-primary);border-radius:3px;padding:0 12px;
+      flex:1;max-width:260px;height:36px;">
+      <i class="fas fa-search" style="color:var(--text-tertiary);font-size:12px;"></i>
+      <input type="text" id="log-search" placeholder="Rechercher..."
+        autocomplete="off" oninput="filterLogs()"
+        style="border:none;background:transparent;outline:none;
+          font-size:var(--text-sm);color:var(--text-primary);width:100%;font-family:inherit;">
+    </div>
+    <select id="log-filter-action" onchange="filterLogs()" data-no-slim="true"
+      style="height:36px;padding:0 10px;border:1px solid var(--border-primary);
+        border-radius:3px;font-size:var(--text-sm);background:var(--bg-elevated);
+        color:var(--text-primary);font-family:inherit;outline:none;min-width:160px;">
+      <option value="">Toutes les actions</option>
+      <option value="LOGIN">🔑 Connexion</option>
+      <option value="LOGOUT">🚪 Déconnexion</option>
+      <option value="FAIL">🚫 Échec</option>
+      <option value="CREATE">✅ Création</option>
+      <option value="UPDATE">✏️ Modification</option>
+      <option value="DELETE">🗑️ Suppression</option>
+      <option value="STATUS">🔄 Statut</option>
+      <option value="ARCHIVE">📂 Archivage</option>
+      <option value="VALIDATE">✔️ Validation</option>
+      <option value="RETURN">↩️ Retour</option>
+    </select>
+    <select id="log-filter-entity" onchange="filterLogs()" data-no-slim="true"
+      style="height:36px;padding:0 10px;border:1px solid var(--border-primary);
+        border-radius:3px;font-size:var(--text-sm);background:var(--bg-elevated);
+        color:var(--text-primary);font-family:inherit;outline:none;min-width:150px;">
+      <option value="">Tous les types</option>
+      <option value="auth">🔐 Auth</option>
+      <option value="ticket">🎫 Tickets</option>
+      <option value="rapport">📄 Rapports</option>
+      <option value="rma">🔧 RMA</option>
+      <option value="client">🏥 Clients</option>
+      <option value="prêt">📦 Prêts</option>
+      <option value="utilisateur">👤 Utilisateurs</option>
+      <option value="matériel">⚙️ Matériel</option>
+    </select>
+    <select id="log-filter-period" onchange="loadLogs()" data-no-slim="true"
+      style="height:36px;padding:0 10px;border:1px solid var(--border-primary);
+        border-radius:3px;font-size:var(--text-sm);background:var(--bg-elevated);
+        color:var(--text-primary);font-family:inherit;outline:none;min-width:160px;">
+      <option value="7">7 derniers jours</option>
+      <option value="30" selected>30 derniers jours</option>
+      <option value="90">90 derniers jours</option>
+      <option value="0">Tout l'historique</option>
+    </select>
+    <button onclick="loadLogs()"
+      style="height:36px;padding:0 14px;background:var(--bg-secondary);
+        border:1px solid var(--border-primary);border-radius:3px;cursor:pointer;
+        font-size:var(--text-sm);color:var(--text-secondary);font-family:inherit;
+        display:flex;align-items:center;gap:6px;">
+      <i class="fas fa-sync-alt"></i> Actualiser
+    </button>
+    <span id="log-count" style="font-size:var(--text-xs);color:var(--text-tertiary);margin-left:auto;"></span>
+  </div>
+
+  <!-- Table -->
+  <div class="erp-table-wrapper">
+    <table class="erp-table" style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="width:150px;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);background:var(--bg-secondary);border-bottom:1px solid var(--border-primary);">Date / Heure</th>
+          <th style="width:140px;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);background:var(--bg-secondary);border-bottom:1px solid var(--border-primary);">Utilisateur</th>
+          <th style="width:110px;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);background:var(--bg-secondary);border-bottom:1px solid var(--border-primary);">Action</th>
+          <th style="width:110px;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);background:var(--bg-secondary);border-bottom:1px solid var(--border-primary);">Type</th>
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);background:var(--bg-secondary);border-bottom:1px solid var(--border-primary);">Détail</th>
+        </tr>
+      </thead>
+      <tbody id="logs-tbody">
+        <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-tertiary);">
+          Cliquez sur Logs pour charger.
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+    <!-- USER MODAL -->
+    <div class="modal" id="user-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="user-modal-title"></h2>
+          <button class="modal-close" onclick="closeUserModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display:block;padding:20px">
+          <form id="user-form" enctype="multipart/form-data">
+            <input type="hidden" id="user-id">
+            <div class="form-row">
+              <div class="form-group"><label>Nom complet *</label><input type="text" id="user-name" required></div>
+              <div class="form-group"><label>Email *</label><input type="email" id="user-email" required></div>
+            </div>
+            <div class="form-group"><label>Photo</label><input type="file" id="user-photo" accept="image/*"></div>
+            <div class="form-group" id="password-group"><label>Mot de passe *</label><input type="password" id="user-password"></div>
+            <div class="form-row">
+              <div class="form-group"><label>Rôle *</label><select id="user-role" required></select></div>
+              <div class="form-group"><label>Téléphone</label><input type="tel" id="user-phone"></div>
+            </div>
+            <div class="checkbox-group">
+              <input type="checkbox" id="user-active" checked>
+              <label for="user-active">Compte actif (Peut se connecter)</label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="cancel-user-btn">Annuler</button>
+          <button class="btn btn-primary" id="save-user-btn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROLE MODAL -->
+    <div class="modal" id="role-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="role-modal-title">Nouveau Rôle</h2>
+          <button class="modal-close" onclick="closeRoleModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display:block;padding:20px">
+          <input type="hidden" id="role-slug-original">
+          <div class="form-group"><label>Nom du rôle *</label><input type="text" id="role-name" placeholder="Ex: Stagiaire" required></div>
+          <div class="form-group">
+            <label style="margin-bottom:8px;display:block;font-weight:var(--font-semibold)">Permissions</label>
+            <div id="permissions-container" class="permissions-grid"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeRoleModal()">Annuler</button>
+          <button class="btn btn-primary" id="save-role-btn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EQUIPMENT MODAL -->
+    <div class="modal" id="equipment-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="equipment-modal-title"></h2>
+          <button class="modal-close" onclick="closeEquipmentModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display:block;padding:20px">
+          <form id="equipment-form">
+            <input type="hidden" id="equipment-id">
+            <div class="form-row">
+              <div class="form-group"><label>Modèle (FR) *</label><input type="text" id="equipment-name" required></div>
+              <div class="form-group"><label>Modèle (DE)</label><input type="text" id="equipment-name-de" placeholder="Optionnel"></div>
+              <div class="form-group"><label>Marque *</label><input type="text" id="equipment-brand" required></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Appareil *</label><select id="equipment-device-type" required></select></div>
+              <div class="form-group"><label>Secteur *</label><select id="equipment-type" required></select></div>
+            </div>
+            <div style="background:var(--bg-secondary);padding:12px;border-radius:3px;border:1px solid var(--border-primary);margin-top:12px;display:flex;align-items:center;gap:10px;">
+              <input type="checkbox" id="equipment-secondary" style="width:16px;height:16px;cursor:pointer;accent-color:var(--color-primary)">
+              <div>
+                <label for="equipment-secondary" style="margin:0;font-weight:var(--font-semibold);cursor:pointer;font-size:var(--text-sm)">Appareil Secondaire</label>
+                <div style="font-size:var(--text-xs);color:var(--text-tertiary);margin-top:2px">(Ne déclenche pas d'alerte rouge "Maintenance Expirée")</div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeEquipmentModal()">Annuler</button>
+          <button class="btn btn-primary" id="save-equipment-btn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEVICE TYPE MODAL -->
+    <div class="modal" id="device-type-modal">
+      <div class="modal-content" style="max-width:400px">
+        <div class="modal-header">
+          <h2>Ajouter Type</h2>
+          <button class="modal-close" onclick="closeDeviceTypeModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display:block;padding:20px">
+          <div class="form-group"><label>Nom *</label><input type="text" id="device-type-name" required></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeDeviceTypeModal()">Annuler</button>
+          <button class="btn btn-primary" id="save-device-type-btn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MATERIAL MODAL -->
+    <div class="modal" id="material-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="material-modal-title"></h2>
+          <button class="modal-close" onclick="closeMaterialModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display:block;padding:20px">
+          <form id="material-form">
+            <input type="hidden" id="material-id">
+            <div class="form-group"><label>Nom *</label><input type="text" id="material-name" required></div>
+            <div class="form-row">
+              <div class="form-group"><label>Code *</label><input type="text" id="material-code" required></div>
+              <div class="form-group"><label>Prix (CHF) *</label><input type="number" id="material-price" step="0.01" required></div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeMaterialModal()">Annuler</button>
+          <button class="btn btn-primary" id="save-material-btn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTOR MODAL -->
+    <div class="modal" id="sector-modal">
+      <div class="modal-content" style="max-width:400px">
+        <div class="modal-header">
+          <h2>Ajouter Secteur</h2>
+          <button class="modal-close" onclick="closeSectorModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display:block;padding:20px">
+          <div class="form-group"><label>Nom *</label><input type="text" id="sector-name" required></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeSectorModal()">Annuler</button>
+          <button class="btn btn-primary" id="save-sector-btn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESET PASSWORD MODAL -->
+    <div class="modal" id="reset-password-modal">
+      <div class="modal-content" style="max-width:400px">
+        <div class="modal-header">
+          <h2>Réinitialiser MDP</h2>
+          <button class="modal-close" onclick="closeResetModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display:block;padding:20px">
+          <input type="hidden" id="reset-user-id">
+          <div class="form-group"><label>Nouveau MDP</label><input type="password" id="new-password" required></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeResetModal()">Annuler</button>
+          <button class="btn btn-primary" id="confirm-reset-btn">Valider</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="notification-container"></div>
+  </main>
+</div>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<script src="/js/confirm.js"></script>
+<script type="module" src="/js/init-selects.js"></script>
+<script src="/js/loader.js"></script>
+<script src="/js/admin.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/mobile-menu.js"></script>
+<script src="/js/theme-switcher.js"></script>
+<script src="/js/sidebar-init.js"></script>
+<script>
+
+function openSettings() {}
+
+fetch('/api/auth/me').then(r => r.json()).then(d => {
+  if (!d.user) return;
+  document.getElementById('u-avatar').textContent = d.user.name[0].toUpperCase();
+  document.getElementById('u-name').textContent = d.user.name;
+  document.getElementById('u-role').textContent = d.user.role;
+}).catch(() => {});
+
+// ── Logs ─────────────────────────────────────────────────────────────────────
+let allLogs = [];
+
+window.loadLogs = async function() {
+  const days  = document.getElementById('log-filter-period')?.value || 30;
+  const tbody = document.getElementById('logs-tbody');
+  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;
+    color:var(--text-tertiary);"><i class="fas fa-spinner fa-spin"></i> Chargement...</td></tr>`;
+
+  try {
+    const res = await fetch(`/api/admin/logs?days=${days}&limit=500`);
+    allLogs   = Array.isArray(await res.clone().json()) ? await res.json() : [];
+    window.filterLogs();
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;
+      color:var(--color-danger);">Erreur de chargement.</td></tr>`;
+  }
+};
+
+window.filterLogs = function() {
+  const search = (document.getElementById('log-search')?.value || '').toLowerCase();
+  const action = document.getElementById('log-filter-action')?.value || '';
+  const entity = document.getElementById('log-filter-entity')?.value || '';
+
+  const filtered = allLogs.filter(l => {
+    if (action && (l.action || '').toUpperCase() !== action) return false;
+    if (entity && (l.entity || '') !== entity) return false;
+    if (search) {
+      const t = `${l.user_name} ${l.action} ${l.entity} ${l.details}`.toLowerCase();
+      if (!t.includes(search)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('log-count').textContent = `${filtered.length} entrée(s)`;
+  renderLogs(filtered);
+};
+
+function renderLogs(logs) {
+  const tbody = document.getElementById('logs-tbody');
+  if (!logs.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;
+      color:var(--text-tertiary);font-style:italic;">Aucun log trouvé.</td></tr>`;
+    return;
+  }
+
+  const cfg = {
+    CREATE:   { label:'Création',     color:'#10b981', bg:'rgba(16,185,129,0.1)',  icon:'fa-plus' },
+    create:   { label:'Création',     color:'#10b981', bg:'rgba(16,185,129,0.1)',  icon:'fa-plus' },
+    UPDATE:   { label:'Modification', color:'#3b82f6', bg:'rgba(59,130,246,0.1)',  icon:'fa-pen' },
+    update:   { label:'Modification', color:'#3b82f6', bg:'rgba(59,130,246,0.1)',  icon:'fa-pen' },
+    DELETE:   { label:'Suppression',  color:'#ef4444', bg:'rgba(239,68,68,0.1)',   icon:'fa-trash' },
+    delete:   { label:'Suppression',  color:'#ef4444', bg:'rgba(239,68,68,0.1)',   icon:'fa-trash' },
+    STATUS:   { label:'Statut',       color:'#f59e0b', bg:'rgba(245,158,11,0.1)',  icon:'fa-exchange-alt' },
+    ARCHIVE:  { label:'Archivage',    color:'#8b5cf6', bg:'rgba(139,92,246,0.1)', icon:'fa-archive' },
+    VALIDATE: { label:'Validation',   color:'#10b981', bg:'rgba(16,185,129,0.1)',  icon:'fa-check' },
+    RETURN:   { label:'Retour',       color:'#06b6d4', bg:'rgba(6,182,212,0.1)',   icon:'fa-undo' },
+    LOGIN:    { label:'Connexion',    color:'#6366f1', bg:'rgba(99,102,241,0.1)', icon:'fa-sign-in-alt' },
+    LOGOUT:   { label:'Déconn.',      color:'#94a3b8', bg:'rgba(148,163,184,0.1)',icon:'fa-sign-out-alt' },
+    FAIL:     { label:'Échec',        color:'#ef4444', bg:'rgba(239,68,68,0.1)',   icon:'fa-ban' },
+  };
+
+  const icons = {
+    ticket:'🎫', rapport:'📄', report:'📄', rma:'🔧',
+    client:'🏥', 'prêt':'📦', utilisateur:'👤', matériel:'⚙️',
+    auth:'🔐', Auth:'🔐',
+  };
+
+  const esc = t => { const d = document.createElement('div'); d.textContent = String(t||''); return d.innerHTML; };
+
+  tbody.innerHTML = logs.map(l => {
+    const c  = cfg[l.action] || { label: l.action, color:'#94a3b8', bg:'rgba(148,163,184,0.1)', icon:'fa-circle' };
+    const dt = new Date(l.created_at).toLocaleString('fr-CH', {
+      day:'2-digit', month:'2-digit', year:'numeric',
+      hour:'2-digit', minute:'2-digit', second:'2-digit'
+    });
+    return `<tr style="border-bottom:1px solid var(--border-primary);"
+      onmouseover="this.style.background='var(--bg-secondary)'"
+      onmouseout="this.style.background=''">
+      <td style="padding:10px 14px;font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);white-space:nowrap;">${dt}</td>
+      <td style="padding:10px 14px;font-size:var(--text-sm);font-weight:600;">${esc(l.user_name||'—')}</td>
+      <td style="padding:10px 14px;">
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;
+          padding:2px 8px;border-radius:2px;background:${c.bg};color:${c.color};">
+          <i class="fas ${c.icon}" style="font-size:9px;"></i> ${c.label}
+        </span>
+      </td>
+      <td style="padding:10px 14px;font-size:var(--text-xs);color:var(--text-secondary);white-space:nowrap;">
+        ${icons[l.entity]||'•'} ${esc(l.entity||'—')}${l.entity_id?` <span style="color:var(--text-tertiary);">#${l.entity_id}</span>`:''}
+      </td>
+      <td style="padding:10px 14px;font-size:var(--text-xs);color:var(--text-secondary);
+        max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+        title="${esc(l.details||'')}">${esc(l.details||'—')}</td>
+    </tr>`;
+  }).join('');
+}
+</script>
+</body>
 </html>

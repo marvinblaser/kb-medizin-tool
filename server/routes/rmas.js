@@ -2,327 +2,404 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin, requireStaff } = require('../middleware/auth');
+const { toInt, isNonEmptyString, requireFields } = require('../utils/validators');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const log = require('../utils/logger');
 
-// Configuration du stockage des fichiers
+// ─── UPLOADS ──────────────────────────────────────────────────────────────────
+const UPLOAD_DIR = path.resolve(__dirname, '../../public/uploads/rmas');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
-        cb(null, './uploads');
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname.replace(/[^a-zA-Z0-9.]/g, '_'));
-    }
+  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+  filename: (req, file, cb) => {
+    const random = crypto.randomBytes(16).toString('hex');
+    const ext = path.extname(file.originalname).toLowerCase();
+    const safeExt = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'].includes(ext) ? ext : '.bin';
+    cb(null, `${Date.now()}-${random}${safeExt}`);
+  },
 });
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png',
+                     'application/msword',
+                     'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error('Format de fichier non autorisé.'));
+  },
+});
 
-// 1. RÉCUPÉRER TOUS LES RMA
-router.get('/', requireAuth, (req, res) => {
-        const sql = `
-            SELECT 
-                r.*, 
-                c.cabinet_name, 
-                ec.name as equipment_name, 
-                ec.brand, 
-                ce.serial_number,
-                (SELECT COUNT(*) FROM rma_attachments WHERE rma_id = r.id) as attachment_count
-            FROM rmas r
-            LEFT JOIN clients c ON r.client_id = c.id
-            LEFT JOIN client_equipment ce ON r.equipment_id = ce.id
-            LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
-            ORDER BY r.created_at DESC
-        `;
-        
-        db.all(sql, [], (err, rmas) => {
-        if (err) return res.status(500).json({ error: err.message });
-        
-        db.all(`SELECT rtl.rma_id, rt.id, rt.name, rt.color FROM rma_tag_links rtl JOIN rma_tags rt ON rtl.tag_id = rt.id`, [], (err, tags) => {
-            const rmasWithTags = rmas.map(rma => {
-                rma.tags = tags ? tags.filter(t => t.rma_id === rma.id) : [];
-                return rma;
-            });
-            res.json(rmasWithTags);
+// ──────────────────────────────────────────────────────────────────────────────
+//                                  RMAS
+// ──────────────────────────────────────────────────────────────────────────────
+router.get('/', requireStaff, (req, res, next) => {
+  const sql = `
+    SELECT r.*, c.cabinet_name, ec.name as equipment_name, ec.brand, ce.serial_number
+    FROM rmas r
+    LEFT JOIN clients c ON r.client_id = c.id
+    LEFT JOIN client_equipment ce ON r.equipment_id = ce.id
+    LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+    ORDER BY r.created_at DESC`;
+  db.all(sql, [], (err, rmas) => {
+    if (err) return next(err);
+    db.all(
+      'SELECT rtl.rma_id, rt.id, rt.name, rt.color FROM rma_tag_links rtl JOIN rma_tags rt ON rtl.tag_id = rt.id',
+      [], (err, tags) => {
+        const rmasWithTags = rmas.map((rma) => {
+          rma.tags = tags ? tags.filter((t) => t.rma_id === rma.id) : [];
+          return rma;
         });
-    });
-});
-
-// NOUVEAU : 1.5 RÉCUPÉRER L'ÉQUIPEMENT D'UN CLIENT SPÉCIFIQUE
-router.get('/equipment/:clientId', requireAuth, (req, res) => {
-    const sql = `
-        SELECT ce.id, ec.name, ec.brand, ce.serial_number 
-        FROM client_equipment ce 
-        JOIN equipment_catalog ec ON ce.equipment_id = ec.id 
-        WHERE ce.client_id = ?
-    `;
-    db.all(sql, [req.params.clientId], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
-});
-
-// 2. CRÉER UN NOUVEAU RMA (Avec champs optionnels)
-router.post('/', requireAuth, (req, res) => {
-    const { client_id, description, equipment_id, supplier_name, rma_number, tracking_to_supplier, tracking_from_supplier } = req.body;
-    const userId = (req.user && req.user.id) ? req.user.id : (req.userId ? req.userId : (req.session ? req.session.userId : null));
-
-    const sql = `INSERT INTO rmas (client_id, equipment_id, supplier_name, rma_number, tracking_to_supplier, tracking_from_supplier, description, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-    
-    db.run(sql, [
-        client_id, 
-        equipment_id || null, 
-        supplier_name || 'Xion', 
-        rma_number || null, 
-        tracking_to_supplier || null, 
-        tracking_from_supplier || null, 
-        description, 
-        userId
-    ], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true, id: this.lastID });
-    });
-});
-
-// --- 3. METTRE À JOUR LE STATUT SEUL (Glisser-Déposer du Kanban) ---
-router.put('/:id/status', requireAuth, (req, res) => {
-    const { status } = req.body;
-    db.run("UPDATE rmas SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [status, req.params.id], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
-});
-
-// --- 4. METTRE À JOUR TOUTES LES INFOS (Modale d'édition) ---
-router.put('/:id', requireAuth, (req, res) => {
-    console.log(`\n--- TENTATIVE DE MODIFICATION DU RMA #${req.params.id} ---`);
-    console.log("Données reçues du navigateur :", req.body);
-
-    const { 
-        title, status, client_id, equipment_id, supplier_name, 
-        rma_number, tracking_to_supplier, tracking_from_supplier, description 
-    } = req.body;
-
-    // Protection stricte contre les chaînes vides qui font planter SQLite
-    const safeTitle = title?.trim() || null;
-    const safeEquipment = equipment_id?.toString().trim() || null;
-    const safeRmaNumber = rma_number?.trim() || null;
-    const safeTrackTo = tracking_to_supplier?.trim() || null;
-    const safeTrackFrom = tracking_from_supplier?.trim() || null;
-
-    const sql = `
-        UPDATE rmas SET 
-            title = ?, status = ?, client_id = ?, equipment_id = ?, 
-            supplier_name = ?, rma_number = ?, tracking_to_supplier = ?, 
-            tracking_from_supplier = ?, description = ?, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = ?`;
-    
-    const params = [
-        safeTitle, status, client_id, safeEquipment, supplier_name, 
-        safeRmaNumber, safeTrackTo, safeTrackFrom, description, 
-        req.params.id
-    ];
-
-    db.run(sql, params, function(err) {
-        if (err) {
-            console.error("🔴 ERREUR SQL EXACTE :", err.message);
-            return res.status(500).json({ error: err.message });
-        }
-        console.log("✅ RMA modifié avec succès !");
-        res.json({ success: true });
-    });
-});
-
-// 4. RÉCUPÉRER LES DÉTAILS COMPLETS D'UN RMA
-router.get('/:id', requireAuth, (req, res) => {
-    const rmaId = req.params.id;
-    const sql = `
-        SELECT r.*, c.cabinet_name, ec.name as equipment_name, ec.brand, ce.serial_number 
-        FROM rmas r 
-        LEFT JOIN clients c ON r.client_id = c.id 
-        LEFT JOIN client_equipment ce ON r.equipment_id = ce.id 
-        LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id 
-        WHERE r.id = ?
-    `;
-    db.get(sql, [rmaId], (err, rma) => {
-        if (err || !rma) return res.status(404).json({ error: "RMA introuvable" });
-
-        db.all(`SELECT * FROM rma_tags rt JOIN rma_tag_links rtl ON rt.id = rtl.tag_id WHERE rtl.rma_id = ?`, [rmaId], (err, tags) => {
-            rma.tags = tags || [];
-            db.all(`SELECT rc.*, u.name as user_name FROM rma_comments rc JOIN users u ON rc.user_id = u.id WHERE rc.rma_id = ? ORDER BY rc.created_at DESC`, [rmaId], (err, comments) => {
-                rma.comments = comments || [];
-                // NOUVEAU : Récupération des pièces jointes
-                db.all(`SELECT * FROM rma_attachments WHERE rma_id = ? ORDER BY created_at DESC`, [rmaId], (err, attachments) => {
-                    rma.attachments = attachments || [];
-                    res.json(rma);
-                });
-            });
-        });
-    });
-});
-
-// 5. AJOUTER UN COMMENTAIRE HORODATÉ
-router.post('/:id/comments', requireAuth, (req, res) => {
-    const { comment } = req.body;
-    const userId = (req.user && req.user.id) ? req.user.id : (req.userId ? req.userId : (req.session ? req.session.userId : null));
-    db.run("INSERT INTO rma_comments (rma_id, user_id, comment) VALUES (?, ?, ?)", [req.params.id, userId, comment], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
-});
-
-// 6. SUPPRIMER UN RMA
-router.delete('/:id', requireAuth, (req, res) => {
-    db.run("DELETE FROM rmas WHERE id = ?", [req.params.id], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
-});
-
-// ==========================================
-// --- ROUTES POUR LES ÉTIQUETTES (TAGS) ---
-// ==========================================
-
-// 1. Récupérer tous les tags du catalogue
-router.get('/tags/all', requireAuth, (req, res) => {
-    db.all("SELECT * FROM rma_tags ORDER BY name ASC", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
-});
-
-// 2. Créer un nouveau tag dans le catalogue
-router.post('/tags', requireAuth, (req, res) => {
-    const { name, color } = req.body;
-    db.run("INSERT INTO rma_tags (name, color) VALUES (?, ?)", [name, color || '#3b82f6'], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true, id: this.lastID, name, color });
-    });
-});
-
-// 3. Supprimer DÉFINITIVEMENT un tag du catalogue (et de tous les RMAs)
-router.delete('/tags/:tagId/global', requireAuth, (req, res) => {
-    db.run("DELETE FROM rma_tags WHERE id = ?", [req.params.tagId], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
-});
-
-// 4. Assigner un tag existant à un RMA
-router.post('/:id/tags', requireAuth, (req, res) => {
-    const { tag_id } = req.body;
-    db.run("INSERT OR IGNORE INTO rma_tag_links (rma_id, tag_id) VALUES (?, ?)", [req.params.id, tag_id], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
-});
-
-// 5. Retirer un tag d'un RMA (La petite croix sur la carte)
-router.delete('/:id/tags/:tagId', requireAuth, (req, res) => {
-    db.run("DELETE FROM rma_tag_links WHERE rma_id = ? AND tag_id = ?", [req.params.id, req.params.tagId], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
-});
-
-// --- 10. PIÈCES JOINTES (Upload et Suppression) ---
-router.post('/:id/attachments', requireAuth, upload.single('file'), (req, res) => {
-    if (!req.file) return res.status(400).json({ error: "Aucun fichier reçu" });
-
-    const filePath = `/uploads/${req.file.filename}`;
-    db.run("INSERT INTO rma_attachments (rma_id, file_name, file_path, file_type) VALUES (?, ?, ?, ?)", 
-        [req.params.id, req.file.originalname, filePath, req.file.mimetype], 
-        function(err) {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true });
-        }
+        res.json(rmasWithTags);
+      }
     );
+  });
 });
 
-router.delete('/attachments/:attachmentId', requireAuth, (req, res) => {
-    // 1. Trouver le chemin du fichier pour le supprimer du disque dur
-    db.get("SELECT file_path FROM rma_attachments WHERE id = ?", [req.params.attachmentId], (err, row) => {
-        if (row && fs.existsSync('.' + row.file_path)) {
-            fs.unlinkSync('.' + row.file_path); // Supprime le fichier physique
+router.get('/equipment/:clientId', requireStaff, (req, res, next) => {
+  const clientId = toInt(req.params.clientId);
+  if (!clientId) return res.status(400).json({ error: 'ID client invalide.' });
+  const sql = `
+    SELECT ce.id, ec.name, ec.brand, ce.serial_number
+    FROM client_equipment ce
+    JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+    WHERE ce.client_id = ?`;
+  db.all(sql, [clientId], (err, rows) => err ? next(err) : res.json(rows));
+});
+
+router.post('/', requireStaff, (req, res, next) => {
+  const { client_id, description, equipment_id, supplier_name, rma_number,
+          tracking_to_supplier, tracking_from_supplier, due_date } = req.body;
+  if (!client_id || !description) {
+    return res.status(400).json({ error: 'Client et description requis.' });
+  }
+  const userId = req.session.userId;
+ 
+  db.run(
+    `INSERT INTO rmas (client_id, equipment_id, supplier_name, rma_number,
+     tracking_to_supplier, tracking_from_supplier, description, due_date, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [toInt(client_id), toInt(equipment_id) || null, supplier_name || 'Xion',
+     rma_number || null, tracking_to_supplier || null, tracking_from_supplier || null,
+     description, due_date || null, userId],
+    function (err) {
+      if (err) return next(err);
+ 
+      // ── LOG ────────────────────────────────────────────────────────────────
+      const rmaId = this.lastID;
+      db.get(
+        `SELECT c.cabinet_name, ec.name as eq_name
+         FROM clients c, client_equipment ce
+         LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+         WHERE c.id = ? AND ce.id = ?`,
+        [client_id, equipment_id],
+        (err, info) => {
+          log.create(req, 'rma', rmaId,
+            `${rma_number || `#${rmaId}`} — ${info?.eq_name || 'Appareil'} — Client #${client_id}${supplier_name ? ` — ${supplier_name}` : ''}`);
         }
-        // 2. Supprimer l'entrée de la base de données
-        db.run("DELETE FROM rma_attachments WHERE id = ?", [req.params.attachmentId], (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true });
-        });
+      );
+ 
+      res.json({ success: true, id: rmaId });
+    }
+  );
+});
+
+router.put('/:id/status', requireStaff, (req, res, next) => {
+  const id = toInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID invalide.' });
+  const { status } = req.body;
+  if (!isNonEmptyString(status)) return res.status(400).json({ error: 'Statut requis.' });
+ 
+  db.get('SELECT status, rma_number FROM rmas WHERE id = ?', [id], (err, old) => {
+    db.run(
+      'UPDATE rmas SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [status, id],
+      function (err) {
+        if (err) return next(err);
+        if (this.changes === 0) return res.status(404).json({ error: 'RMA introuvable.' });
+ 
+        // ── LOG ──────────────────────────────────────────────────────────────
+        if (old) {
+          log.status(req, 'rma', id,
+            `${old.rma_number || `#${id}`} : "${old.status}" → "${status}"`);
+        }
+ 
+        res.json({ success: true });
+      }
+    );
+  });
+});
+
+router.put('/:id', requireStaff, (req, res, next) => {
+  const id = toInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID invalide.' });
+ 
+  const { title, status, client_id, equipment_id, supplier_name,
+          rma_number, tracking_to_supplier, tracking_from_supplier,
+          description, due_date } = req.body;
+ 
+  const safeTitle     = (title && title.trim())                                    || null;
+  const safeEquipment = toInt(equipment_id)                                        || null;
+  const safeRmaNumber = (rma_number && rma_number.trim())                          || null;
+  const safeTrackTo   = (tracking_to_supplier && tracking_to_supplier.trim())      || null;
+  const safeTrackFrom = (tracking_from_supplier && tracking_from_supplier.trim())  || null;
+  const safeDueDate   = (due_date && due_date.trim())                              || null;
+ 
+  db.get(
+    `SELECT r.*, c.cabinet_name, ec.name as equipment_name
+     FROM rmas r
+     LEFT JOIN clients c ON r.client_id = c.id
+     LEFT JOIN client_equipment ce ON r.equipment_id = ce.id
+     LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+     WHERE r.id = ?`,
+    [id],
+    (err, old) => {
+      if (err) return next(err);
+      if (!old) return res.status(404).json({ error: 'RMA introuvable.' });
+ 
+      db.run(
+        `UPDATE rmas
+         SET title = ?, status = ?, client_id = ?, equipment_id = ?,
+             supplier_name = ?, rma_number = ?, tracking_to_supplier = ?,
+             tracking_from_supplier = ?, description = ?, due_date = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [safeTitle, status, toInt(client_id), safeEquipment, supplier_name,
+         safeRmaNumber, safeTrackTo, safeTrackFrom, description, safeDueDate, id],
+        function (err) {
+          if (err) return next(err);
+          if (this.changes === 0) return res.status(404).json({ error: 'RMA introuvable.' });
+ 
+          // ── Changelog commentaire système ────────────────────────────────
+          const changes = [];
+          const userId  = req.session.userId;
+ 
+          if (old.status !== status)
+            changes.push(`📋 Statut : "${old.status}" → "${status}"`);
+          if ((old.title || '') !== (safeTitle || ''))
+            changes.push(`✏️ Titre : "${old.title || '—'}" → "${safeTitle || '—'}"`);
+          if ((old.supplier_name || '') !== (supplier_name || ''))
+            changes.push(`🏭 Fournisseur : "${old.supplier_name || '—'}" → "${supplier_name || '—'}"`);
+          if ((old.rma_number || '') !== (safeRmaNumber || ''))
+            changes.push(`🔢 N° RMA : ${old.rma_number || '—'} → ${safeRmaNumber || '—'}`);
+          if ((old.due_date || '') !== (safeDueDate || '')) {
+            const fmt = d => d ? new Date(d).toLocaleDateString('fr-CH') : '—';
+            changes.push(`📅 Échéance : ${fmt(old.due_date)} → ${fmt(safeDueDate)}`);
+          }
+          if ((old.tracking_to_supplier || '') !== (safeTrackTo || ''))
+            changes.push(`🚚 Tracking aller : "${old.tracking_to_supplier || '—'}" → "${safeTrackTo || '—'}"`);
+          if ((old.tracking_from_supplier || '') !== (safeTrackFrom || ''))
+            changes.push(`📦 Tracking retour : "${old.tracking_from_supplier || '—'}" → "${safeTrackFrom || '—'}"`);
+          if ((old.description || '') !== (description || ''))
+            changes.push(`📝 Description mise à jour`);
+ 
+          if (changes.length > 0) {
+            const changeText = changes.join('\n');
+            db.run(
+              `INSERT INTO rma_comments (rma_id, user_id, comment, is_system) VALUES (?, ?, ?, 1)`,
+              [id, userId, changeText]
+            );
+            // ── LOG activité ────────────────────────────────────────────────
+            if (old.status !== status) {
+              log.status(req, 'rma', id,
+                `${old.rma_number || `#${id}`} : "${old.status}" → "${status}"`);
+            } else {
+              log.update(req, 'rma', id,
+                `${old.rma_number || `#${id}`} — ${changes.length} champ(s) modifié(s)`);
+            }
+          }
+ 
+          res.json({ success: true });
+        }
+      );
+    }
+  );
+});
+
+router.get('/:id', requireStaff, (req, res, next) => {
+  const id = toInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID invalide.' });
+  const sql = `
+    SELECT r.*, c.cabinet_name, ec.name as equipment_name, ec.brand, ce.serial_number
+    FROM rmas r
+    LEFT JOIN clients c ON r.client_id = c.id
+    LEFT JOIN client_equipment ce ON r.equipment_id = ce.id
+    LEFT JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+    WHERE r.id = ?`;
+  db.get(sql, [id], (err, rma) => {
+    if (err) return next(err);
+    if (!rma) return res.status(404).json({ error: 'RMA introuvable.' });
+    db.all(
+      'SELECT * FROM rma_tags rt JOIN rma_tag_links rtl ON rt.id = rtl.tag_id WHERE rtl.rma_id = ?',
+      [id], (err, tags) => {
+        rma.tags = tags || [];
+        db.all(
+          'SELECT rc.*, u.name as user_name FROM rma_comments rc JOIN users u ON rc.user_id = u.id WHERE rc.rma_id = ? ORDER BY rc.created_at ASC',
+          [id], (err, comments) => {
+            rma.comments = comments || [];
+            db.all('SELECT * FROM rma_attachments WHERE rma_id = ? ORDER BY created_at DESC',
+              [id], (err, attachments) => {
+                rma.attachments = attachments || [];
+                res.json(rma);
+              });
+          });
+      });
+  });
+});
+
+router.post('/:id/comments', requireStaff, (req, res, next) => {
+  const id = toInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID invalide.' });
+  const { comment } = req.body;
+  if (!isNonEmptyString(comment)) return res.status(400).json({ error: 'Commentaire requis.' });
+  db.run('INSERT INTO rma_comments (rma_id, user_id, comment) VALUES (?, ?, ?)',
+    [id, req.session.userId, comment], (err) =>
+      err ? next(err) : res.json({ success: true }));
+});
+
+// DELETE : admin uniquement
+router.delete('/:id', requireAdmin, (req, res, next) => {
+  const id = toInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID invalide.' });
+ 
+  db.get('SELECT rma_number, status FROM rmas WHERE id = ?', [id], (err, rma) => {
+    db.run('DELETE FROM rmas WHERE id = ?', [id], function (err) {
+      if (err) return next(err);
+      if (this.changes === 0) return res.status(404).json({ error: 'RMA introuvable.' });
+ 
+      // ── LOG ────────────────────────────────────────────────────────────────
+      log.delete(req, 'rma', id,
+        `${rma?.rma_number || `#${id}`} supprimé (était : ${rma?.status || '—'})`);
+ 
+      res.json({ success: true });
+    });
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+//                                  TAGS
+// ──────────────────────────────────────────────────────────────────────────────
+router.get('/tags/all', requireStaff, (req, res, next) =>
+  db.all('SELECT * FROM rma_tags ORDER BY name ASC', [], (err, rows) =>
+    err ? next(err) : res.json(rows)));
+
+router.post('/tags', requireStaff, (req, res, next) => {
+  const { name, color } = req.body;
+  if (!isNonEmptyString(name)) return res.status(400).json({ error: 'Nom requis.' });
+  db.run('INSERT INTO rma_tags (name, color) VALUES (?, ?)',
+    [name.trim(), color || '#3b82f6'], function (err) {
+      if (err) return next(err);
+      res.json({ success: true, id: this.lastID, name, color });
     });
 });
 
-// --- 12. STATISTIQUES ET TABLEAU DE BORD ---
-router.get('/stats/dashboard', requireAuth, (req, res) => {
-    const stats = {};
+// Suppression globale : admin uniquement
+router.delete('/tags/:tagId/global', requireAdmin, (req, res, next) => {
+  const id = toInt(req.params.tagId);
+  if (!id) return res.status(400).json({ error: 'ID invalide.' });
+  db.run('DELETE FROM rma_tags WHERE id = ?', [id], function (err) {
+    if (err) return next(err);
+    if (this.changes === 0) return res.status(404).json({ error: 'Tag introuvable.' });
+    res.json({ success: true });
+  });
+});
 
-    // 1. Répartition par Statut (Actifs)
-    db.all("SELECT status, COUNT(*) as count FROM rmas WHERE status != 'Archives' GROUP BY status", [], (err, statusData) => {
-        if (err) return res.status(500).json({ error: err.message });
-        stats.statusDistribution = statusData || [];
+router.post('/:id/tags', requireStaff, (req, res, next) => {
+  const rmaId = toInt(req.params.id);
+  const tagId = toInt(req.body.tag_id);
+  if (!rmaId || !tagId) return res.status(400).json({ error: 'IDs invalides.' });
+  db.run('INSERT OR IGNORE INTO rma_tag_links (rma_id, tag_id) VALUES (?, ?)',
+    [rmaId, tagId], (err) => err ? next(err) : res.json({ success: true }));
+});
 
-        // 2. Volume par Fournisseur
-        db.all("SELECT supplier_name, COUNT(*) as count FROM rmas GROUP BY supplier_name", [], (err, supplierData) => {
-            stats.supplierDistribution = supplierData || [];
+router.delete('/:id/tags/:tagId', requireStaff, (req, res, next) => {
+  const rmaId = toInt(req.params.id);
+  const tagId = toInt(req.params.tagId);
+  if (!rmaId || !tagId) return res.status(400).json({ error: 'IDs invalides.' });
+  db.run('DELETE FROM rma_tag_links WHERE rma_id = ? AND tag_id = ?',
+    [rmaId, tagId], function (err) {
+      if (err) return next(err);
+      if (this.changes === 0) return res.status(404).json({ error: 'Lien introuvable.' });
+      res.json({ success: true });
+    });
+});
 
-            // 3. Top 5 Clients avec le plus de RMA
-            db.all(`
-                SELECT c.cabinet_name, COUNT(r.id) as count 
-                FROM rmas r 
-                JOIN clients c ON r.client_id = c.id 
-                GROUP BY r.client_id 
-                ORDER BY count DESC LIMIT 5
-            `, [], (err, clientData) => {
-                stats.topClients = clientData || [];
+// ──────────────────────────────────────────────────────────────────────────────
+//                              PIÈCES JOINTES
+// ──────────────────────────────────────────────────────────────────────────────
+router.post('/:id/attachments', requireStaff, upload.single('file'), (req, res, next) => {
+  if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+  const id = toInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID invalide.' });
+  const filePath = `/uploads/rmas/${req.file.filename}`;
+  db.run(
+    'INSERT INTO rma_attachments (rma_id, file_name, file_path, file_type) VALUES (?, ?, ?, ?)',
+    [id, req.file.originalname, filePath, req.file.mimetype],
+    function (err) {
+      if (err) return next(err);
+      res.json({ success: true, id: this.lastID });
+    }
+  );
+});
 
-                // 4. Top 5 Équipements les plus en panne
-                db.all(`
-                    SELECT ec.name, ec.brand, COUNT(r.id) as count 
-                    FROM rmas r 
-                    JOIN client_equipment ce ON r.equipment_id = ce.id 
-                    JOIN equipment_catalog ec ON ce.equipment_id = ec.id 
-                    GROUP BY ec.id 
-                    ORDER BY count DESC LIMIT 5
-                `, [], (err, eqData) => {
-                    stats.topEquipment = eqData || [];
-                    
-                    // On renvoie tout d'un coup au navigateur
-                    res.json(stats);
+router.delete('/attachments/:attachmentId', requireStaff, (req, res, next) => {
+  const id = toInt(req.params.attachmentId);
+  if (!id) return res.status(400).json({ error: 'ID invalide.' });
+  db.get('SELECT file_path FROM rma_attachments WHERE id = ?', [id], (err, row) => {
+    if (err) return next(err);
+    if (row && row.file_path) {
+      // Protection path traversal : vérifier que le fichier est bien dans UPLOAD_DIR
+      const filename = path.basename(row.file_path);
+      const safePath = path.join(UPLOAD_DIR, filename);
+      if (safePath.startsWith(UPLOAD_DIR) && fs.existsSync(safePath)) {
+        try { fs.unlinkSync(safePath); }
+        catch (e) { console.error('Échec suppression fichier:', e.message); }
+      }
+    }
+    db.run('DELETE FROM rma_attachments WHERE id = ?', [id], function (err) {
+      if (err) return next(err);
+      if (this.changes === 0) return res.status(404).json({ error: 'Pièce jointe introuvable.' });
+      res.json({ success: true });
+    });
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+//                              STATISTIQUES
+// ──────────────────────────────────────────────────────────────────────────────
+router.get('/stats/dashboard', requireStaff, (req, res, next) => {
+  const stats = {};
+  db.all(
+    "SELECT status, COUNT(*) as count FROM rmas WHERE status != 'Archives' GROUP BY status",
+    [], (err, statusData) => {
+      if (err) return next(err);
+      stats.statusDistribution = statusData || [];
+      db.all(
+        'SELECT supplier_name, COUNT(*) as count FROM rmas GROUP BY supplier_name',
+        [], (err, supplierData) => {
+          stats.supplierDistribution = supplierData || [];
+          db.all(
+            `SELECT c.cabinet_name, COUNT(r.id) as count FROM rmas r
+             JOIN clients c ON r.client_id = c.id GROUP BY r.client_id ORDER BY count DESC LIMIT 5`,
+            [], (err, clientData) => {
+              stats.topClients = clientData || [];
+              db.all(
+                `SELECT ec.name, ec.brand, COUNT(r.id) as count FROM rmas r
+                 JOIN client_equipment ce ON r.equipment_id = ce.id
+                 JOIN equipment_catalog ec ON ce.equipment_id = ec.id
+                 GROUP BY ec.id ORDER BY count DESC LIMIT 5`,
+                [], (err, eqData) => {
+                  stats.topEquipment = eqData || [];
+                  res.json(stats);
                 });
             });
         });
     });
 });
 
-// Supprimer un tag d'un RMA
-router.delete('/:id/tags/:tagId', requireAuth, (req, res) => {
-    db.run("DELETE FROM rma_tags WHERE rma_id = ? AND tag_id = ?", [req.params.id, req.params.tagId], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
-});
-
-// 3. Supprimer DÉFINITIVEMENT un tag du catalogue (et de tous les RMAs)
-router.delete('/tags/:id', requireAuth, (req, res) => {
-    const tagId = req.params.id;
-
-    // Étape 1 : On nettoie la table de liaison (rma_tag_links)
-    db.run("DELETE FROM rma_tag_links WHERE tag_id = ?", [tagId], function(err) {
-        if (err) {
-            console.error("Erreur nettoyage rma_tag_links:", err);
-            return res.status(500).json({ error: "Erreur lors du nettoyage." });
-        }
-        
-        // Étape 2 : On supprime définitivement l'étiquette (rma_tags)
-        db.run("DELETE FROM rma_tags WHERE id = ?", [tagId], function(err) {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true });
-        });
-    });
-});
-
-// CETTE LIGNE DOIT TOUJOURS ÊTRE LA DERNIÈRE DU FICHIER :
 module.exports = router;

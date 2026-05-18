@@ -1,1281 +1,1726 @@
 // public/js/rmas.js
+// KB Med — Suivi RMA v3.0
+// Améliorations : filtres, boutons nav, vue liste, templates, auto-archivage, mobile
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  CONSTANTES
+// ══════════════════════════════════════════════════════════════════════════════
+'use strict';
 
 const RMA_STAGES = [
-    "Déclaration du problème", "Transit vers Xion", "Réception Xion", 
-    "RMA Offre Reçu ?", "Devis au client", "Validation KB Med + Xion", 
-    "En réparation", "Transit vers KB", "Attente d'installation", 
-    "Livraison + Facturation", "Archives"
+  "Déclaration du problème",
+  "Transit vers Xion",
+  "Réception Xion",
+  "RMA Offre Reçu ?",
+  "Devis au client",
+  "Validation KB Med + Xion",
+  "En réparation",
+  "Transit vers KB",
+  "Attente d'installation",
+  "Livraison + Facturation",
+  "Archives"
 ];
 
-let allRmas = [];
-let currentRmaId = null;
+const STAGE_COLORS = [
+  '#6366f1', '#8b5cf6', '#3b82f6', '#f59e0b',
+  '#f97316', '#10b981', '#ef4444', '#06b6d4',
+  '#84cc16', '#10b981', '#94a3b8'
+];
 
-// --- VARIABLES POUR LE POPUP (TOOLTIP) ---
-let hoverTimeout;
-let tooltipCache = {};
+const COMMENT_TEMPLATES = [
+  { icon: '📦', label: 'Appareil reçu',       text: 'Appareil reçu en bon état.' },
+  { icon: '🚚', label: 'Expédié au SAV',       text: 'Appareil expédié au service après-vente.' },
+  { icon: '✅', label: 'Réparation OK',         text: 'Réparation effectuée avec succès.' },
+  { icon: '💰', label: 'Devis envoyé',          text: 'Devis envoyé au client en attente de validation.' },
+  { icon: '❌', label: 'Devis refusé',          text: 'Devis refusé par le client.' },
+  { icon: '📞', label: 'Client contacté',       text: 'Client contacté, en attente de retour.' },
+  { icon: '🔄', label: 'En attente pièces',     text: 'En attente de pièces détachées du fournisseur.' },
+  { icon: '✔️', label: 'Livré + facturé',       text: 'Appareil livré et facture envoyée au client.' },
+];
 
-let tsInstances = {}; // Stocke les menus avec recherche
+// ══════════════════════════════════════════════════════════════════════════════
+//  ÉTAT GLOBAL
+// ══════════════════════════════════════════════════════════════════════════════
+
+let allRmas       = [];
+let currentRmaId  = null;
+let hoverTimeout  = null;
+let tooltipCache  = {};
+let tsInstances   = {};
+let charts        = {};
+let currentView   = 'kanban'; // 'kanban' | 'list' | 'dashboard'
+let listSort      = { col: 'created_at', order: 'desc' };
+let rmaFilters    = { search: '', supplier: '', tag: '' };
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
-    initBoard();
-    loadRmas();
-    initTooltip(); // <-- NOUVELLE LIGNE À AJOUTER
+  initBoard();
+  initTooltip();
+  loadRmas();
 });
 
-// Création de l'élément HTML du popup invisible au chargement de la page
 function initTooltip() {
-    const tooltip = document.createElement('div');
-    tooltip.id = 'rma-tooltip';
-    tooltip.style.cssText = `
-        position: absolute; display: none; background: white; 
-        border: 1px solid #e2e8f0; border-radius: 8px; 
-        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); 
-        padding: 15px; z-index: 9999; width: 320px; font-size: 0.85rem; 
-        pointer-events: none; transition: opacity 0.2s ease; opacity: 0;
-    `;
-    document.body.appendChild(tooltip);
+  const tooltip = document.getElementById('rma-tooltip');
+  if (!tooltip) return;
+  tooltip.style.display = 'none';
+  tooltip.style.opacity = '0';
 }
 
-// --- 1. INITIALISATION DU BOARD ---
+// ══════════════════════════════════════════════════════════════════════════════
+//  KANBAN BOARD
+// ══════════════════════════════════════════════════════════════════════════════
+
 function initBoard() {
-    const board = document.getElementById('kanban-board');
-    if (!board) return;
-    board.innerHTML = RMA_STAGES.map(stage => {
-        const safeId = stage.replace(/[^a-zA-Z0-9]/g, '');
-        return `
-            <div class="kanban-col" data-status="${stage}">
-                <div class="kanban-col-header">
-                    <h3>${stage}</h3>
-                    <span class="badge" id="count-${safeId}">0</span>
-                </div>
-                <div class="kanban-card-list" id="col-${safeId}" ondragover="evAllowDrop(event)" ondrop="evDrop(event)"></div>
-            </div>
-        `;
-    }).join('');
+  const board = document.getElementById('kanban-board');
+  if (!board) return;
+
+  board.innerHTML = RMA_STAGES.map((stage, i) => {
+    const safeId = stageToId(stage);
+    return `
+      <div class="kanban-col" data-status="${stage}" data-step="${i}">
+        <div class="kanban-col-header">
+          <h3>${stage}</h3>
+          <span class="col-count" id="count-${safeId}">0</span>
+        </div>
+        <div class="kanban-card-list" id="col-${safeId}"
+          ondragover="evAllowDrop(event)"
+          ondragleave="evDragLeave(event)"
+          ondrop="evDrop(event)">
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
-// --- 2. CHARGEMENT ET AFFICHAGE (Le moteur du Kanban) ---
+function stageToId(stage) {
+  return stage.replace(/[^a-zA-Z0-9]/g, '');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  CHARGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
 async function loadRmas() {
-    try {
-        const res = await fetch('/api/rmas');
-        allRmas = await res.json();
-        renderRmas();
-    } catch (e) {
-        console.error("Erreur chargement RMA:", e);
+  try {
+    const res = await fetch('/api/rmas');
+    if (!res.ok) throw new Error('Erreur serveur');
+    allRmas = await res.json();
+
+    // ── Auto-archivage (30 jours dans "Livraison + Facturation") ────────────
+    const SEUIL_JOURS = 30;
+    const toArchive = allRmas.filter(r => {
+      if (r.status !== 'Livraison + Facturation') return false;
+      const age = Math.floor((Date.now() - new Date(r.updated_at)) / 86400000);
+      return age >= SEUIL_JOURS;
+    });
+
+    if (toArchive.length > 0) {
+      const ok = await showConfirm({
+        title: `${toArchive.length} RMA à archiver`,
+        message: `${toArchive.length} dossier(s) sont en "Livraison + Facturation" depuis +${SEUIL_JOURS} jours. Les archiver automatiquement ?`,
+        confirmText: 'Archiver',
+        cancelText:  'Ignorer',
+        type:        'primary'
+      });
+      if (ok) {
+        await Promise.all(toArchive.map(r =>
+          fetch(`/api/rmas/${r.id}/status`, {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ status: 'Archives' })
+          })
+        ));
+        allRmas = allRmas.map(r =>
+          toArchive.find(a => a.id === r.id) ? { ...r, status: 'Archives' } : r
+        );
+        if (window.toast) toast.success('Archivage automatique', `${toArchive.length} dossier(s) archivé(s).`);
+      }
     }
+
+    // Peuple le select des tags dans la barre de filtres
+    populateTagFilter();
+
+    // Initialise la vue selon mobile / préférence
+    initViewPreference();
+
+  } catch (e) {
+    console.error('Erreur chargement RMA:', e);
+    if (window.toast) toast.error('Erreur', 'Impossible de charger les RMA.');
+  }
+}
+
+function initViewPreference() {
+  const saved    = localStorage.getItem('rma_view');
+  const isMobile = window.innerWidth <= 768;
+  const view     = isMobile ? 'list' : (saved || 'kanban');
+  toggleView(view);
+}
+
+function populateTagFilter() {
+  const seen    = new Map();
+  allRmas.flatMap(r => r.tags || []).forEach(t => {
+    if (!seen.has(t.id)) seen.set(t.id, t.name);
+  });
+  const tagSelect = document.getElementById('rma-filter-tag');
+  if (!tagSelect) return;
+  tagSelect.innerHTML = '<option value="">Tous les tags</option>' +
+    [...seen.entries()].map(([id, name]) =>
+      `<option value="${id}">${escapeHtml(name)}</option>`
+    ).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  FILTRES
+// ══════════════════════════════════════════════════════════════════════════════
+
+function getFilteredRmas() {
+  const { search, supplier, tag } = rmaFilters;
+  return allRmas.filter(r => {
+    if (search) {
+      const q   = search.toLowerCase();
+      const hay = `${r.cabinet_name} ${r.equipment_name} ${r.description} ${r.rma_number}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (supplier && r.supplier_name !== supplier) return false;
+    if (tag) {
+      const hasTag = (r.tags || []).some(t => String(t.id) === String(tag));
+      if (!hasTag) return false;
+    }
+    return true;
+  });
+}
+
+window.applyFilters = function() {
+  rmaFilters.search   = document.getElementById('rma-filter-search')?.value  || '';
+  rmaFilters.supplier = document.getElementById('rma-filter-supplier')?.value || '';
+  rmaFilters.tag      = document.getElementById('rma-filter-tag')?.value      || '';
+  renderCurrent();
+  updateFilterBadge();
+};
+
+window.clearFilters = function() {
+  rmaFilters = { search: '', supplier: '', tag: '' };
+  ['rma-filter-search', 'rma-filter-supplier', 'rma-filter-tag'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  renderCurrent();
+  updateFilterBadge();
+};
+
+function updateFilterBadge() {
+  const filtered = getFilteredRmas().filter(r => r.status !== 'Archives').length;
+  const total    = allRmas.filter(r => r.status !== 'Archives').length;
+  const badge    = document.getElementById('filter-active-badge');
+  if (!badge) return;
+  const isFiltered = filtered !== total;
+  badge.style.display = isFiltered ? 'inline-flex' : 'none';
+  badge.textContent   = isFiltered ? `${filtered} / ${total}` : '';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RENDU
+// ══════════════════════════════════════════════════════════════════════════════
+
+function renderCurrent() {
+  if (currentView === 'kanban')    renderRmas();
+  if (currentView === 'list')      renderListView();
+  if (currentView === 'dashboard') loadDashboardStats?.();
 }
 
 function renderRmas() {
-    // Reset de toutes les colonnes
-    RMA_STAGES.forEach(s => {
-        const id = s.replace(/[^a-zA-Z0-9]/g, '');
-        const col = document.getElementById(`col-${id}`);
-        if (col) col.innerHTML = '';
-        const count = document.getElementById(`count-${id}`);
-        if (count) count.innerText = '0';
-    });
+  const duplicates = detectDuplicates();
 
-    allRmas.forEach(rma => {
-        const stageId = rma.status.replace(/[^a-zA-Z0-9]/g, '');
-        const col = document.getElementById(`col-${stageId}`);
-        
-        if (col) {
-            const card = document.createElement('div');
-            card.className = 'rma-card';
-            card.draggable = true;
-            card.dataset.id = rma.id;
+  RMA_STAGES.forEach(s => {
+    const id  = stageToId(s);
+    const col = document.getElementById(`col-${id}`);
+    if (col) col.innerHTML = '';
+    const count = document.getElementById(`count-${id}`);
+    if (count) count.textContent = '0';
+  });
 
-// --- NOUVEAU DESIGN DE LA CARTE (UX/UI Premium) ---
-            card.style.cssText = `
-                background: white;
-                border: 1px solid #e2e8f0;
-                border-radius: 12px;
-                padding: 16px;
-                margin-bottom: 12px;
-                cursor: grab;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                position: relative;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            `;
+  getFilteredRmas().forEach(rma => {
+    const stageId = stageToId(rma.status);
+    const col     = document.getElementById(`col-${stageId}`);
+    if (!col) return;
+    const isDuplicate = duplicates.has(rma.id);
+    const card        = buildCard(rma, isDuplicate);
+    col.appendChild(card);
+    const count = document.getElementById(`count-${stageId}`);
+    if (count) count.textContent = parseInt(count.textContent || 0) + 1;
+  });
 
-            // Effet d'élévation au survol
-            card.onmouseover = () => {
-                card.style.boxShadow = '0 12px 20px -8px rgba(0,0,0,0.12)';
-                card.style.transform = 'translateY(-3px)';
-                card.style.borderColor = '#cbd5e1';
-            };
-            card.onmouseout = () => {
-                card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
-                card.style.transform = 'none';
-                card.style.borderColor = '#e2e8f0';
-            };
-
-            card.onclick = () => openRmaDetails(rma.id);
-            card.ondragstart = evDrag;
-            // --- NOUVEAU : LES ÉVÉNEMENTS DE SURVOL ---
-            card.onmouseenter = (e) => handleCardHover(e, rma.id);
-            card.onmouseleave = handleCardLeave;
-            
-            // LOGIQUE DE TITRE : Titre perso OU (#RMA + Équipement)
-            const displayTitle = rma.title && rma.title.trim() !== "" 
-                ? rma.title 
-                : `#RMA-${rma.id} - ${rma.equipment_name || 'Matériel'}`;
-
-            // --- NOUVEAU DESIGN DE LA CARTE ---
-            
-            // Formatage des étiquettes (Tags)
-            const tagsHtml = rma.tags && rma.tags.length > 0 
-                ? rma.tags.map(t => `<span style="background:${t.color}15; color:${t.color}; font-size:0.65rem; padding:2px 6px; border-radius:4px; font-weight:800; border: 1px solid ${t.color}50;">${escapeHtml(t.name)}</span>`).join('') 
-                : '';
-
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-                    <span style="font-weight:800; font-size:0.85rem; color:var(--color-primary);">
-                        ${rma.rma_number ? escapeHtml(rma.rma_number) : 'RMA #' + rma.id}
-                    </span>
-                </div>
-
-                <div style="font-weight:700; font-size:0.9rem; color:var(--neutral-800); line-height:1.2; margin-bottom:4px;">
-                    <i class="fas fa-microscope" style="font-size:0.75rem; opacity:0.5; margin-right:5px;"></i>
-                    ${escapeHtml(rma.equipment_name || 'Appareil inconnu')} - <span style="font-weight:500; font-size:0.8rem; color:var(--neutral-500);">${escapeHtml(rma.serial_number || 'S/N inconnu')}</span>
-                </div>
-
-                <div style="font-size:0.8rem; color:var(--neutral-600); font-weight:600; margin-bottom:8px;">
-                    <i class="fas fa-hospital" style="font-size:0.75rem; opacity:0.5; margin-right:5px;"></i>
-                    ${escapeHtml(rma.cabinet_name || 'Client inconnu')}
-                </div>
-
-                <div style="font-size:0.75rem; color:var(--neutral-500); line-height:1.4; margin-bottom:10px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
-                    ${escapeHtml(rma.description || 'Aucune description')}
-                </div>
-
-                <div style="font-size:0.7rem; color:var(--neutral-400); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px;">
-                    <i class="fas fa-truck-loading"></i> ${escapeHtml(rma.supplier_name || 'Fournisseur non spécifié')}
-                </div>
-
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; padding-top:8px; border-top:1px solid #f1f5f9;">
-                    <div class="rma-tags" style="display:flex; flex-wrap:wrap; gap:4px;">
-                        ${tagsHtml}
-                    </div>
-                    
-                    ${rma.attachment_count > 0 ? `
-                        <div title="${rma.attachment_count} pièce(s) jointe(s)" style="color:var(--neutral-400); font-size:0.8rem;">
-                            <i class="fas fa-paperclip"></i> <span style="font-size:0.7rem; font-weight:700;">${rma.attachment_count}</span>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-            col.appendChild(card);
-            
-            const count = document.getElementById(`count-${stageId}`);
-            count.innerText = parseInt(count.innerText) + 1;
-        }
-    });
+  updateFilterBadge();
 }
 
-// --- 3. DRAG AND DROP ---
-function evAllowDrop(ev) { ev.preventDefault(); }
-function evDrag(ev) { ev.dataTransfer.setData("rmaId", ev.currentTarget.dataset.id); }
+// ══════════════════════════════════════════════════════════════════════════════
+//  BUILD CARD (avec boutons ← →)
+// ══════════════════════════════════════════════════════════════════════════════
+
+function buildCard(rma, isDuplicate = false) {
+  const card = document.createElement('div');
+  card.className  = 'rma-card';
+  card.draggable  = true;
+  card.dataset.id = rma.id;
+ 
+  const stageIndex = RMA_STAGES.indexOf(rma.status);
+  if (stageIndex >= 0) card.style.borderLeftColor = STAGE_COLORS[stageIndex];
+ 
+  card.onclick      = () => openRmaDetails(rma.id);
+  card.ondragstart  = evDrag;
+  card.onmouseenter = (e) => handleCardHover(e, rma.id);
+  card.onmouseleave = handleCardLeave;
+ 
+  const tagsHtml = (rma.tags && rma.tags.length > 0)
+    ? rma.tags.map(t => `
+        <span class="card-tag" style="background:${t.color}18;color:${t.color};border:1px solid ${t.color}30;">
+          ${escapeHtml(t.name)}
+        </span>`).join('')
+    : '';
+ 
+  const dueBadge   = buildDueBadge(rma.due_date);
+  const displayNum = rma.rma_number || `#${rma.id}`;
+  const canPrev    = stageIndex > 0;
+  const canNext    = stageIndex < RMA_STAGES.length - 1;
+ 
+  card.innerHTML = `
+    ${isDuplicate ? `
+      <div class="card-duplicate-badge" title="Doublon détecté : même cabinet et appareil dans une autre colonne !">
+        <i class="fas fa-exclamation"></i>
+      </div>` : ''}
+ 
+    <div class="card-body">
+      <!-- ID + méta -->
+      <div class="card-id">
+        <span class="card-id-num">${escapeHtml(displayNum)}</span>
+        <div class="card-id-meta">
+          ${rma.attachment_count > 0 ? `<span class="card-attachment-count"><i class="fas fa-paperclip"></i>${rma.attachment_count}</span>` : ''}
+          <span class="card-supplier-pill">${escapeHtml(rma.supplier_name || 'Xion')}</span>
+        </div>
+      </div>
+ 
+      <!-- Appareil -->
+      <div class="card-equipment" title="${escapeHtml(rma.equipment_name || '')}">
+        ${escapeHtml(rma.equipment_name || 'Appareil non spécifié')}
+        ${rma.serial_number ? `<span style="color:var(--text-tertiary);font-weight:400;font-size:10px;"> · SN ${escapeHtml(rma.serial_number)}</span>` : ''}
+      </div>
+ 
+      <!-- Client -->
+      <div class="card-client">
+        <i class="fas fa-hospital" style="opacity:0.35;font-size:10px;flex-shrink:0"></i>
+        ${escapeHtml(rma.cabinet_name || 'Client inconnu')}
+      </div>
+ 
+      <!-- Description -->
+      <div class="card-desc">${escapeHtml(rma.description || 'Aucune description').replace(/\n/g, '<br>')}</div>
+ 
+      <!-- Tags -->
+      ${tagsHtml ? `<div class="card-tags">${tagsHtml}</div>` : ''}
+    </div>
+ 
+    <!-- Footer -->
+    <div class="card-footer-row">
+      <div class="card-meta">
+        ${dueBadge}
+      </div>
+      <div class="card-nav-btns">
+        <button class="card-nav-btn" title="Étape précédente (${stageIndex > 0 ? RMA_STAGES[stageIndex - 1] : '—'})"
+          onclick="event.stopPropagation(); moveRmaStage(${rma.id}, -1)"
+          ${canPrev ? '' : 'disabled'}>‹</button>
+        <button class="card-nav-btn forward" title="Étape suivante (${stageIndex < RMA_STAGES.length - 1 ? RMA_STAGES[stageIndex + 1] : '—'})"
+          onclick="event.stopPropagation(); moveRmaStage(${rma.id}, 1)"
+          ${canNext ? '' : 'disabled'}>›</button>
+      </div>
+    </div>
+  `;
+ 
+  return card;
+}
+
+// ── Déplacement rapide ← → ───────────────────────────────────────────────────
+window.moveRmaStage = async function(rmaId, direction) {
+  const rma = allRmas.find(r => r.id === rmaId);
+  if (!rma) return;
+  const idx    = RMA_STAGES.indexOf(rma.status);
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= RMA_STAGES.length) return;
+  const newStatus = RMA_STAGES[newIdx];
+
+  try {
+    const res = await fetch(`/api/rmas/${rmaId}/status`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ status: newStatus })
+    });
+    if (res.ok) {
+      rma.status = newStatus;
+      tooltipCache  = {};
+      renderCurrent();
+      if (window.toast) toast.success('RMA déplacé', `→ ${newStatus}`);
+    }
+  } catch (e) { console.error(e); }
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  VUE LISTE (groupée par client, triable)
+// ══════════════════════════════════════════════════════════════════════════════
+
+function renderListView() {
+  const container = document.getElementById('list-view-body');
+  if (!container) return;
+
+  const rmas = getFilteredRmas();
+
+  // Tri
+  const sorted = [...rmas].sort((a, b) => {
+    let va = a[listSort.col] || '';
+    let vb = b[listSort.col] || '';
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+    return listSort.order === 'asc' ? cmp : -cmp;
+  });
+
+  // Groupement par client
+  const groups = {};
+  sorted.forEach(r => {
+    const key = r.client_id || 0;
+    if (!groups[key]) groups[key] = { name: r.cabinet_name || 'Client inconnu', rmas: [] };
+    groups[key].rmas.push(r);
+  });
+
+  if (!Object.keys(groups).length) {
+    container.innerHTML = `
+      <tr><td colspan="7" style="text-align:center;padding:60px;color:var(--text-tertiary);">
+        <i class="fas fa-inbox fa-3x" style="opacity:0.15;display:block;margin-bottom:14px;"></i>
+        Aucun RMA trouvé.
+      </td></tr>`;
+    return;
+  }
+
+  let html = '';
+
+  Object.values(groups).forEach(group => {
+    const urgentCount = group.rmas.filter(r => {
+      if (!r.due_date) return false;
+      return Math.ceil((new Date(r.due_date) - new Date()) / 86400000) <= 3;
+    }).length;
+
+    html += `
+      <tr class="list-group-header">
+        <td colspan="7" style="padding:8px 14px;background:var(--bg-secondary);
+          border-bottom:1px solid var(--border-primary);border-top:2px solid var(--color-primary);
+          font-weight:700;font-size:var(--text-sm);">
+          <i class="fas fa-hospital" style="color:var(--color-primary);margin-right:6px;"></i>
+          ${escapeHtml(group.name)}
+          <span style="color:var(--text-tertiary);font-weight:400;margin-left:8px;font-size:var(--text-xs);">
+            ${group.rmas.length} dossier(s)
+          </span>
+          ${urgentCount > 0 ? `<span style="background:var(--color-danger);color:#fff;font-size:10px;
+            padding:1px 7px;border-radius:2px;margin-left:8px;font-weight:700;">
+            ⚠ ${urgentCount} urgent(s)</span>` : ''}
+        </td>
+      </tr>`;
+
+    group.rmas.forEach(r => {
+      const stageIdx   = RMA_STAGES.indexOf(r.status);
+      const color      = STAGE_COLORS[stageIdx] || '#94a3b8';
+      const dueBadge   = buildDueBadge(r.due_date);
+      const canPrev    = stageIdx > 0;
+      const canNext    = stageIdx < RMA_STAGES.length - 1;
+      const displayNum = r.rma_number || `#${r.id}`;
+
+      const tagsHtml = (r.tags || []).map(t =>
+        `<span style="background:${t.color}18;color:${t.color};border:1px solid ${t.color}30;
+          font-size:10px;padding:1px 6px;border-radius:2px;">${escapeHtml(t.name)}</span>`
+      ).join(' ');
+
+      html += `
+        <tr onclick="openRmaDetails(${r.id})" style="cursor:pointer;border-bottom:1px solid var(--border-primary);"
+          onmouseenter="this.style.background='var(--bg-secondary)'"
+          onmouseout="this.style.background=''">
+          <td style="padding:10px 14px;border-left:3px solid ${color};">
+            <span style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-primary);">
+              ${escapeHtml(displayNum)}
+            </span>
+          </td>
+          <td style="padding:10px 14px;">
+            <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-primary);">${escapeHtml(r.equipment_name || '—')}</div>
+            <div style="font-size:11px;color:var(--text-tertiary);">${escapeHtml(r.brand || '')}${r.serial_number ? ` · ${r.serial_number}` : ''}</div>
+          </td>
+          <td style="padding:10px 14px;">
+            <span style="background:${color}18;color:${color};border:1px solid ${color}30;
+              font-size:11px;font-weight:600;padding:2px 8px;border-radius:2px;white-space:nowrap;">
+              ${escapeHtml(r.status)}
+            </span>
+          </td>
+          <td style="padding:10px 14px;font-size:var(--text-xs);color:var(--text-secondary);">${escapeHtml(r.supplier_name || 'Xion')}</td>
+          <td style="padding:10px 14px;">${dueBadge || '<span style="color:var(--text-tertiary);font-size:var(--text-xs)">—</span>'}</td>
+          <td style="padding:10px 14px;">${tagsHtml || '<span style="color:var(--text-tertiary);font-size:var(--text-xs)">—</span>'}</td>
+          <td style="padding:10px 14px;" onclick="event.stopPropagation()">
+            <div style="display:flex;gap:4px;justify-content:flex-end;">
+              <button class="card-nav-btn" title="Étape précédente"
+                onclick="moveRmaStage(${r.id}, -1)" ${canPrev ? '' : 'disabled'}>‹</button>
+              <button class="card-nav-btn forward" title="Étape suivante"
+                onclick="moveRmaStage(${r.id}, 1)" ${canNext ? '' : 'disabled'}>›</button>
+            </div>
+          </td>
+        </tr>`;
+    });
+  });
+
+  container.innerHTML = html;
+
+  // Icônes de tri
+  document.querySelectorAll('.list-sort-btn').forEach(btn => {
+    const col = btn.dataset.col;
+    btn.querySelector('i').className = col === listSort.col
+      ? `fas fa-sort-${listSort.order === 'asc' ? 'up' : 'down'}`
+      : 'fas fa-sort';
+    btn.style.color = col === listSort.col ? 'var(--color-primary)' : 'var(--text-tertiary)';
+  });
+
+  updateFilterBadge();
+}
+
+window.listHandleSort = function(col) {
+  if (listSort.col === col) {
+    listSort.order = listSort.order === 'asc' ? 'desc' : 'asc';
+  } else {
+    listSort.col   = col;
+    listSort.order = 'asc';
+  }
+  renderListView();
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TOGGLE VUE (kanban / liste / dashboard)
+// ══════════════════════════════════════════════════════════════════════════════
+
+function toggleView(view) {
+  currentView = view;
+  const kanban    = document.getElementById('kanban-board');
+  const dashboard = document.getElementById('dashboard-view');
+  const listView  = document.getElementById('list-view');
+  const filterBar = document.getElementById('rma-filter-bar');
+
+  if (kanban)    kanban.style.display    = 'none';
+  if (dashboard) dashboard.style.display = 'none';
+  if (listView)  listView.style.display  = 'none';
+
+  document.querySelectorAll('.kb-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById(`btn-${view}`)?.classList.add('active');
+
+  if (filterBar) filterBar.style.display = view !== 'dashboard' ? 'flex' : 'none';
+
+  if (view === 'kanban') {
+    if (kanban) kanban.style.display = '';
+    renderRmas();
+  } else if (view === 'list') {
+    if (listView) listView.style.display = '';
+    renderListView();
+  } else if (view === 'dashboard') {
+    if (dashboard) dashboard.style.display = '';
+    loadDashboardStats?.();
+  }
+
+  localStorage.setItem('rma_view', view);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  DUE DATE BADGE
+// ══════════════════════════════════════════════════════════════════════════════
+
+function buildDueBadge(dueDate) {
+  if (!dueDate) return '';
+  const due  = new Date(dueDate);
+  const now  = new Date(); now.setHours(0, 0, 0, 0);
+  const diff = Math.round((due - now) / 86400000);
+  let cls = 'ok', label = '';
+
+  if (diff < 0) {
+    cls   = 'overdue';
+    label = `En retard (${Math.abs(diff)}j)`;
+  } else if (diff <= 3) {
+    cls   = 'soon';
+    label = diff === 0 ? "Aujourd'hui" : `J+${diff}`;
+  } else {
+    label = fmt(dueDate);
+  }
+
+  return `<span class="card-due ${cls}" title="Échéance : ${fmt(dueDate)}">
+    <i class="fas fa-calendar-alt" style="font-size:9px"></i> ${label}
+  </span>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  DÉTECTION DOUBLONS
+// ══════════════════════════════════════════════════════════════════════════════
+
+function detectDuplicates() {
+  const duplicateIds = new Set();
+  const active       = allRmas.filter(r => r.status !== 'Archives');
+  const seen         = new Map();
+
+  active.forEach(rma => {
+    if (!rma.client_id || !rma.equipment_id) return;
+    const key = `${rma.client_id}-${rma.equipment_id}`;
+    if (seen.has(key)) {
+      duplicateIds.add(rma.id);
+      duplicateIds.add(seen.get(key));
+    } else {
+      seen.set(key, rma.id);
+    }
+  });
+
+  return duplicateIds;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  DRAG & DROP
+// ══════════════════════════════════════════════════════════════════════════════
+
+function evAllowDrop(ev) {
+  ev.preventDefault();
+  ev.currentTarget.closest('.kanban-col')?.classList.add('drag-over');
+}
+
+function evDragLeave(ev) {
+  ev.currentTarget.closest('.kanban-col')?.classList.remove('drag-over');
+}
+
+function evDrag(ev) {
+  ev.dataTransfer.setData('rmaId', ev.currentTarget.dataset.id);
+}
+
 async function evDrop(ev) {
-    ev.preventDefault();
-    const id = ev.dataTransfer.getData("rmaId");
-    const col = ev.target.closest('.kanban-col');
-    if (col && id) {
-        const newStatus = col.dataset.status;
-        await fetch(`/api/rmas/${id}/status`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus })
-        });
-        loadRmas();
-    }
+  ev.preventDefault();
+  const col = ev.target.closest('.kanban-col');
+  if (col) col.classList.remove('drag-over');
+  const id = ev.dataTransfer.getData('rmaId');
+  if (!col || !id) return;
+  const newStatus = col.dataset.status;
+  try {
+    const res = await fetch(`/api/rmas/${id}/status`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ status: newStatus })
+    });
+    if (res.ok) { tooltipCache = {}; loadRmas(); }
+  } catch (e) { console.error(e); }
 }
 
-// --- 4. CRÉATION D'UN NOUVEAU RMA ---
+// ══════════════════════════════════════════════════════════════════════════════
+//  CRÉATION RMA
+// ══════════════════════════════════════════════════════════════════════════════
+
 async function openNewRmaModal() {
-    currentRmaId = null;
-    const modal = document.getElementById('rma-modal');
-    modal.classList.add('active');
-    document.getElementById('delete-rma-btn').style.display = 'none';
-    
-    const titleHeader = document.getElementById('rma-modal-title');
-    const body = document.getElementById('rma-modal-body');
-    
-    titleHeader.innerHTML = `<i class='fas fa-plus-circle'></i> Nouvelle Déclaration RMA`;
-    body.innerHTML = '<div style="text-align:center; padding:5rem;"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--kb-primary);"></i></div>';
+  currentRmaId  = null;
+  const modal   = document.getElementById('rma-modal');
+  const body    = document.getElementById('rma-modal-body');
+  const footer  = modal.querySelector('.modal-footer');
 
-    try {
-        const res = await fetch('/api/clients');
-        const data = await res.json();
-        
-        // LA CORRECTION EST ICI : On sécurise le format de la liste des clients
-        const clients = Array.isArray(data) ? data : (data.clients || data.data || []);
-        
-        const clientOptions = clients.map(c => `<option value="${c.id}">${escapeHtml(c.cabinet_name || c.name)}</option>`).join('');
+  document.getElementById('rma-modal-title').innerHTML =
+    `<i class="fas fa-plus-circle" style="color:var(--color-primary)"></i> Nouvelle déclaration RMA`;
 
-        body.innerHTML = `
-            <form onsubmit="saveRma(event)">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 25px;">
-                    <div>
-                        <div class="form-group mb-3">
-                            <label>Client <span style="color:var(--kb-red);">*</span></label>
-                            <select id="form-client" class="form-control" required onchange="loadClientEquipment(this.value)">
-                                <option value="">-- Rechercher un client --</option>
-                                ${clientOptions}
-                            </select>
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>Matériel concerné</label>
-                            <select id="form-equipment" class="form-control">
-                                <option value="">-- Sélectionnez d'abord un client --</option>
-                            </select>
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>Fournisseur (SAV)</label>
-                            <select id="form-supplier" class="form-control">
-                                <option value="Xion" selected>Xion</option>
-                                <option value="Heinemann">Heinemann</option>
-                                <option value="Autre">Autre...</option>
-                            </select>
-                        </div>
-                    </div>
+  footer.innerHTML = `
+    <button class="btn btn-secondary" onclick="closeRmaModal()" style="min-width:120px">Annuler</button>
+    <button class="btn btn-primary" id="submit-new-rma" style="min-width:180px">
+      <i class="fas fa-plus"></i> Créer le RMA
+    </button>
+  `;
 
-                    <div>
-                        <div class="form-group mb-3">
-                            <label>N° RMA Fournisseur</label>
-                            <input type="text" id="form-rma-number" class="form-control" placeholder="Optionnel, si déjà connu">
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>Tracking Envoi (Aller)</label>
-                            <input type="text" id="form-tracking-to" class="form-control" placeholder="Optionnel">
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>Tracking Retour</label>
-                            <input type="text" id="form-tracking-from" class="form-control" placeholder="Optionnel">
-                        </div>
-                    </div>
-                </div>
+  modal.classList.add('active');
+  body.innerHTML = loadingHtml();
 
-                <div class="form-group mb-4">
-                    <label>Description détaillée de la panne <span style="color:var(--kb-red);">*</span></label>
-                    <textarea id="form-desc" class="form-control" rows="4" required placeholder="Symptômes, tests effectués..."></textarea>
-                </div>
-                
-                <div style="display:flex; gap:10px; border-top:1px solid var(--kb-gray-border); padding-top:20px;">
-                    <button type="button" class="btn btn-secondary" onclick="closeRmaModal()" style="flex:1;">Annuler</button>
-                    <button type="submit" class="btn btn-primary" style="flex:2; justify-content:center; font-weight:800;">
-                        <i class="fas fa-plus"></i> Créer le RMA
-                    </button>
-                </div>
-            </form>
-        `;
+  try {
+    const res     = await fetch('/api/clients');
+    const data    = await res.json();
+    const clients = Array.isArray(data) ? data : (data.clients || data.data || []);
 
-        // Activation de la recherche Tom Select une fois le HTML généré
-        setTimeout(() => applySearchableSelects(), 50);
+    body.innerHTML = `
+      <form id="new-rma-form" autocomplete="off">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">
+                Client <span style="color:var(--color-danger)">*</span>
+              </label>
+              <select id="form-client" required onchange="loadClientEquipment(this.value)"
+                style="width:100%;height:38px;padding:0 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;">
+                <option value="">-- Rechercher un client --</option>
+                ${clients.map(c => `<option value="${c.id}">${escapeHtml(c.cabinet_name || c.name)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">Matériel concerné</label>
+              <select id="form-equipment" disabled
+                style="width:100%;height:38px;padding:0 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;opacity:0.6;">
+                <option value="">-- Sélectionnez d'abord un client --</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">Fournisseur (SAV)</label>
+              <select id="form-supplier"
+                style="width:100%;height:38px;padding:0 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;">
+                <option value="Xion">Xion</option>
+                <option value="Heinemann">Heinemann</option>
+                <option value="Autre">Autre...</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">N° RMA Fournisseur</label>
+              <input type="text" id="form-rma-number" placeholder="Optionnel — si déjà connu"
+                style="width:100%;height:38px;padding:0 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;">
+            </div>
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">Date d'échéance</label>
+              <input type="date" id="form-due-date"
+                style="width:100%;height:38px;padding:0 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div>
+                <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">Tracking envoi</label>
+                <input type="text" id="form-tracking-to" placeholder="Optionnel"
+                  style="width:100%;height:38px;padding:0 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;">
+              </div>
+              <div>
+                <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">Tracking retour</label>
+                <input type="text" id="form-tracking-from" placeholder="Optionnel"
+                  style="width:100%;height:38px;padding:0 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--border-primary);">
+          <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">
+            Description détaillée <span style="color:var(--color-danger)">*</span>
+          </label>
+          <textarea id="form-desc" required rows="4" placeholder="Symptômes observés, tests effectués, conditions d'apparition..."
+            style="width:100%;padding:10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;resize:vertical;"></textarea>
+        </div>
+      </form>
+    `;
 
-    } catch (e) {
-        console.error("Erreur création RMA :", e);
-        body.innerHTML = '<div style="color:var(--kb-red); text-align:center; padding:20px; font-weight:bold;">Erreur lors du chargement des clients.</div>';
-    }
+    document.getElementById('form-client').focus();
+    document.getElementById('submit-new-rma').onclick = (e) => { e.preventDefault(); saveRma(new Event('submit')); };
+    setTimeout(() => applySearchableSelects(), 50);
+
+  } catch (e) {
+    console.error(e);
+    body.innerHTML = `<div style="color:var(--color-danger);text-align:center;padding:40px;"><i class="fas fa-exclamation-triangle fa-2x" style="margin-bottom:12px;display:block"></i>Erreur lors du chargement.</div>`;
+  }
 }
 
-// Cascade Client -> Équipement
 async function loadClientEquipment(clientId) {
-    const eqSelect = document.getElementById('form-equipment');
-    if (!clientId) { eqSelect.disabled = true; return; }
-    try {
-        const res = await fetch(`/api/rmas/equipment/${clientId}`);
-        const equipment = await res.json();
-        eqSelect.innerHTML = '<option value="">-- Inconnu --</option>' + 
-            equipment.map(e => `<option value="${e.id}">${escapeHtml(e.brand)} - ${escapeHtml(e.name)} (SN: ${e.serial_number})</option>`).join('');
-        eqSelect.disabled = false;
-    } catch (e) { console.error(e); }
+  const eqSelect = document.getElementById('form-equipment');
+  if (!eqSelect) return;
+  if (tsInstances.formEquipment) { tsInstances.formEquipment.destroy(); delete tsInstances.formEquipment; }
+  if (!clientId) {
+    eqSelect.innerHTML = "<option value=''>-- Sélectionnez d'abord un client --</option>";
+    eqSelect.disabled = true; eqSelect.style.opacity = '0.6'; return;
+  }
+  eqSelect.innerHTML = '<option value="">Chargement...</option>';
+  eqSelect.disabled = true; eqSelect.style.opacity = '0.6';
+  try {
+    const res       = await fetch(`/api/rmas/equipment/${clientId}`);
+    const equipment = await res.json();
+    eqSelect.innerHTML = '<option value="">-- Aucun équipement spécifié --</option>' +
+      equipment.map(e => `<option value="${e.id}">${escapeHtml(e.brand)} — ${escapeHtml(e.name)} (SN: ${e.serial_number || 'N/A'})</option>`).join('');
+    eqSelect.disabled = false; eqSelect.style.opacity = '1';
+  } catch (err) {
+    console.error(err);
+    eqSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+  }
 }
 
 async function saveRma(e) {
-    e.preventDefault();
-    const data = {
-        client_id: document.getElementById('form-client').value,
-        equipment_id: document.getElementById('form-equipment').value || null,
-        supplier_name: document.getElementById('form-supplier').value,
-        rma_number: document.getElementById('form-rma-number').value,
-        tracking_to_supplier: document.getElementById('form-tracking-to').value,
-        tracking_from_supplier: document.getElementById('form-tracking-from').value,
-        description: document.getElementById('form-desc').value
-    };
-    await fetch('/api/rmas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-    closeRmaModal();
-    loadRmas();
+  e.preventDefault();
+  const clientId    = document.getElementById('form-client').value;
+  const equipmentId = document.getElementById('form-equipment').value;
+
+  if (clientId && equipmentId) {
+    const active = allRmas.filter(r => r.status !== 'Archives');
+    const dup    = active.find(r => String(r.client_id) === String(clientId) && String(r.equipment_id) === String(equipmentId));
+    if (dup) {
+      const proceed = await showConfirm({
+        title: 'Doublon détecté !',
+        message: `Un RMA actif existe déjà pour "${dup.cabinet_name || 'ce client'}" — "${dup.equipment_name || 'cet appareil'}" (colonne "${dup.status}"). Créer quand même ?`,
+        confirmText: 'Créer quand même', cancelText: 'Annuler', type: 'warning'
+      });
+      if (!proceed) return;
+    }
+  }
+
+  const data = {
+    client_id: clientId, equipment_id: equipmentId || null,
+    supplier_name: document.getElementById('form-supplier').value,
+    rma_number: document.getElementById('form-rma-number').value,
+    due_date: document.getElementById('form-due-date')?.value || null,
+    tracking_to_supplier: document.getElementById('form-tracking-to').value,
+    tracking_from_supplier: document.getElementById('form-tracking-from').value,
+    description: document.getElementById('form-desc').value
+  };
+
+  try {
+    const res = await fetch('/api/rmas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) {
+      closeRmaModal(); await loadRmas();
+      if (window.toast) toast.success('RMA créé', 'La déclaration a été enregistrée.');
+    } else {
+      const err = await res.json();
+      if (window.toast) toast.error('Erreur', err.error || 'Impossible de créer le RMA.');
+    }
+  } catch (err) {
+    console.error(err);
+    if (window.toast) toast.error('Erreur réseau', 'Connexion au serveur échouée.');
+  }
 }
 
-// --- 5. DÉTAILS ET MODIFICATION ---
-// A. MODE LECTURE (Par défaut)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Remplace openRmaDetails() dans public/js/rmas.js
+// Changements :
+//   1. Historique à gauche (colonne principale)
+//   2. Tags + Documents à droite (colonne latérale)
+//   3. Commentaires système affichés différemment
+// ═══════════════════════════════════════════════════════════════════════════════
+
 async function openRmaDetails(id) {
-    currentRmaId = id;
-    const modal = document.getElementById('rma-modal');
-    modal.classList.add('active');
-    
-    document.getElementById('delete-rma-btn').style.display = 'none'; 
-    const titleHeader = document.getElementById('rma-modal-title');
-    const body = document.getElementById('rma-modal-body');
-    
-    body.innerHTML = '<div style="text-align:center; padding:5rem;"><i class="fas fa-spinner fa-spin fa-3x" style="color:var(--color-primary);"></i></div>';
+  currentRmaId = id;
+  const modal  = document.getElementById('rma-modal');
+  const body   = document.getElementById('rma-modal-body');
+  const footer = modal.querySelector('.modal-footer');
 
-    try {
-        const [rmaRes, tagsAllRes] = await Promise.all([
-            fetch(`/api/rmas/${id}`),
-            fetch('/api/rmas/tags/all')
-        ]);
-        
-        const rma = await rmaRes.json();
-        const allTags = await tagsAllRes.json();
+  footer.innerHTML = `
+    <button class="btn btn-danger btn-sm" id="delete-rma-btn" onclick="deleteRma()" style="display:none">
+      <i class="fas fa-trash"></i> Supprimer
+    </button>
+    <button class="btn btn-secondary" onclick="closeRmaModal()">Fermer</button>
+  `;
 
-        // Titre avec les boutons d'action
-        titleHeader.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <span style="font-weight:800; letter-spacing:-0.5px;">RMA #${id}</span>
-                <button class="btn btn-primary btn-sm" onclick="editRmaDetails(${id})">
-                    <i class="fas fa-pen"></i> Modifier l'intervention
+  modal.classList.add('active');
+  body.innerHTML = loadingHtml();
+
+  try {
+    const [rmaRes, tagsRes] = await Promise.all([
+      fetch(`/api/rmas/${id}`),
+      fetch('/api/rmas/tags/all')
+    ]);
+    const rma     = await rmaRes.json();
+    const allTags = await tagsRes.json();
+
+    const stageIndex = RMA_STAGES.indexOf(rma.status);
+    const stageColor = STAGE_COLORS[stageIndex] || '#94a3b8';
+    const displayNum = rma.rma_number || `#${id}`;
+    const canPrev    = stageIndex > 0;
+    const canNext    = stageIndex < RMA_STAGES.length - 1;
+
+    // ── Titre modal ──────────────────────────────────────────────────────────
+    document.getElementById('rma-modal-title').innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-family:var(--font-mono);color:var(--color-primary);font-size:0.95rem;">${escapeHtml(displayNum)}</span>
+        <span style="background:${stageColor}18;color:${stageColor};font-size:11px;font-weight:700;
+          padding:3px 10px;border-radius:2px;border:1px solid ${stageColor}30;">
+          ${escapeHtml(rma.status)}
+        </span>
+        <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="editRmaDetails(${id})">
+            <i class="fas fa-pen"></i> Modifier
+          </button>
+          <button class="btn btn-sm" style="background:var(--color-danger-bg);color:var(--color-danger);border:1px solid rgba(239,68,68,0.25);" onclick="refuseDevis(${id})">
+            <i class="fas fa-ban"></i> Devis Refusé
+          </button>
+        </div>
+      </div>
+    `;
+
+    // ── Commentaires : rendu différencié système/utilisateur ─────────────────
+    const allComments = [...(rma.comments || [])].reverse();
+
+    const commentsHtml = allComments.length
+      ? allComments.map(c => {
+          const dt = new Date(c.created_at).toLocaleString('fr-CH', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          });
+
+          if (c.is_system === 1) {
+            // ── Commentaire système (changelog) ──────────────────────────────
+            const lines = c.comment.split('\n').filter(Boolean);
+            return `
+              <div style="
+                margin-bottom:8px;
+                padding:10px 12px;
+                background:var(--bg-secondary);
+                border:1px solid var(--border-primary);
+                border-left:3px solid var(--color-primary);
+                border-radius:0 3px 3px 0;
+              ">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--color-primary);">
+                    <i class="fas fa-history" style="margin-right:4px;"></i>
+                    Modification — ${escapeHtml(c.user_name)}
+                  </span>
+                  <span style="font-size:10px;color:var(--text-tertiary);">${dt}</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px;">
+                  ${lines.map(line => `
+                    <div style="font-size:var(--text-xs);color:var(--text-secondary);
+                      display:flex;align-items:baseline;gap:6px;">
+                      ${escapeHtml(line)}
+                    </div>`).join('')}
+                </div>
+              </div>`;
+          } else {
+            // ── Commentaire utilisateur normal ────────────────────────────────
+            return `
+              <div class="comment-item">
+                <div class="comment-meta">
+                  <span class="comment-author">${escapeHtml(c.user_name)}</span>
+                  <span class="comment-date">${dt}</span>
+                </div>
+                <div class="comment-text">${escapeHtml(c.comment)}</div>
+              </div>`;
+          }
+        }).join('')
+      : `<div style="text-align:center;padding:24px;color:var(--text-tertiary);font-size:var(--text-sm);font-style:italic;">
+           Aucune activité enregistrée.
+         </div>`;
+
+    // ── Corps du modal ────────────────────────────────────────────────────────
+    body.innerHTML = `
+
+      <!-- Navigation rapide entre étapes -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 14px;
+        background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:3px;">
+        <button onclick="moveRmaStage(${id}, -1); closeRmaModal();"
+          style="background:none;border:1px solid var(--border-primary);border-radius:3px;
+            padding:4px 10px;font-size:var(--text-xs);color:var(--text-secondary);cursor:pointer;
+            transition:all 0.12s;white-space:nowrap;"
+          ${canPrev ? '' : 'disabled style="opacity:0.3;cursor:not-allowed;"'}
+          onmouseover="if(!this.disabled)this.style.borderColor='var(--color-primary)'"
+          onmouseout="this.style.borderColor='var(--border-primary)'">
+          <i class="fas fa-chevron-left" style="font-size:10px;margin-right:3px;"></i>
+          ${canPrev ? escapeHtml(RMA_STAGES[stageIndex - 1]) : '—'}
+        </button>
+        <div style="flex:1;text-align:center;">
+          <span style="font-weight:700;color:${stageColor};font-size:var(--text-sm);">${escapeHtml(rma.status)}</span>
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:1px;">Étape ${stageIndex + 1} / ${RMA_STAGES.length}</div>
+        </div>
+        <button onclick="moveRmaStage(${id}, 1); closeRmaModal();"
+          style="background:none;border:1px solid var(--border-primary);border-radius:3px;
+            padding:4px 10px;font-size:var(--text-xs);color:var(--text-secondary);cursor:pointer;
+            transition:all 0.12s;white-space:nowrap;"
+          ${canNext ? '' : 'disabled style="opacity:0.3;cursor:not-allowed;"'}
+          onmouseover="if(!this.disabled)this.style.borderColor='var(--color-success)'"
+          onmouseout="this.style.borderColor='var(--border-primary)'">
+          ${canNext ? escapeHtml(RMA_STAGES[stageIndex + 1]) : '—'}
+          <i class="fas fa-chevron-right" style="font-size:10px;margin-left:3px;"></i>
+        </button>
+      </div>
+
+      <!-- Grille principale — HISTORIQUE à gauche, TAGS+DOCS à droite -->
+      <div class="rma-detail-grid">
+
+        <!-- ── COLONNE GAUCHE : Infos + Historique ───────────────────────── -->
+        <div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
+
+          <!-- Infos principales -->
+          <div class="rma-info-card">
+            <div class="rma-info-card-header">
+              <i class="fas fa-info-circle" style="color:var(--color-primary)"></i>
+              Informations
+            </div>
+            <div class="rma-info-card-body">
+              <div class="rma-info-row">
+                <span class="rma-info-label">Client</span>
+                <span class="rma-info-value" style="color:var(--color-primary);font-weight:700;">
+                  <i class="fas fa-hospital" style="opacity:0.4;margin-right:4px;font-size:11px;"></i>
+                  ${escapeHtml(rma.cabinet_name || 'Non spécifié')}
+                </span>
+              </div>
+              <div class="rma-info-row">
+                <span class="rma-info-label">Appareil</span>
+                <span class="rma-info-value">
+                  ${rma.equipment_name
+                    ? `<strong>${escapeHtml((rma.brand || '') + ' ' + rma.equipment_name)}</strong>`
+                    : '<span style="color:var(--text-tertiary)">Non listé</span>'}
+                  ${rma.serial_number ? `<code style="background:var(--bg-secondary);padding:1px 6px;border-radius:2px;font-size:11px;margin-left:6px;border:1px solid var(--border-primary);">SN: ${escapeHtml(rma.serial_number)}</code>` : ''}
+                </span>
+              </div>
+              ${rma.title ? `<div class="rma-info-row"><span class="rma-info-label">Titre</span><span class="rma-info-value">${escapeHtml(rma.title)}</span></div>` : ''}
+              ${rma.due_date ? `<div class="rma-info-row"><span class="rma-info-label">Échéance</span><span class="rma-info-value">${buildDueBadge(rma.due_date)}</span></div>` : ''}
+              <div class="rma-description-block">${escapeHtml(rma.description || 'Aucune description.')}</div>
+            </div>
+          </div>
+
+          <!-- Historique complet -->
+          <div class="rma-info-card" style="flex:1;display:flex;flex-direction:column;min-height:300px;">
+            <div class="rma-info-card-header">
+              <i class="fas fa-history" style="color:var(--color-primary)"></i>
+              Historique
+              <span style="margin-left:auto;background:var(--bg-tertiary);color:var(--text-tertiary);
+                font-size:10px;padding:1px 7px;border-radius:2px;font-weight:700;">
+                ${allComments.length}
+              </span>
+            </div>
+
+            <!-- Formulaire commentaire -->
+            <form onsubmit="addComment(event, ${id})" class="comment-form-wrapper" style="flex-shrink:0;">
+              <div class="comment-input-row">
+                <input type="text" id="new-comment" class="comment-input"
+                  placeholder="Ajouter une note ou mise à jour..." required>
+                <button type="submit" class="btn btn-primary btn-sm" style="flex-shrink:0;">
+                  <i class="fas fa-paper-plane"></i>
                 </button>
-                <button class="btn btn-sm" style="background:#fee2e2; color:#ef4444; border:1px solid #f87171;" onclick="refuseDevis(${id})">
-                    <i class="fas fa-ban"></i> Devis Refusé
-                </button>
+              </div>
+              <div id="comment-template-zone"></div>
+            </form>
+
+            <!-- Liste commentaires -->
+            <div style="flex:1;overflow-y:auto;min-height:0;padding:8px;">
+              ${commentsHtml}
             </div>
-        `;
+          </div>
+        </div>
 
-        body.innerHTML = `
-            <div class="rma-details-grid" style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; margin-bottom: 25px;">
-                <div class="details-section">
-                    <h3 style="font-size:0.75rem; text-transform:uppercase; color:var(--neutral-500); margin-bottom:15px; letter-spacing:0.1em;">Informations Générales</h3>
-                    <div style="background:white; border:1px solid var(--border-color); border-radius:12px; padding:20px; box-shadow:var(--shadow-sm);">
-                        <p style="margin-bottom:12px;"><strong>Titre :</strong> ${rma.title ? escapeHtml(rma.title) : '<span style="color:var(--neutral-400); font-style:italic;">Titre automatique</span>'}</p>
-                        <p style="margin-bottom:12px;"><strong>Client :</strong> <span style="color:var(--color-primary); font-weight:700;">${escapeHtml(rma.cabinet_name || 'Non spécifié')}</span></p>
-                        <p style="margin-bottom:12px;"><strong>Appareil :</strong> ${rma.equipment_name ? escapeHtml(rma.brand + ' - ' + rma.equipment_name) : 'Non listé'} ${rma.serial_number ? `<code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.85rem; margin-left:5px;">SN: ${escapeHtml(rma.serial_number)}</code>` : ''}</p>
-                        <p style="margin-bottom:12px;"><strong>Statut :</strong> <span class="badge" style="background:var(--color-primary-light); color:var(--color-primary);">${escapeHtml(rma.status)}</span></p>
-                        <div style="margin-top:15px; padding:12px; background:#f8fafc; border-radius:8px; font-size:0.9rem; line-height:1.5; color:var(--neutral-700); border-left:4px solid var(--neutral-200);">
-                            ${escapeHtml(rma.description || 'Pas de description.')}
-                        </div>
-                    </div>
-                </div>
+        <!-- ── COLONNE DROITE : Logistique + Tags + Documents ────────────── -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
 
-                <div class="details-section">
-                    <h3 style="font-size:0.75rem; text-transform:uppercase; color:var(--neutral-500); margin-bottom:15px; letter-spacing:0.1em;">Suivi Logistique</h3>
-                    <div style="background:#f1f5f9; border-radius:12px; padding:20px; height:100%;">
-                        <div style="margin-bottom:15px;">
-                            <label style="display:block; font-size:0.7rem; font-weight:800; color:var(--neutral-500); text-transform:uppercase;">Fournisseur</label>
-                            <span style="font-weight:700; color:var(--neutral-900);">${escapeHtml(rma.supplier_name || 'Xion')}</span>
-                        </div>
-                        <div style="margin-bottom:15px;">
-                            <label style="display:block; font-size:0.7rem; font-weight:800; color:var(--neutral-500); text-transform:uppercase;">N° RMA Fournisseur</label>
-                            <span style="font-family:monospace; font-size:1rem;">${rma.rma_number ? escapeHtml(rma.rma_number) : '---'}</span>
-                        </div>
-                        <div>
-                            <label style="display:block; font-size:0.7rem; font-weight:800; color:var(--neutral-500); text-transform:uppercase;">Tracking Aller/Retour</label>
-                            <div style="font-size:0.85rem; margin-top:5px;">
-                                <i class="fas fa-arrow-right" style="width:20px; color:var(--neutral-400);"></i> ${rma.tracking_to_supplier || 'Non renseigné'}<br>
-                                <i class="fas fa-arrow-left" style="width:20px; color:var(--neutral-400);"></i> ${rma.tracking_from_supplier || 'Non renseigné'}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+          <!-- Logistique -->
+          <div class="rma-info-card">
+            <div class="rma-info-card-header">
+              <i class="fas fa-truck" style="color:var(--color-primary)"></i>
+              Suivi logistique
             </div>
-
-            ${renderTagsSection(rma, allTags, id)}
-            ${getAttachmentsHtml(rma, id)}
-
-            <div style="margin-top:30px;">
-                <h3 style="font-size:0.75rem; text-transform:uppercase; color:var(--neutral-500); margin-bottom:15px; letter-spacing:0.1em;">Historique des interventions</h3>
-                
-                <form onsubmit="addComment(event, ${id})" style="display:flex; gap:10px; background:#f8fafc; padding:10px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:15px;">
-                    <input type="text" id="new-comment" class="form-control" placeholder="Ajouter une mise à jour..." required style="border:none; background:transparent; flex:1;">
-                    <button type="submit" class="btn btn-primary" style="border-radius:10px;"><i class="fas fa-paper-plane"></i></button>
-                </form>
-
-                <div style="max-height:250px; overflow-y:auto; background:white; border:1px solid var(--border-color); border-radius:12px; padding:15px;">
-                    ${rma.comments.length ? rma.comments.map(c => `
-                        <div style="margin-bottom:15px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                                <strong style="font-size:0.85rem;">${escapeHtml(c.user_name)}</strong>
-                                <span style="font-size:0.75rem; color:var(--neutral-400);">${new Date(c.created_at).toLocaleString('fr-CH')}</span>
-                            </div>
-                            <div style="font-size:0.9rem; color:var(--neutral-700);">${escapeHtml(c.comment)}</div>
-                        </div>
-                    `).join('') : '<p style="text-align:center; color:var(--neutral-400); padding:20px;">Aucun commentaire.</p>'}
+            <div class="rma-info-card-body">
+              <div class="rma-info-row">
+                <span class="rma-info-label">Fournisseur</span>
+                <span class="rma-info-value"><strong>${escapeHtml(rma.supplier_name || 'Xion')}</strong></span>
+              </div>
+              <div class="rma-info-row">
+                <span class="rma-info-label">N° RMA</span>
+                <span class="rma-info-value" style="font-family:var(--font-mono);font-size:var(--text-xs);">
+                  ${rma.rma_number ? escapeHtml(rma.rma_number) : '<span style="color:var(--text-tertiary)">—</span>'}
+                </span>
+              </div>
+              <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-primary);">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:8px;">Tracking</div>
+                <div style="font-size:var(--text-xs);color:var(--text-secondary);line-height:2;">
+                  <div><i class="fas fa-arrow-right" style="width:16px;color:var(--text-tertiary);"></i> ${escapeHtml(rma.tracking_to_supplier || '—')}</div>
+                  <div><i class="fas fa-arrow-left" style="width:16px;color:var(--text-tertiary);"></i> ${escapeHtml(rma.tracking_from_supplier || '—')}</div>
                 </div>
+              </div>
+              <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-primary);font-size:11px;color:var(--text-tertiary);">
+                <i class="fas fa-clock" style="margin-right:4px;"></i>
+                Créé le ${new Date(rma.created_at).toLocaleString('fr-CH')}
+              </div>
             </div>
-        `;
-        // À mettre après body.innerHTML = `...`; dans vos fonctions d'ouverture
-setTimeout(() => applySearchableSelects(), 50);
-    } catch (e) { console.error(e); }
+          </div>
+
+          <!-- Tags -->
+          ${renderTagsSection(rma, allTags, id)}
+
+          <!-- Pièces jointes -->
+          ${getAttachmentsHtml(rma, id)}
+        </div>
+
+      </div><!-- /rma-detail-grid -->
+    `;
+
+    // Bouton supprimer
+    const deleteBtn = document.getElementById('delete-rma-btn');
+    if (deleteBtn) deleteBtn.style.display = '';
+
+    // Templates de commentaires
+    const tz = document.getElementById('comment-template-zone');
+    if (tz) tz.innerHTML = buildCommentTemplatesHtml();
+
+    setTimeout(() => applySearchableSelects(), 50);
+
+  } catch (e) {
+    console.error(e);
+    body.innerHTML = '<div style="color:var(--color-danger);text-align:center;padding:40px;">Erreur de chargement.</div>';
+  }
 }
 
-window.renderTagsSection = function(rma, allTags, rmaId) {
-    // Liste des IDs des tags déjà assignés pour pouvoir les filtrer
-    const assignedTagIds = rma.tags ? rma.tags.map(t => t.id) : [];
+// ══════════════════════════════════════════════════════════════════════════════
+//  TEMPLATES DE COMMENTAIRES
+// ══════════════════════════════════════════════════════════════════════════════
 
-    // 1. Zone des tags ACTIFS (Design Solide)
-    const assignedTagsHtml = rma.tags && rma.tags.length > 0 
-        ? rma.tags.map(t => `
-            <div style="background:${t.color}15; color:${t.color}; font-size:0.75rem; padding:4px 10px; border-radius:6px; font-weight:800; border: 1px solid ${t.color}40; display:inline-flex; align-items:center; gap:6px;">
-                ${escapeHtml(t.name)}
-                <i class="fas fa-times" style="cursor:pointer; opacity:0.5; transition:0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'" onclick="removeTagFromRma(${rmaId}, ${t.id})" title="Retirer l'étiquette"></i>
-            </div>`).join('') 
-        : '<span style="color:var(--neutral-400); font-size:0.8rem; font-style:italic;">Aucune étiquette assignée.</span>';
+function buildCommentTemplatesHtml() {
+  return `
+    <div style="position:relative;display:inline-block;">
+      <button type="button" onclick="toggleCommentTemplates()"
+        style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:3px;
+          padding:5px 10px;font-size:var(--text-xs);color:var(--text-secondary);cursor:pointer;
+          display:flex;align-items:center;gap:5px;font-family:inherit;">
+        <i class="fas fa-bolt" style="color:var(--color-primary)"></i> Réponses rapides
+        <i class="fas fa-chevron-up" style="font-size:9px"></i>
+      </button>
+      <div id="comment-templates-dropdown"
+        style="display:none;position:absolute;bottom:calc(100% + 6px);left:0;
+          background:var(--bg-elevated);border:1px solid var(--border-primary);
+          border-radius:4px;box-shadow:var(--shadow-lg);z-index:200;
+          min-width:230px;overflow:hidden;">
+        ${COMMENT_TEMPLATES.map(t => `
+          <button type="button" onclick="insertTemplate('${t.text.replace(/'/g, "\\'")}')"
+            style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 14px;
+              background:none;border:none;border-bottom:1px solid var(--border-primary);
+              font-size:var(--text-xs);color:var(--text-primary);text-align:left;cursor:pointer;
+              font-family:inherit;transition:background 0.1s;"
+            onmouseover="this.style.background='var(--bg-secondary)'"
+            onmouseout="this.style.background='none'">
+            <span style="font-size:14px;">${t.icon}</span>
+            ${escapeHtml(t.label)}
+          </button>`).join('')}
+      </div>
+    </div>`;
+}
 
-    // 2. Zone des tags DISPONIBLES (Design Pointillé)
-    const availableTags = allTags.filter(t => !assignedTagIds.includes(t.id));
-    const availableTagsHtml = availableTags.length > 0
-        ? availableTags.map(t => `
-            <button type="button" onclick="addTagToRma(${rmaId}, ${t.id})" style="background:white; color:${t.color}; font-size:0.75rem; padding:4px 10px; border-radius:6px; font-weight:700; border: 1px dashed ${t.color}80; display:inline-flex; align-items:center; gap:6px; cursor:pointer; transition:0.2s;" onmouseover="this.style.background='${t.color}10'" onmouseout="this.style.background='white'" title="Ajouter cette étiquette">
-                <i class="fas fa-plus" style="font-size:0.6rem;"></i> ${escapeHtml(t.name)}
-            </button>`).join('')
-        : '<span style="color:var(--neutral-400); font-size:0.8rem; font-style:italic;">Toutes les étiquettes sont déjà utilisées.</span>';
-
-    // 3. Rendu final de l'encart
-    return `
-        <div style="margin-top:20px; margin-bottom:20px; background:#f8fafc; padding:15px; border-radius:12px; border:1px solid var(--border-color);">
-            <h3 style="font-size:0.75rem; text-transform:uppercase; color:var(--neutral-500); margin-top:0; margin-bottom:12px; letter-spacing:0.1em;">Étiquettes actives</h3>
-            
-            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
-                ${assignedTagsHtml}
-            </div>
-            
-            <div style="border-top:1px solid #e2e8f0; padding-top:12px;">
-                <h3 style="font-size:0.7rem; text-transform:uppercase; color:var(--neutral-400); margin-bottom:10px; letter-spacing:0.05em;">Ajouter une étiquette</h3>
-                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                    ${availableTagsHtml}
-                </div>
-            </div>
-        </div>
-    `;
+window.toggleCommentTemplates = function() {
+  const d = document.getElementById('comment-templates-dropdown');
+  if (!d) return;
+  d.style.display = d.style.display === 'none' ? 'block' : 'none';
 };
 
-// Rafraîchir les équipements dans le formulaire d'édition
-async function loadClientEquipmentForEdit(clientId) {
-    const eqSelect = document.getElementById('edit-equipment');
-    if (!clientId) { eqSelect.innerHTML = '<option value="">-- Aucun --</option>'; return; }
-    const res = await fetch(`/api/rmas/equipment/${clientId}`);
-    const equipment = await res.json();
-    eqSelect.innerHTML = '<option value="">-- Aucun équipement spécifié --</option>' + 
-        equipment.map(e => `<option value="${e.id}">${escapeHtml(e.brand)} - ${escapeHtml(e.name)} (SN: ${e.serial_number || 'N/A'})</option>`).join('');
-}
+window.insertTemplate = function(text) {
+  const input = document.getElementById('new-comment');
+  if (input) { input.value = text; input.focus(); }
+  const d = document.getElementById('comment-templates-dropdown');
+  if (d) d.style.display = 'none';
+};
 
-// B. MODE ÉDITION (Formulaire)
+document.addEventListener('click', e => {
+  if (!e.target.closest('[onclick="toggleCommentTemplates()"]') &&
+      !e.target.closest('#comment-templates-dropdown')) {
+    const d = document.getElementById('comment-templates-dropdown');
+    if (d) d.style.display = 'none';
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  MODIFICATION RMA
+// ══════════════════════════════════════════════════════════════════════════════
+
 async function editRmaDetails(id) {
-    const titleHeader = document.getElementById('rma-modal-title');
-    const body = document.getElementById('rma-modal-body');
-    document.getElementById('delete-rma-btn').style.display = 'block';
+  const modal  = document.getElementById('rma-modal');
+  const body   = document.getElementById('rma-modal-body');
+  const footer = modal.querySelector('.modal-footer');
 
-    body.innerHTML = '<div style="text-align:center; padding:5rem;"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+  footer.innerHTML = `
+    <button class="btn btn-danger" id="delete-rma-btn" onclick="deleteRma()"><i class="fas fa-trash"></i> Supprimer</button>
+    <div style="display:flex;gap:8px;margin-left:auto;">
+      <button class="btn btn-secondary" onclick="openRmaDetails(${id})" style="min-width:110px;">Annuler</button>
+      <button class="btn btn-primary" id="edit-save-btn" style="min-width:160px;"><i class="fas fa-save"></i> Enregistrer</button>
+    </div>
+  `;
 
-    try {
-        const [rmaRes, clientsRes, tagsAllRes] = await Promise.all([
-            fetch(`/api/rmas/${id}`),
-            fetch('/api/clients'),
-            fetch('/api/rmas/tags/all')
-        ]);
-        
-        const rma = await rmaRes.json();
-        const clientsData = await clientsRes.json();
-        const allTags = await tagsAllRes.json();
-        const clients = Array.isArray(clientsData) ? clientsData : (clientsData.clients || []);
+  document.getElementById('rma-modal-title').innerHTML =
+    `<i class="fas fa-pen" style="color:var(--color-primary)"></i> Modifier le RMA #${id}`;
 
-        let equipments = [];
-        if (rma.client_id) {
-            const eqRes = await fetch(`/api/rmas/equipment/${rma.client_id}`);
-            if (eqRes.ok) equipments = await eqRes.json();
-        }
+  modal.classList.add('active');
+  body.innerHTML = loadingHtml();
 
-        titleHeader.innerHTML = `<i class="fas fa-edit"></i> Modification RMA #${id}`;
+  try {
+    const [rmaRes, clientsRes, tagsRes] = await Promise.all([
+      fetch(`/api/rmas/${id}`), fetch('/api/clients'), fetch('/api/rmas/tags/all')
+    ]);
+    const rma         = await rmaRes.json();
+    const clientsData = await clientsRes.json();
+    const allTags     = await tagsRes.json();
+    const clients     = Array.isArray(clientsData) ? clientsData : (clientsData.clients || []);
 
-        body.innerHTML = `
-            <form onsubmit="updateRma(event, ${id})">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 25px;">
-                    <div>
-                        <div class="form-group mb-3">
-                            <label>Titre de l'intervention</label>
-                            <input type="text" id="edit-title" class="form-control" value="${escapeHtml(rma.title || '')}" placeholder="Laisse vide pour générer auto">
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>Statut du flux (Étape)</label>
-                            <select id="edit-status" class="form-control" style="font-weight:700; color:var(--color-primary); border-color:var(--color-primary);">
-                                ${RMA_STAGES.map(s => `<option value="${s}" ${rma.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>Client</label>
-                            <select id="edit-client" class="form-control" onchange="loadClientEquipmentForEdit(this.value)">
-                                ${clients.map(c => `<option value="${c.id}" ${rma.client_id === c.id ? 'selected' : ''}>${escapeHtml(c.cabinet_name || c.name)}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>Matériel concerné</label>
-                            <select id="edit-equipment" class="form-control">
-                                <option value="">-- Aucun --</option>
-                                ${equipments.map(e => `<option value="${e.id}" ${rma.equipment_id === e.id ? 'selected' : ''}>${escapeHtml(e.brand)} - ${escapeHtml(e.name)} (SN: ${e.serial_number})</option>`).join('')}
-                            </select>
-                        </div>
-                    </div>
+    let equipments = [];
+    if (rma.client_id) {
+      const eqRes = await fetch(`/api/rmas/equipment/${rma.client_id}`);
+      if (eqRes.ok) equipments = await eqRes.json();
+    }
 
-                    <div>
-                        <div class="form-group mb-3">
-                            <label>Fournisseur (SAV)</label>
-                            <select id="edit-supplier" class="form-control">
-                                <option value="Xion" ${rma.supplier_name === 'Xion' ? 'selected' : ''}>Xion</option>
-                                <option value="Heinemann" ${rma.supplier_name === 'Heinemann' ? 'selected' : ''}>Heinemann</option>
-                                <option value="Autre" ${rma.supplier_name === 'Autre' ? 'selected' : ''}>Autre...</option>
-                            </select>
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>N° RMA Fournisseur</label>
-                            <input type="text" id="edit-rma-number" class="form-control" value="${escapeHtml(rma.rma_number || '')}">
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>Tracking Envoi (Aller)</label>
-                            <input type="text" id="edit-tracking-to" class="form-control" value="${escapeHtml(rma.tracking_to_supplier || '')}">
-                        </div>
-                        <div class="form-group mb-3">
-                            <label>Tracking Retour</label>
-                            <input type="text" id="edit-tracking-from" class="form-control" value="${escapeHtml(rma.tracking_from_supplier || '')}">
-                        </div>
-                    </div>
-                </div>
+    const iS = `width:100%;height:38px;padding:0 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;`;
+    const lS = `display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;`;
+    const sec = (icon, text) => `<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg-secondary);border-bottom:1px solid var(--border-primary);border-top:1px solid var(--border-primary);margin-top:20px;margin-bottom:14px;"><i class="${icon}" style="color:var(--color-primary);font-size:12px;width:14px;text-align:center;"></i><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-secondary);">${text}</span></div>`;
 
-                <div class="form-group mb-4">
-                    <label>Description détaillée</label>
-                    <textarea id="edit-desc" class="form-control" rows="4">${escapeHtml(rma.description || '')}</textarea>
-                </div>
+    body.innerHTML = `
+      <form id="edit-rma-form" autocomplete="off">
+        <div style="margin-bottom:18px;">
+          <label style="${lS}">Étape / Statut actuel</label>
+          <select id="edit-status" style="${iS}height:42px;font-weight:700;color:var(--color-primary);border-left:3px solid var(--color-primary);">
+            ${RMA_STAGES.map(s => `<option value="${s}" ${rma.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        ${sec('fas fa-info-circle', 'Informations')}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div><label style="${lS}">Titre</label><input type="text" id="edit-title" placeholder="Laissez vide pour auto." value="${escapeHtml(rma.title || '')}" style="${iS}"></div>
+          <div><label style="${lS}">Fournisseur</label>
+            <select id="edit-supplier" style="${iS}">
+              <option value="Xion" ${rma.supplier_name === 'Xion' ? 'selected' : ''}>Xion</option>
+              <option value="Heinemann" ${rma.supplier_name === 'Heinemann' ? 'selected' : ''}>Heinemann</option>
+              <option value="Autre" ${rma.supplier_name === 'Autre' ? 'selected' : ''}>Autre...</option>
+            </select>
+          </div>
+          <div><label style="${lS}">Client <span style="color:var(--color-danger)">*</span></label>
+            <select id="edit-client" onchange="loadClientEquipmentForEdit(this.value)" style="${iS}">
+              ${clients.map(c => `<option value="${c.id}" ${rma.client_id === c.id ? 'selected' : ''}>${escapeHtml(c.cabinet_name || c.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div><label style="${lS}">Matériel</label>
+            <select id="edit-equipment" style="${iS}">
+              <option value="">-- Aucun --</option>
+              ${equipments.map(e => `<option value="${e.id}" ${rma.equipment_id === e.id ? 'selected' : ''}>${escapeHtml(e.brand)} — ${escapeHtml(e.name)} (SN: ${e.serial_number || 'N/A'})</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:16px;"><label style="${lS}">Description <span style="color:var(--color-danger)">*</span></label>
+          <textarea id="edit-desc" rows="3" style="width:100%;padding:9px 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;resize:vertical;">${escapeHtml(rma.description || '')}</textarea>
+        </div>
+        ${sec('fas fa-truck', 'Suivi logistique')}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+          <div><label style="${lS}">N° RMA Fournisseur</label><input type="text" id="edit-rma-number" value="${escapeHtml(rma.rma_number || '')}" placeholder="Optionnel" style="${iS}"></div>
+          <div><label style="${lS}">Date d'échéance</label><input type="date" id="edit-due-date" value="${rma.due_date ? rma.due_date.split('T')[0] : ''}" style="${iS}"></div>
+          <div></div>
+          <div><label style="${lS}">Tracking envoi</label><input type="text" id="edit-tracking-to" value="${escapeHtml(rma.tracking_to_supplier || '')}" placeholder="N° de suivi" style="${iS}"></div>
+          <div><label style="${lS}">Tracking retour</label><input type="text" id="edit-tracking-from" value="${escapeHtml(rma.tracking_from_supplier || '')}" placeholder="N° de suivi" style="${iS}"></div>
+        </div>
+        ${sec('fas fa-tags', 'Étiquettes')}
+        ${renderTagsSection(rma, allTags, id)}
+        ${sec('fas fa-paperclip', 'Documents & Photos')}
+        ${getAttachmentsHtml(rma, id)}
+        <div style="height:20px;"></div>
+      </form>
+    `;
 
-                ${renderTagsSection(rma, allTags, id)}
-                ${getAttachmentsHtml(rma, id)}
+    document.getElementById('edit-save-btn').onclick = (e) => { e.preventDefault(); updateRma(new Event('submit'), id); };
 
-                <div style="display:flex; gap:10px; margin-top:30px; border-top:1px solid var(--border-color); padding-top:20px;">
-                    <button type="button" class="btn btn-secondary" onclick="openRmaDetails(${id})" style="flex:1;">Annuler</button>
-                    <button type="submit" class="btn btn-primary" style="flex:2; font-weight:800;">Enregistrer les changements</button>
-                </div>
-            </form>
-        `;
-        // À mettre après body.innerHTML = `...`; dans vos fonctions d'ouverture
-setTimeout(() => applySearchableSelects(), 50);
-    } catch (e) { console.error(e); }
+    setTimeout(() => {
+      if (document.getElementById('edit-client')) {
+        if (tsInstances.editClient) { try { tsInstances.editClient.destroy(); } catch {} }
+        tsInstances.editClient = new TomSelect('#edit-client', { create: false, maxOptions: null, sortField: { field: 'text', direction: 'asc' } });
+      }
+    }, 50);
+
+  } catch (e) {
+    console.error(e);
+    body.innerHTML = `<div style="color:var(--color-danger);text-align:center;padding:40px;"><i class="fas fa-exclamation-triangle fa-2x" style="margin-bottom:12px;display:block"></i>Erreur lors du chargement.</div>`;
+  }
 }
 
-// C. SAUVEGARDE DES MODIFICATIONS
 async function updateRma(e, id) {
-    e.preventDefault();
-    const data = {
-        title: document.getElementById('edit-title').value || null,
-        status: document.getElementById('edit-status').value,
-        client_id: document.getElementById('edit-client').value,
-        equipment_id: document.getElementById('edit-equipment').value || null,
-        supplier_name: document.getElementById('edit-supplier').value,
-        rma_number: document.getElementById('edit-rma-number').value,
-        tracking_to_supplier: document.getElementById('edit-tracking-to').value,
-        tracking_from_supplier: document.getElementById('edit-tracking-from').value,
-        description: document.getElementById('edit-desc').value
-    };
-
-    try {
-        const res = await fetch(`/api/rmas/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        if (res.ok) {
-            loadRmas(); // Rafraîchit les cartes en arrière-plan
-            openRmaDetails(id); // Rebascule la modale en mode lecture pour voir le résultat !
-        }
-    } catch (err) { alert("Erreur d'enregistrement."); }
+  e.preventDefault();
+  const data = {
+    title: document.getElementById('edit-title').value || null,
+    status: document.getElementById('edit-status').value,
+    client_id: document.getElementById('edit-client').value,
+    equipment_id: document.getElementById('edit-equipment').value || null,
+    supplier_name: document.getElementById('edit-supplier').value,
+    rma_number: document.getElementById('edit-rma-number').value,
+    due_date: document.getElementById('edit-due-date')?.value || null,
+    tracking_to_supplier: document.getElementById('edit-tracking-to').value,
+    tracking_from_supplier: document.getElementById('edit-tracking-from').value,
+    description: document.getElementById('edit-desc').value
+  };
+  try {
+    const res = await fetch(`/api/rmas/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (res.ok) {
+      tooltipCache = {}; loadRmas(); openRmaDetails(id);
+      if (window.toast) toast.success('RMA mis à jour', 'Les modifications ont été enregistrées.');
+    } else { if (window.toast) toast.error('Erreur', 'Impossible de sauvegarder.'); }
+  } catch (err) { console.error(err); if (window.toast) toast.error('Erreur réseau', ''); }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  COMMENTAIRES
+// ══════════════════════════════════════════════════════════════════════════════
 
 async function addComment(e, id) {
-    e.preventDefault();
-    const comment = document.getElementById('new-comment').value;
-    await fetch(`/api/rmas/${id}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment })
-    });
-    openRmaDetails(id);
+  e.preventDefault();
+  const comment = document.getElementById('new-comment').value.trim();
+  if (!comment) return;
+  await fetch(`/api/rmas/${id}/comments`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comment })
+  });
+  tooltipCache[id] = null;
+  openRmaDetails(id);
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SUPPRESSION
+// ══════════════════════════════════════════════════════════════════════════════
 
 async function deleteRma() {
-    if (!currentRmaId || !confirm("Supprimer ce RMA ?")) return;
-    await fetch(`/api/rmas/${currentRmaId}`, { method: 'DELETE' });
-    closeRmaModal();
-    loadRmas();
+  if (!currentRmaId) return;
+  const ok = await confirmDelete('ce RMA et toutes ses données');
+  if (!ok) return;
+  try {
+    const res = await fetch(`/api/rmas/${currentRmaId}`, { method: 'DELETE' });
+    if (res.ok) {
+      closeRmaModal(); await loadRmas();
+      if (window.toast) toast.success('RMA supprimé', '');
+    } else { if (window.toast) toast.error('Erreur', 'Suppression non autorisée.'); }
+  } catch (e) { console.error(e); }
 }
 
-// --- 6. GESTION DU POPUP AU SURVOL (TOOLTIP) ---
+// ══════════════════════════════════════════════════════════════════════════════
+//  TAGS
+// ══════════════════════════════════════════════════════════════════════════════
 
-function handleCardHover(ev, rmaId) {
-    const card = ev.currentTarget;
-    const tooltip = document.getElementById('rma-tooltip');
+window.renderTagsSection = function(rma, allTags, rmaId) {
+  const assignedIds = rma.tags ? rma.tags.map(t => t.id) : [];
+  const available   = allTags.filter(t => !assignedIds.includes(t.id));
 
-    hoverTimeout = setTimeout(async () => {
-        const rect = card.getBoundingClientRect();
-        let top = rect.top + window.scrollY;
-        let left = rect.right + 15 + window.scrollX;
+  const assignedHtml = rma.tags && rma.tags.length > 0
+    ? rma.tags.map(t => `
+        <span style="background:${t.color}18;color:${t.color};font-size:var(--text-xs);padding:3px 10px;border-radius:2px;font-weight:700;border:1px solid ${t.color}35;display:inline-flex;align-items:center;gap:5px;">
+          ${escapeHtml(t.name)}
+          <i class="fas fa-times" style="cursor:pointer;opacity:0.5;font-size:10px;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'" onclick="removeTagFromRma(${rmaId}, ${t.id})"></i>
+        </span>`).join('')
+    : '<span style="color:var(--text-tertiary);font-size:var(--text-xs);font-style:italic;">Aucune étiquette.</span>';
 
-        if (left + 340 > window.innerWidth) {
-            left = rect.left - 355 + window.scrollX;
-        }
+  const availableHtml = available.length > 0
+    ? available.map(t => `
+        <button type="button" onclick="addTagToRma(${rmaId}, ${t.id})" style="background:var(--bg-secondary);color:${t.color};font-size:var(--text-xs);padding:3px 10px;border-radius:2px;font-weight:600;border:1px dashed ${t.color}60;display:inline-flex;align-items:center;gap:4px;cursor:pointer;" onmouseover="this.style.background='${t.color}10'" onmouseout="this.style.background='var(--bg-secondary)'">
+          <i class="fas fa-plus" style="font-size:9px"></i> ${escapeHtml(t.name)}
+        </button>`).join('')
+    : '<span style="color:var(--text-tertiary);font-size:var(--text-xs);font-style:italic;">Toutes les étiquettes sont utilisées.</span>';
 
-        tooltip.style.cssText = `
-            position: absolute; display: block; background: #ffffff; 
-            border: 1px solid #e2e8f0; border-radius: 16px; 
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); 
-            padding: 20px; z-index: 9999; width: 340px; font-size: 0.85rem; 
-            pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; 
-            opacity: 0; transform: translateY(5px); font-family: 'Inter', system-ui, sans-serif;
-        `;
-        
-        tooltip.style.top = `${top}px`;
-        tooltip.style.left = `${left}px`;
-        tooltip.innerHTML = '<div style="text-align:center; color:var(--kb-primary); padding:20px;"><i class="fas fa-circle-notch fa-spin fa-2x"></i></div>';
-        
-        setTimeout(() => {
-            tooltip.style.opacity = '1';
-            tooltip.style.transform = 'translateY(0)';
-        }, 10);
+  return `
+    <div style="margin:16px 0;background:var(--bg-secondary);padding:14px;border:1px solid var(--border-primary);">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:10px;letter-spacing:0.06em;">Étiquettes actives</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">${assignedHtml}</div>
+      <div style="border-top:1px solid var(--border-primary);padding-top:10px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:8px;">Ajouter une étiquette</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">${availableHtml}</div>
+      </div>
+    </div>`;
+};
 
-        try {
-            let details = tooltipCache[rmaId];
-            if (!details) {
-                const res = await fetch(`/api/rmas/${rmaId}`);
-                details = await res.json();
-                tooltipCache[rmaId] = details; 
-            }
+window.addTagToRma = async function(rmaId, tagId) {
+  await fetch(`/api/rmas/${rmaId}/tags`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tag_id: tagId }) });
+  tooltipCache[rmaId] = null; openRmaDetails(rmaId); loadRmas();
+};
 
-            // Génération des Tags pour le Tooltip
-            const tagsHtml = (details.tags && details.tags.length > 0) 
-                ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:15px;">` + 
-                  details.tags.map(t => `<span style="background:${t.color}15; color:${t.color}; border:1px solid ${t.color}30; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">${escapeHtml(t.name)}</span>`).join('') + 
-                  `</div>`
-                : '';
+window.removeTagFromRma = async function(rmaId, tagId) {
+  await fetch(`/api/rmas/${rmaId}/tags/${tagId}`, { method: 'DELETE' });
+  tooltipCache[rmaId] = null; openRmaDetails(rmaId); loadRmas();
+};
 
-            const recentComments = details.comments.slice(0, 3);
-            const commentsHtml = recentComments.length > 0 
-                ? recentComments.map(c => `
-                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                            <strong style="color:#334155; font-size:0.75rem;">${escapeHtml(c.user_name)}</strong>
-                            <span style="color:#94a3b8; font-size:0.7rem;">${new Date(c.created_at).toLocaleDateString('fr-CH')}</span>
-                        </div>
-                        <div style="color:#475569; font-size:0.8rem; line-height:1.4;">${escapeHtml(c.comment)}</div>
-                    </div>`).join('')
-                : '<div style="margin-top: 10px; color:#94a3b8; font-style:italic; text-align:center; font-size:0.8rem;">Aucun suivi.</div>';
-
-            const descPreview = details.description ? details.description.substring(0, 90) + '...' : 'Aucune description.';
-            
-            tooltip.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-                    <div>
-                        <div style="font-weight: 900; color: #0f172a; font-size: 1.1rem; letter-spacing:-0.5px;">RMA #${details.id}</div>
-                        <div style="color: #64748b; font-size: 0.8rem; font-weight:600;">${escapeHtml(details.equipment_name || 'Matériel non spécifié')}</div>
-                    </div>
-                    <span style="background:#f1f5f9; color:#475569; padding:4px 8px; border-radius:6px; font-weight:800; font-size:0.7rem;">${escapeHtml(details.supplier_name || 'Xion')}</span>
-                </div>
-                
-                ${tagsHtml}
-                
-                <div style="background:#f8fafc; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #f1f5f9;">
-                    <strong style="display:block; font-size:0.7rem; text-transform:uppercase; color:#94a3b8; margin-bottom:4px;">Motif :</strong>
-                    <span style="color:#334155; font-size:0.85rem; line-height:1.4;">${escapeHtml(descPreview)}</span>
-                </div>
-                
-                <div>
-                    <div style="font-weight: 800; color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;">Dernières Mises à Jour</div>
-                    ${commentsHtml}
-                </div>
-            `;
-        } catch (e) {
-            tooltip.innerHTML = '<div style="color:#ef4444; text-align:center; padding:15px;"><i class="fas fa-exclamation-triangle"></i> Erreur de chargement.</div>';
-        }
-    }, 450); 
-}
-
-function handleCardLeave() {
-    clearTimeout(hoverTimeout); // Annule l'apparition si la souris part trop vite
-    const tooltip = document.getElementById('rma-tooltip');
-    if (tooltip) {
-        tooltip.style.opacity = '0';
-        setTimeout(() => { tooltip.style.display = 'none'; }, 200); // Laisse le temps à l'animation CSS de finir
-    }
-}
-
-// --- 7. FONCTIONS DE GESTION DES TAGS ---
-
-async function assignTag(rmaId) {
-    const tagId = document.getElementById('select-add-tag').value;
-    if (!tagId) return;
-    await fetch(`/api/rmas/${rmaId}/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tag_id: tagId })
-    });
-    editRmaDetails(rmaId); // Recharge le formulaire avec le tag ajouté
-    loadRmas(); // Met à jour la carte en arrière-plan
-}
-
-async function removeTag(rmaId, tagId) {
-    try {
-        await fetch(`/api/rmas/${rmaId}/tags/${tagId}`, { method: 'DELETE' });
-        openRmaDetails(rmaId); // Recharge la modale avec les infos à jour
-        loadRmas(); // Rafraîchit le tableau KB Med en arrière-plan
-    } catch (err) {
-        console.error("Erreur retrait tag :", err);
-    }
-}
-
-async function createNewTag(rmaId) {
-    const name = document.getElementById('new-tag-name').value.trim();
-    const color = document.getElementById('new-tag-color').value;
-    if (!name) return;
-
-    // 1. Enregistre le nouveau tag dans la base globale
-    const res = await fetch('/api/rmas/tags', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, color })
-    });
-    const newTag = await res.json();
-
-    // 2. L'assigne immédiatement au RMA en cours
-    if (newTag.success) {
-        await fetch(`/api/rmas/${rmaId}/tags`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tag_id: newTag.id })
-        });
-        editRmaDetails(rmaId);
-        loadRmas();
-    }
-}
-
-async function deleteTagGlobally(tagId, rmaId) {
-    if (!confirm("⚠️ Voulez-vous vraiment supprimer cette étiquette de tout le système ?")) return;
-
-    try {
-        await fetch(`/api/rmas/tags/${tagId}/global`, { method: 'DELETE' });
-        
-        // On ferme et on rouvre le gestionnaire de tags pour rafraîchir la liste
-        document.getElementById('tag-editor-zone').style.display = 'none';
-        openRmaDetails(rmaId);
-        loadRmas();
-    } catch (err) {
-        console.error("Erreur suppression globale :", err);
-    }
-}
-
-// Affiche/Masque le menu rapide
-function toggleTagDropdown() {
-    const dropdown = document.getElementById('tag-quick-select');
-    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
-}
-
-// Affiche/Masque la zone de gestion complète
-async function toggleTagEditor(rmaId) {
-    const zone = document.getElementById('tag-editor-zone');
-    zone.style.display = zone.style.display === 'none' ? 'block' : 'none';
-    
-    if (zone.style.display === 'block') {
-        loadGlobalTagsForManagement(rmaId);
-    }
-}
-
-// Charge les tags avec possibilité de les MODIFIER (Nom/Couleur)
-async function loadGlobalTagsForManagement(rmaId) {
-    const list = document.getElementById('global-tags-list');
-    const res = await fetch('/api/rmas/tags/all');
-    const tags = await res.json();
-    
-    list.innerHTML = tags.map(t => `
-        <div style="display: flex; align-items: center; gap: 5px; background: white; padding: 5px; border-radius: 4px; border: 1px solid #e2e8f0;">
-            <input type="color" onchange="updateTagColor(${t.id}, this.value, ${rmaId})" value="${t.color}" style="width:20px; height:20px; border:none; cursor:pointer; background:none;">
-            <input type="text" onblur="updateTagName(${t.id}, this.value, ${rmaId})" value="${escapeHtml(t.name)}" style="border:none; font-size:0.75rem; flex:1; outline:none;">
-            <i class="fas fa-trash-alt" style="color:#ef4444; font-size:0.7rem; cursor:pointer;" onclick="deleteTagGlobally(${t.id}, ${rmaId})"></i>
-        </div>
-    `).join('');
-}
-
-// Assigne un tag via le menu rapide
-async function assignTagQuick(rmaId, tagId) {
-    await fetch(`/api/rmas/${rmaId}/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tag_id: tagId })
-    });
-    openRmaDetails(rmaId);
-    loadRmas();
-}
-
-function getTagsComponentHtml(rma, allTags, rmaId) {
-    const currentTagIds = rma.tags.map(t => t.id);
-    const availableTags = allTags.filter(t => !currentTagIds.includes(t.id));
-
-    return `
-        <div class="tags-management-section" style="border-top:2px solid #e2e8f0; padding-top:20px; margin-bottom:20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin:0; font-size: 1rem; color: #1e293b; font-weight:700;">Étiquettes</h4>
-                <button class="btn-icon" onclick="toggleTagEditor(${rmaId})" style="background:none; border:none; color:#94a3b8; cursor:pointer;" title="Catalogue global">
-                    <i class="fas fa-cog"></i>
-                </button>
-            </div>
-            
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                ${rma.tags.map(t => `
-                    <div class="tag-pill" style="background:${t.color}15; color:${t.color}; border-color:${t.color}30;">
-                        ${escapeHtml(t.name)}
-                        <i class="fas fa-times" style="cursor:pointer; opacity:0.5; font-size:0.8em;" onclick="removeTag(${rmaId}, ${t.id})"></i>
-                    </div>
-                `).join('')}
-
-                <div style="position: relative;">
-                    <button onclick="toggleTagDropdown()" style="border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: white; color: #64748b; border: 1px dashed #cbd5e1; cursor:pointer;">
-                        <i class="fas fa-plus" style="font-size:0.8rem;"></i>
-                    </button>
-                    
-                    <div id="tag-quick-select" style="display: none; position: absolute; top: 35px; left: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 100; width: 200px; padding: 5px;">
-                        <div style="max-height: 180px; overflow-y: auto;">
-                            ${availableTags.length > 0 ? availableTags.map(t => `
-                                <div class="tag-option" onclick="assignTagQuick(${rmaId}, ${t.id})" style="padding: 8px 12px; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 10px; font-size: 0.8rem; font-weight:600; color:#475569;">
-                                    <span style="width: 8px; height: 8px; border-radius: 50%; background: ${t.color};"></span>
-                                    ${escapeHtml(t.name)}
-                                </div>
-                            `).join('') : '<p style="font-size:0.7rem; color:#94a3b8; padding:10px; text-align:center;">Aucun autre tag disponible</p>'}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="tag-editor-zone" style="display: none; margin-top: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px;">
-                <p style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:#94a3b8; margin-bottom:12px;">Nouveau Tag</p>
-                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-                    <input type="text" id="new-tag-name" class="form-control" placeholder="Nom..." style="font-size:0.85rem; flex:1;">
-                    <input type="color" id="new-tag-color" value="#3b82f6" style="width:35px; height:35px; border:none; padding:0; background:none; cursor:pointer;">
-                    <button class="btn btn-primary btn-sm" onclick="createNewTag(${rmaId})">Créer</button>
-                </div>
-                <p style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:#94a3b8; margin-bottom:8px;">Catalogue existant</p>
-                <div id="global-tags-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
-            </div>
-        </div>
-    `;
-}
-
-function getAttachmentsHtml(rma, rmaId) {
-    const listHtml = rma.attachments && rma.attachments.length > 0 
-        ? rma.attachments.map(att => {
-            const isPdf = att.file_type.includes('pdf');
-            const icon = isPdf ? 'fa-file-pdf' : 'fa-image';
-            const color = isPdf ? '#ef4444' : '#0ea5e9';
-            return `
-            <div style="display:flex; align-items:center; gap:10px; background:white; padding:8px 12px; border:1px solid var(--kb-gray-border); border-radius:8px; box-shadow:var(--shadow-sm);">
-                <i class="fas ${icon}" style="color:${color}; font-size:1.2rem;"></i>
-                <a href="${att.file_path}" target="_blank" style="color:var(--kb-dark); text-decoration:none; font-weight:600; font-size:0.85rem; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(att.file_name)}">
-                    ${escapeHtml(att.file_name)}
-                </a>
-                <i class="fas fa-trash-alt" style="color:var(--kb-gray-text); cursor:pointer; margin-left:auto; font-size:0.8rem;" onclick="deleteAttachment(${rmaId}, ${att.id})" title="Supprimer"></i>
-            </div>`;
-        }).join('')
-        : '<span style="color:var(--kb-gray-text); font-size:0.85rem; font-style:italic;">Aucun document.</span>';
-
-    return `
-        <div style="margin-top:25px; padding-top:20px; border-top:2px solid #e2e8f0;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h4 style="margin:0; font-size: 1rem; color: #1e293b; font-weight:700;"><i class="fas fa-paperclip"></i> Documents & Photos</h4>
-                <div>
-                    <input type="file" id="file-upload-input" style="display:none;" onchange="uploadAttachment(${rmaId}, this)">
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('file-upload-input').click()" style="padding:4px 10px; font-size:0.8rem;">
-                        <i class="fas fa-upload"></i> Ajouter
-                    </button>
-                </div>
-            </div>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                ${listHtml}
-            </div>
-        </div>
-    `;
-}
-
-// --- 10. MENUS DÉROULANTS AVEC RECHERCHE ---
-
-function applySearchableSelects() {
-    // 1. Détruire les anciens menus pour éviter les bugs si on ferme et rouvre la modale
-    for (let key in tsInstances) {
-        if (tsInstances[key]) {
-            tsInstances[key].destroy();
-            delete tsInstances[key];
-        }
-    }
-
-    const config = { 
-        create: false, 
-        maxOptions: null, 
-        placeholder: "Rechercher...",
-        sortField: { field: "text", direction: "asc" }
-    };
-
-    // 2. Transformer les menus du Mode Édition & Création
-    if (document.getElementById('form-client')) tsInstances.formClient = new TomSelect('#form-client', config);
-    if (document.getElementById('form-equipment')) tsInstances.formEquipment = new TomSelect('#form-equipment', { create: false });
-    
-    if (document.getElementById('edit-client')) tsInstances.editClient = new TomSelect('#edit-client', config);
-    if (document.getElementById('edit-equipment')) tsInstances.editEquipment = new TomSelect('#edit-equipment', { create: false });
-    
-    if (document.getElementById('select-add-tag')) tsInstances.addTag = new TomSelect('#select-add-tag', { create: false });
-}
-
-// 3. NOUVELLE FONCTION de chargement du matériel (Adaptée pour Tom Select)
-async function loadClientEquipmentForEdit(clientId) {
-    const eqSelect = tsInstances.editEquipment || tsInstances.formEquipment;
-    if (!eqSelect) return;
-
-    eqSelect.clear(); // Vide le choix actuel
-    eqSelect.clearOptions(); // Vide la liste déroulante
-
-    if (!clientId) {
-        eqSelect.addOption({value: "", text: "-- Aucun équipement --"});
-        return;
-    }
-
-    try {
-        const res = await fetch(`/api/rmas/equipment/${clientId}`);
-        const equipment = await res.json();
-
-        eqSelect.addOption({value: "", text: "-- Aucun équipement spécifié --"});
-        equipment.forEach(e => {
-            eqSelect.addOption({
-                value: e.id, 
-                text: `${e.brand} - ${e.name} (SN: ${e.serial_number || 'N/A'})`
-            });
-        });
-    } catch (err) { console.error("Erreur chargement équipement", err); }
-}
-
-// --- 11. ACTIONS SUR LES PIÈCES JOINTES ---
-async function uploadAttachment(rmaId, inputElement) {
-    const file = inputElement.files[0];
-    if (!file) return;
-
-    // Affiche un état de chargement sur le bouton
-    const btn = inputElement.nextElementSibling;
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi...';
-    btn.disabled = true;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const res = await fetch(`/api/rmas/${rmaId}/attachments`, {
-            method: 'POST',
-            body: formData // On n'utilise pas JSON.stringify pour les fichiers
-        });
-        if (res.ok) openRmaDetails(rmaId); // Rafraîchit la modale
-    } catch (err) {
-        alert("Erreur lors de l'envoi du fichier.");
-    } finally {
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
-        inputElement.value = ''; // Réinitialise l'input
-    }
-}
-
-async function deleteAttachment(rmaId, attachmentId) {
-    if (!confirm("Supprimer définitivement ce fichier ?")) return;
-    try {
-        const res = await fetch(`/api/rmas/attachments/${attachmentId}`, { method: 'DELETE' });
-        if (res.ok) openRmaDetails(rmaId);
-    } catch (err) {
-        console.error(err);
-    }
-}
-
-// --- 12. TABLEAU DE BORD & STATISTIQUES ---
-
-let charts = {}; // Pour stocker et détruire les anciens graphiques si on recharge
-
-function toggleView(viewName) {
-    const kanban = document.getElementById('kanban-board');
-    const dashboard = document.getElementById('dashboard-view');
-    const btnKanban = document.getElementById('btn-kanban');
-    const btnStats = document.getElementById('btn-stats');
-    
-    if (viewName === 'kanban') {
-        dashboard.style.display = 'none';
-        kanban.style.display = 'flex';
-        btnKanban.classList.add('active'); // Allume le bouton Kanban
-        btnStats.classList.remove('active');
-    } else {
-        kanban.style.display = 'none';
-        dashboard.style.display = 'block';
-        btnStats.classList.add('active'); // Allume le bouton Stats
-        btnKanban.classList.remove('active');
-        loadDashboardStats();
-    }
-}
-
-async function loadDashboardStats() {
-    try {
-        const res = await fetch('/api/rmas/stats/dashboard');
-        const data = await res.json();
-
-        // Calcul et affichage des KPIs
-        const totalRma = data.statusDistribution.reduce((sum, item) => sum + item.count, 0);
-        const enReparation = data.statusDistribution.find(s => s.status === 'En réparation')?.count || 0;
-        const devisEnAttente = data.statusDistribution.find(s => s.status === 'Devis au client')?.count || 0;
-
-        document.getElementById('kpi-container').innerHTML = `
-            <div class="kpi-card">
-                <div class="kpi-icon" style="background:#e0f2fe; color:#0ea5e9;"><i class="fas fa-tools"></i></div>
-                <div>
-                    <div style="font-size:0.8rem; color:var(--kb-gray-text); font-weight:700; text-transform:uppercase;">Dossiers Actifs</div>
-                    <div style="font-size:1.8rem; font-weight:900; color:var(--kb-dark);">${totalRma}</div>
-                </div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-icon" style="background:#fef08a; color:#ca8a04;"><i class="fas fa-hourglass-half"></i></div>
-                <div>
-                    <div style="font-size:0.8rem; color:var(--kb-gray-text); font-weight:700; text-transform:uppercase;">En attente de Devis</div>
-                    <div style="font-size:1.8rem; font-weight:900; color:var(--kb-dark);">${devisEnAttente}</div>
-                </div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-icon" style="background:#fee2e2; color:#ef4444;"><i class="fas fa-truck-loading"></i></div>
-                <div>
-                    <div style="font-size:0.8rem; color:var(--kb-gray-text); font-weight:700; text-transform:uppercase;">En Réparation</div>
-                    <div style="font-size:1.8rem; font-weight:900; color:var(--kb-dark);">${enReparation}</div>
-                </div>
-            </div>
-        `;
-
-        // Palette de couleurs KB Med
-        const colors = ['#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#f97316'];
-        const supplierColors = { 'Xion': '#ef4444', 'Heinemann': '#0ea5e9', 'Autre': '#94a3b8' };
-
-        // Destruction des anciens graphiques pour éviter la superposition
-        Object.values(charts).forEach(chart => chart.destroy());
-
-        // 1. Graphique des Statuts (Bar Chart Horizontal)
-        const ctxStatus = document.getElementById('statusChart').getContext('2d');
-        charts.status = new Chart(ctxStatus, {
-            type: 'bar',
-            data: {
-                labels: data.statusDistribution.map(d => d.status),
-                datasets: [{
-                    label: 'RMA Actifs',
-                    data: data.statusDistribution.map(d => d.count),
-                    backgroundColor: '#0ea5e9',
-                    borderRadius: 4
-                }]
-            },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
-
-        // 2. Graphique Fournisseurs (Doughnut)
-        const ctxSupplier = document.getElementById('supplierChart').getContext('2d');
-        charts.supplier = new Chart(ctxSupplier, {
-            type: 'doughnut',
-            data: {
-                labels: data.supplierDistribution.map(d => d.supplier_name || 'Inconnu'),
-                datasets: [{
-                    data: data.supplierDistribution.map(d => d.count),
-                    backgroundColor: data.supplierDistribution.map(d => supplierColors[d.supplier_name] || '#cbd5e1'),
-                    borderWidth: 0
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '70%' }
-        });
-
-        // 3. Top Clients (Bar Chart)
-        const ctxClients = document.getElementById('clientsChart').getContext('2d');
-        charts.clients = new Chart(ctxClients, {
-            type: 'bar',
-            data: {
-                labels: data.topClients.map(d => d.cabinet_name),
-                datasets: [{
-                    label: 'Nombre de RMA',
-                    data: data.topClients.map(d => d.count),
-                    backgroundColor: colors,
-                    borderRadius: 4
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
-
-        // 4. Top Équipements (Pie Chart)
-        const ctxEq = document.getElementById('equipmentChart').getContext('2d');
-        charts.equipment = new Chart(ctxEq, {
-            type: 'pie',
-            data: {
-                labels: data.topEquipment.map(d => `${d.brand} - ${d.name}`),
-                datasets: [{
-                    data: data.topEquipment.map(d => d.count),
-                    backgroundColor: colors,
-                    borderWidth: 1,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
-
-    } catch (e) {
-        console.error("Erreur de chargement des statistiques", e);
-    }
-}
-
-// --- 13. MACRO : GESTION DU REFUS DE DEVIS ---
-async function refuseDevis(rmaId) {
-    // 1. On demande la raison
-    const reason = prompt("Raison du refus (ex: Réparation trop chère, Achat appareil neuf...) :");
-    
-    // Si l'utilisateur clique sur "Annuler" ou laisse vide, on arrête tout
-    if (!reason) return; 
-
-    const btn = event.currentTarget;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Traitement...';
-    btn.disabled = true;
-
-    try {
-        // 2. Ajouter le commentaire explicatif dans l'historique
-        await fetch(`/api/rmas/${rmaId}/comments`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ comment: `❌ DEVIS REFUSÉ par le client. Raison : ${reason}` })
-        });
-
-        // 3. Gérer l'étiquette (Tag)
-        const tagsRes = await fetch('/api/rmas/tags/all');
-        const allTags = await tagsRes.json();
-        
-        // On cherche si un tag "Devis Refusé" existe déjà (peu importe la majuscule)
-        let refusedTag = allTags.find(t => t.name.toLowerCase() === 'devis refusé' || t.name.toLowerCase() === 'refus de devis');
-
-        // S'il n'existe pas, on le crée en rouge vif
-        if (!refusedTag) {
-            const createTagRes = await fetch('/api/rmas/tags', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: 'Devis Refusé', color: '#ef4444' })
-            });
-            refusedTag = await createTagRes.json();
-        }
-
-        // On assigne le tag au RMA
-        await fetch(`/api/rmas/${rmaId}/tags`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tag_id: refusedTag.id })
-        });
-
-        // 4. On rafraîchit l'interface
-        openRmaDetails(rmaId); // Recharge la modale pour voir le tag et le commentaire
-        loadRmas(); // Met à jour le Kanban derrière
-        
-        // Petit message d'instruction
-        setTimeout(() => alert("Le RMA a été marqué comme refusé.\n\nN'oubliez pas de glisser la carte dans votre colonne 'Archives' ou 'Terminé' sur le Kanban."), 300);
-
-    } catch (err) {
-        console.error("Erreur lors du refus :", err);
-        alert("Une erreur est survenue.");
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    }
-}
-
-// =========================================================
-// --- GESTIONNAIRE GLOBAL DES ÉTIQUETTES ---
-// =========================================================
+// ══════════════════════════════════════════════════════════════════════════════
+//  TAG MANAGER GLOBAL
+// ══════════════════════════════════════════════════════════════════════════════
 
 window.openTagManager = async function() {
-    document.getElementById('tag-manager-modal').classList.add('active');
-    await loadTagManagerList();
+  document.getElementById('tag-manager-modal').classList.add('active');
+  await loadTagManagerList();
 };
 
-window.closeTagManager = function() {
-    document.getElementById('tag-manager-modal').classList.remove('active');
-};
+window.closeTagManager = function() { document.getElementById('tag-manager-modal').classList.remove('active'); };
 
 window.loadTagManagerList = async function() {
-    const container = document.getElementById('tag-manager-list');
-    container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--neutral-400);"><i class="fas fa-spinner fa-spin"></i></div>';
-    
-    try {
-        const res = await fetch('/api/rmas/tags/all');
-        const tags = await res.json();
-        
-        if (!tags.length) {
-            container.innerHTML = '<p style="text-align:center; color:var(--neutral-400); font-size:0.9rem; padding:20px;">Aucune étiquette configurée.</p>';
-            return;
-        }
-
-        container.innerHTML = tags.map(t => `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: white; border: 1px solid #f1f5f9; border-radius: 8px; transition: 0.2s; hover: border-color: #e2e8f0;">
-                <span style="background:${t.color}15; color:${t.color}; font-size:0.75rem; padding:4px 10px; border-radius:6px; font-weight:800; border: 1px solid ${t.color}40; letter-spacing: 0.3px;">
-                    ${escapeHtml(t.name)}
-                </span>
-                <button onclick="deleteGlobalTag(${t.id})" style="background:none; border:none; color:#cbd5e1; cursor:pointer; transition: 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'">
-                    <i class="fas fa-trash-alt" style="font-size:0.85rem;"></i>
-                </button>
-            </div>
-        `).join('');
-    } catch (e) {
-        container.innerHTML = '<p style="color:var(--color-danger); font-size:0.8rem;">Erreur de chargement.</p>';
-    }
+  const container = document.getElementById('tag-manager-list');
+  container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-tertiary)"><i class="fas fa-spinner fa-spin"></i></div>`;
+  try {
+    const res  = await fetch('/api/rmas/tags/all');
+    const tags = await res.json();
+    if (!tags.length) { container.innerHTML = `<p style="text-align:center;color:var(--text-tertiary);font-size:var(--text-sm);padding:20px;">Aucune étiquette.</p>`; return; }
+    container.innerHTML = tags.map(t => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg-elevated);border:1px solid var(--border-primary);">
+        <span style="background:${t.color}18;color:${t.color};font-size:var(--text-xs);padding:3px 10px;border-radius:2px;font-weight:700;border:1px solid ${t.color}35;">${escapeHtml(t.name)}</span>
+        <button onclick="deleteGlobalTag(${t.id})" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;padding:4px 8px;" onmouseover="this.style.color='var(--color-danger)'" onmouseout="this.style.color='var(--text-tertiary)'"><i class="fas fa-trash-alt" style="font-size:0.8rem"></i></button>
+      </div>`).join('');
+  } catch (e) { container.innerHTML = `<p style="color:var(--color-danger);">Erreur.</p>`; }
 };
 
 window.createNewGlobalTag = async function(e) {
-    e.preventDefault();
-    const name = document.getElementById('new-tag-name').value.trim();
-    const color = document.getElementById('new-tag-color').value;
-    
-    if (!name) return;
-
-    try {
-        const res = await fetch('/api/rmas/tags', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, color })
-        });
-
-        if (res.ok) {
-            document.getElementById('new-tag-name').value = '';
-            await loadTagManagerList();
-            if (typeof loadRmas === 'function') loadRmas(); // Rafraîchit le Kanban si nécessaire
-        } else {
-            const err = await res.json();
-            alert(err.error || "Erreur lors de la création");
-        }
-    } catch (err) {
-        alert("Impossible de contacter le serveur.");
-    }
+  e.preventDefault();
+  const name  = document.getElementById('new-tag-name').value.trim();
+  const color = document.getElementById('new-tag-color').value;
+  if (!name) return;
+  const res = await fetch('/api/rmas/tags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, color }) });
+  if (res.ok) { document.getElementById('new-tag-name').value = ''; await loadTagManagerList(); if (window.toast) toast.success('Étiquette créée', name); }
 };
 
 window.deleteGlobalTag = async function(tagId) {
-    if (!confirm("Supprimer cette étiquette ? Elle sera retirée de tous les RMA qui l'utilisent.")) return;
-
-    try {
-        const res = await fetch(`/api/rmas/tags/${tagId}`, { method: 'DELETE' });
-        if (res.ok) {
-            await loadTagManagerList();
-            if (typeof loadRmas === 'function') loadRmas();
-        }
-    } catch (err) {
-        console.error(err);
-    }
+  const ok = await showConfirm({ title: "Supprimer l'étiquette ?", message: 'Elle sera retirée de tous les RMA.', confirmText: 'Supprimer', cancelText: 'Annuler', type: 'danger' });
+  if (!ok) return;
+  await fetch(`/api/rmas/tags/${tagId}/global`, { method: 'DELETE' });
+  await loadTagManagerList(); loadRmas();
 };
 
-// On fait pointer la fonction de création sur la même logique pour ne pas dupliquer le code
-window.loadClientEquipment = loadClientEquipmentForEdit;
+// ══════════════════════════════════════════════════════════════════════════════
+//  PIÈCES JOINTES
+// ══════════════════════════════════════════════════════════════════════════════
 
-function closeRmaModal() { document.getElementById('rma-modal').classList.remove('active'); }
-function escapeHtml(t) { if (!t) return ""; const d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+function getAttachmentsHtml(rma, rmaId) {
+  const listHtml = rma.attachments && rma.attachments.length > 0
+    ? rma.attachments.map(att => {
+        const isPdf  = att.file_type && att.file_type.includes('pdf');
+        const icon   = isPdf ? 'fa-file-pdf' : 'fa-image';
+        const color  = isPdf ? 'var(--color-danger)' : 'var(--color-info)';
+        return `
+          <div style="display:flex;align-items:center;gap:10px;background:var(--bg-secondary);padding:8px 12px;border:1px solid var(--border-primary);">
+            <i class="fas ${icon}" style="color:${color};font-size:18px;flex-shrink:0"></i>
+            <a href="${att.file_path}" target="_blank" style="color:var(--text-primary);text-decoration:none;font-weight:600;font-size:var(--text-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">${escapeHtml(att.file_name)}</a>
+            <button onclick="deleteAttachment(${rmaId}, ${att.id})" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;padding:4px;" onmouseover="this.style.color='var(--color-danger)'" onmouseout="this.style.color='var(--text-tertiary)'"><i class="fas fa-trash" style="font-size:12px"></i></button>
+          </div>`;
+      }).join('')
+    : `<span style="color:var(--text-tertiary);font-size:var(--text-sm);font-style:italic;">Aucun document joint.</span>`;
+
+  return `
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-primary);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-tertiary);letter-spacing:0.06em;">Documents & Photos</div>
+        <div>
+          <input type="file" id="file-upload-input" style="display:none;" onchange="uploadAttachment(${rmaId}, this)">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('file-upload-input').click()"><i class="fas fa-upload"></i> Ajouter</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">${listHtml}</div>
+    </div>`;
+}
+
+async function uploadAttachment(rmaId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch(`/api/rmas/${rmaId}/attachments`, { method: 'POST', body: formData });
+    if (res.ok) { openRmaDetails(rmaId); if (window.toast) toast.success('Fichier ajouté', file.name); }
+    else { if (window.toast) toast.error('Erreur', 'Envoi échoué.'); }
+  } catch { if (window.toast) toast.error('Erreur réseau', ''); }
+  finally { input.value = ''; }
+}
+
+async function deleteAttachment(rmaId, attachmentId) {
+  const ok = await confirmDelete('ce fichier');
+  if (!ok) return;
+  const res = await fetch(`/api/rmas/attachments/${attachmentId}`, { method: 'DELETE' });
+  if (res.ok) openRmaDetails(rmaId);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TOOLTIP SURVOL
+// ══════════════════════════════════════════════════════════════════════════════
+
+function handleCardHover(ev, rmaId) {
+  const card = ev.currentTarget;
+  clearTimeout(hoverTimeout);
+ 
+  hoverTimeout = setTimeout(async () => {
+    if (!card) return;
+    const tooltip = document.getElementById('rma-tooltip');
+    if (!tooltip) return;
+ 
+    // Positionnement fixe (plus fiable que absolute + scroll)
+    const rect  = card.getBoundingClientRect();
+    const TW    = 320; // tooltip width
+    const pad   = 12;
+ 
+    let top  = rect.top;
+    let left = rect.right + pad;
+    if (left + TW > window.innerWidth - 10) left = rect.left - TW - pad;
+    if (top + 400 > window.innerHeight)     top  = Math.max(8, window.innerHeight - 420);
+ 
+    tooltip.style.cssText = `
+      position:fixed;
+      top:${top}px;
+      left:${left}px;
+      display:block;
+      opacity:0;
+      transition:opacity 0.15s ease;
+      z-index:9999;
+      width:${TW}px;
+    `;
+    tooltip.innerHTML = `
+      <div style="padding:20px;text-align:center;color:var(--text-tertiary);">
+        <i class="fas fa-circle-notch fa-spin"></i>
+      </div>`;
+    requestAnimationFrame(() => { tooltip.style.opacity = '1'; });
+ 
+    try {
+      if (!tooltipCache[rmaId]) {
+        const res = await fetch(`/api/rmas/${rmaId}`);
+        tooltipCache[rmaId] = await res.json();
+      }
+      const d = tooltipCache[rmaId];
+ 
+      const stageIndex = RMA_STAGES.indexOf(d.status);
+      const stageColor = STAGE_COLORS[stageIndex] || '#94a3b8';
+      const displayNum = d.rma_number || `#${d.id}`;
+ 
+      // Tags
+      const tagsHtml = (d.tags && d.tags.length > 0)
+        ? d.tags.map(t => `<span class="tooltip-tag" style="background:${t.color}18;color:${t.color};border:1px solid ${t.color}30;">${escapeHtml(t.name)}</span>`).join('')
+        : '';
+ 
+      // Due badge
+      const dueLine = d.due_date
+        ? `<div class="tooltip-row">${buildDueBadge(d.due_date)}</div>`
+        : '';
+ 
+      // Commentaires (3 derniers)
+      const comments = [...(d.comments || [])].reverse().slice(0, 3);
+      const commentsHtml = comments.length
+        ? comments.map(c => `
+            <div class="tooltip-comment">
+              <div class="tooltip-comment-header">
+                <span class="tooltip-comment-author">${escapeHtml(c.user_name)}</span>
+                <span class="tooltip-comment-date">${new Date(c.created_at).toLocaleDateString('fr-CH')}</span>
+              </div>
+              <div class="tooltip-comment-text">${escapeHtml(c.comment)}</div>
+            </div>`).join('')
+        : `<div class="tooltip-empty-comments">Aucune mise à jour.</div>`;
+ 
+      tooltip.innerHTML = `
+        <!-- En-tête -->
+        <div class="tooltip-header">
+          <div class="tooltip-stage-dot" style="background:${stageColor}"></div>
+          <div class="tooltip-title">
+            <div class="tooltip-rma-num">${escapeHtml(displayNum)}</div>
+            <div class="tooltip-equipment">${escapeHtml(d.equipment_name || 'Appareil non spécifié')}</div>
+            <div class="tooltip-client">
+              <i class="fas fa-hospital" style="opacity:0.4;font-size:9px;margin-right:3px;"></i>
+              ${escapeHtml(d.cabinet_name || 'Client inconnu')}
+            </div>
+          </div>
+          <span class="tooltip-supplier">${escapeHtml(d.supplier_name || 'Xion')}</span>
+        </div>
+ 
+        <!-- Corps -->
+        <div class="tooltip-body">
+          <!-- Étape actuelle -->
+          <div style="margin-bottom:8px;">
+            <span style="background:${stageColor}18;color:${stageColor};font-size:11px;font-weight:700;
+              padding:2px 10px;border-radius:2px;border:1px solid ${stageColor}30;">
+              ${escapeHtml(d.status)}
+            </span>
+          </div>
+ 
+          <!-- Échéance -->
+          ${dueLine}
+ 
+          <!-- Tags -->
+          ${tagsHtml ? `<div class="tooltip-tags">${tagsHtml}</div>` : ''}
+ 
+          <!-- Description -->
+          <div class="tooltip-desc">${escapeHtml((d.description || 'Aucune description'))}</div>
+ 
+          <!-- Commentaires -->
+          <div class="tooltip-comments">
+            <div class="tooltip-comments-title">
+              <i class="fas fa-history" style="margin-right:4px;"></i>
+              Dernières mises à jour
+            </div>
+            ${commentsHtml}
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      tooltip.innerHTML = `<div style="padding:20px;color:var(--color-danger);text-align:center;font-size:var(--text-xs);">
+        <i class="fas fa-exclamation-triangle" style="display:block;margin-bottom:6px;font-size:18px;"></i>
+        Erreur de chargement
+      </div>`;
+    }
+  }, 400);
+}
+
+function handleCardLeave() {
+  clearTimeout(hoverTimeout);
+  const tooltip = document.getElementById('rma-tooltip');
+  if (tooltip) { tooltip.style.opacity = '0'; setTimeout(() => { if (tooltip.style.opacity === '0') tooltip.style.display = 'none'; }, 200); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  REFUS DE DEVIS
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function refuseDevis(rmaId) {
+  const reason = await askRefusedReason();
+  if (!reason) return;
+  try {
+    await fetch(`/api/rmas/${rmaId}/comments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comment: `❌ DEVIS REFUSÉ par le client. Raison : ${reason}` }) });
+    const tagsRes  = await fetch('/api/rmas/tags/all');
+    const allTags  = await tagsRes.json();
+    let refusedTag = allTags.find(t => ['devis refusé', 'refus de devis'].includes(t.name.toLowerCase()));
+    if (!refusedTag) {
+      const createRes = await fetch('/api/rmas/tags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Devis Refusé', color: '#ef4444' }) });
+      refusedTag = await createRes.json();
+    }
+    await fetch(`/api/rmas/${rmaId}/tags`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tag_id: refusedTag.id }) });
+    tooltipCache[rmaId] = null; openRmaDetails(rmaId); loadRmas();
+    if (window.toast) toast.warning('Devis refusé', 'Pensez à archiver ce RMA.');
+  } catch (err) { console.error(err); }
+}
+
+function askRefusedReason() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+      <div style="background:var(--bg-elevated);border:1px solid var(--border-primary);padding:24px;max-width:420px;width:100%;box-shadow:var(--shadow-2xl);border-radius:4px;">
+        <div style="font-size:var(--text-base);font-weight:700;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px;"><i class="fas fa-ban" style="color:var(--color-danger)"></i> Raison du refus</div>
+        <textarea id="refuse-reason-input" placeholder="Ex: Réparation trop chère..." rows="4" style="width:100%;padding:8px 10px;border:1px solid var(--border-primary);border-radius:3px;font-family:inherit;font-size:var(--text-sm);color:var(--text-primary);background:var(--bg-primary);resize:vertical;margin-bottom:14px;outline:none;"></textarea>
+        <div style="display:flex;gap:8px;">
+          <button id="refuse-cancel" class="btn btn-secondary" style="flex:1">Annuler</button>
+          <button id="refuse-ok" class="btn btn-danger" style="flex:1">Confirmer le refus</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#refuse-reason-input');
+    input.focus();
+    overlay.querySelector('#refuse-ok').onclick    = () => { const val = input.value.trim(); document.body.removeChild(overlay); resolve(val || null); };
+    overlay.querySelector('#refuse-cancel').onclick = () => { document.body.removeChild(overlay); resolve(null); };
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  STATISTIQUES
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function loadDashboardStats() {
+  try {
+    const [statsRes, allRmasRes] = await Promise.all([fetch('/api/rmas/stats/dashboard'), fetch('/api/rmas')]);
+    const data    = await statsRes.json();
+    const allData = await allRmasRes.json();
+
+    const activeRmas   = allData.filter(r => r.status !== 'Archives');
+    const archivedRmas = allData.filter(r => r.status === 'Archives');
+    const now          = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const doneThisMonth = allData.filter(r => r.status === 'Livraison + Facturation' && new Date(r.updated_at || r.created_at) >= startOfMonth).length;
+    const transitCount  = activeRmas.filter(r => r.status === 'Transit vers Xion' || r.status === 'Transit vers KB').length;
+
+    const setKpi = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setKpi('kpi-total',    activeRmas.length);
+    setKpi('kpi-devis',    data.statusDistribution.find(s => s.status === 'Devis au client')?.count || 0);
+    setKpi('kpi-repair',   data.statusDistribution.find(s => s.status === 'En réparation')?.count || 0);
+    setKpi('kpi-transit',  transitCount);
+    setKpi('kpi-done',     doneThisMonth);
+    setKpi('kpi-archived', archivedRmas.length);
+
+    renderPipeline(data.statusDistribution, activeRmas.length);
+    renderAvgTime(allData);
+
+    Object.values(charts).forEach(c => { if (c && typeof c.destroy === 'function') c.destroy(); });
+    charts = {};
+
+    const COLORS = ['rgba(44,90,160,0.8)','rgba(139,92,246,0.8)','rgba(59,130,246,0.8)','rgba(245,158,11,0.8)','rgba(249,115,22,0.8)','rgba(16,185,129,0.8)','rgba(239,68,68,0.8)','rgba(6,182,212,0.8)'];
+    const supplierColors = { 'Xion': '#ef4444', 'Heinemann': '#3b82f6', 'Autre': '#94a3b8' };
+
+    const tagCounts = {};
+    allData.forEach(r => { if (r.tags) r.tags.forEach(t => { tagCounts[t.name] = (tagCounts[t.name] || 0) + 1; }); });
+    const tagEntries = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+    const tryChart = (id, config) => { const ctx = document.getElementById(id)?.getContext('2d'); if (ctx) charts[id] = new Chart(ctx, config); };
+
+    tryChart('statusChart', { type: 'bar', data: { labels: data.statusDistribution.map(d => d.status), datasets: [{ label: 'RMA', data: data.statusDistribution.map(d => d.count), backgroundColor: 'rgba(44,90,160,0.75)', borderRadius: 2 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } } } } });
+    tryChart('supplierChart', { type: 'doughnut', data: { labels: data.supplierDistribution.map(d => d.supplier_name || 'Inconnu'), datasets: [{ data: data.supplierDistribution.map(d => d.count), backgroundColor: data.supplierDistribution.map(d => supplierColors[d.supplier_name] || '#94a3b8'), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } } });
+    tryChart('clientsChart', { type: 'bar', data: { labels: data.topClients.map(d => d.cabinet_name), datasets: [{ label: 'RMA', data: data.topClients.map(d => d.count), backgroundColor: COLORS, borderRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } } });
+    tryChart('equipmentChart', { type: 'pie', data: { labels: data.topEquipment.map(d => `${d.brand} — ${d.name}`), datasets: [{ data: data.topEquipment.map(d => d.count), backgroundColor: COLORS, borderWidth: 1, borderColor: 'var(--bg-elevated)' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } } });
+    if (tagEntries.length) tryChart('tagsChart', { type: 'bar', data: { labels: tagEntries.map(([name]) => name), datasets: [{ label: 'Utilisations', data: tagEntries.map(([, count]) => count), backgroundColor: COLORS, borderRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } } });
+
+  } catch (e) { console.error('Erreur stats:', e); if (window.toast) toast.error('Erreur', 'Impossible de charger les statistiques.'); }
+}
+
+function renderPipeline(statusDist, total) {
+  const container = document.getElementById('pipeline-stages');
+  if (!container) return;
+  const stagesData = RMA_STAGES.filter(s => s !== 'Archives').map((stage, i) => ({ stage, color: STAGE_COLORS[i], count: statusDist.find(d => d.status === stage)?.count || 0 })).filter(d => d.count > 0).sort((a, b) => b.count - a.count);
+  if (!stagesData.length) { container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);font-size:var(--text-sm);padding:20px;">Aucun RMA actif.</div>'; return; }
+  const max = Math.max(...stagesData.map(d => d.count));
+  container.innerHTML = stagesData.map(d => {
+    const pct    = total > 0 ? Math.round((d.count / total) * 100) : 0;
+    const barPct = max   > 0 ? Math.round((d.count / max)   * 100) : 0;
+    return `<div class="pipeline-stage"><div class="pipeline-stage-name" title="${d.stage}" style="color:${d.color};font-weight:600;">${d.stage}</div><div class="pipeline-bar-track"><div class="pipeline-bar-fill" style="width:${barPct}%;background:${d.color}"></div></div><div class="pipeline-count">${d.count} <span style="color:var(--text-tertiary);font-weight:400">(${pct}%)</span></div></div>`;
+  }).join('');
+}
+
+function renderAvgTime(rmas) {
+  const container = document.getElementById('avg-time-table');
+  if (!container) return;
+  const stageGroups = {};
+  const now = Date.now();
+  rmas.filter(r => r.status !== 'Archives').forEach(r => {
+    if (!stageGroups[r.status]) stageGroups[r.status] = [];
+    stageGroups[r.status].push(Math.round((now - new Date(r.created_at).getTime()) / 86400000));
+  });
+  const rows = Object.entries(stageGroups).map(([stage, days]) => {
+    const avg   = Math.round(days.reduce((a, b) => a + b, 0) / days.length);
+    const color = avg > 30 ? 'var(--color-danger)' : avg > 14 ? 'var(--color-warning)' : 'var(--color-success)';
+    return { stage, avg, count: days.length, color };
+  }).sort((a, b) => b.avg - a.avg);
+  if (!rows.length) { container.innerHTML = '<p style="color:var(--text-tertiary);font-size:var(--text-sm)">Aucune donnée.</p>'; return; }
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:6px 16px;align-items:center;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-tertiary);letter-spacing:0.05em;">Étape</div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-tertiary);letter-spacing:0.05em;text-align:right;">RMAs</div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-tertiary);letter-spacing:0.05em;text-align:right;">Moy. jours</div>
+      ${rows.map(r => `<div style="font-size:var(--text-xs);color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.stage}</div><div style="font-size:var(--text-xs);color:var(--text-tertiary);text-align:right;">${r.count}</div><div style="font-size:var(--text-sm);font-weight:700;color:${r.color};text-align:right;">${r.avg}j</div>`).join('')}
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  MODAL + TOM SELECT
+// ══════════════════════════════════════════════════════════════════════════════
+
+function closeRmaModal() { document.getElementById('rma-modal').classList.remove('active'); currentRmaId = null; }
+function loadingHtml()   { return `<div style="text-align:center;padding:60px;color:var(--text-tertiary)"><i class="fas fa-spinner fa-spin fa-2x"></i></div>`; }
+
+function applySearchableSelects() {
+  for (const key in tsInstances) { if (tsInstances[key] && typeof tsInstances[key].destroy === 'function') { try { tsInstances[key].destroy(); } catch {} } delete tsInstances[key]; }
+  const cfg = { create: false, maxOptions: null, sortField: { field: 'text', direction: 'asc' } };
+  if (document.getElementById('form-client'))   tsInstances.formClient   = new TomSelect('#form-client',   cfg);
+  if (document.getElementById('edit-client'))   tsInstances.editClient   = new TomSelect('#edit-client',   cfg);
+  if (document.getElementById('edit-equipment')) tsInstances.editEquipment = new TomSelect('#edit-equipment', { create: false });
+}
+
+async function loadClientEquipmentForEdit(clientId) {
+  const tsEq = tsInstances.editEquipment;
+  if (!tsEq) return;
+  tsEq.clear(); tsEq.clearOptions();
+  if (!clientId) { tsEq.addOption({ value: '', text: '-- Aucun --' }); return; }
+  try {
+    const res       = await fetch(`/api/rmas/equipment/${clientId}`);
+    const equipment = await res.json();
+    tsEq.addOption({ value: '', text: '-- Aucun équipement spécifié --' });
+    equipment.forEach(e => tsEq.addOption({ value: e.id, text: `${e.brand} — ${e.name} (SN: ${e.serial_number || 'N/A'})` }));
+  } catch (err) { console.error(err); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  UTILITAIRES
+// ══════════════════════════════════════════════════════════════════════════════
+
+function escapeHtml(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = String(t); return d.innerHTML; }
+function fmt(d) { if (!d) return '—'; return new Intl.DateTimeFormat('fr-CH').format(new Date(d)); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  EXPOSITIONS GLOBALES
+// ══════════════════════════════════════════════════════════════════════════════
+
+window.loadRmas                  = loadRmas;
+window.openRmaDetails            = openRmaDetails;
+window.closeRmaModal             = closeRmaModal;
+window.deleteRma                 = deleteRma;
+window.evAllowDrop               = evAllowDrop;
+window.evDragLeave               = evDragLeave;
+window.evDrop                    = evDrop;
+window.evDrag                    = evDrag;
+window.editRmaDetails            = editRmaDetails;
+window.updateRma                 = updateRma;
+window.addComment                = addComment;
+window.uploadAttachment          = uploadAttachment;
+window.deleteAttachment          = deleteAttachment;
+window.refuseDevis               = refuseDevis;
+window.saveRma                   = saveRma;
+window.openNewRmaModal           = openNewRmaModal;
+window.loadClientEquipment       = loadClientEquipment;
+window.loadClientEquipmentForEdit = loadClientEquipmentForEdit;
+window.toggleView                = toggleView;
+window.loadDashboardStats        = loadDashboardStats;

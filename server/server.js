@@ -20,6 +20,7 @@ const reportsRoutes = require('./routes/reports');
 const ticketsRoutes = require('./routes/tickets');
 const rmasRoutes = require('./routes/rmas');
 const notificationsRoutes = require('./routes/notifications');
+const bexioRouter = require('./routes/bexio');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -60,10 +61,10 @@ app.use(
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Une seule route pour les uploads (évite les ambiguïtés)
-app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ─── Routes API ───────────────────────────────────────────────────────────────
-app.use('/api', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/admin', adminRoutes);
@@ -72,8 +73,13 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/rmas', rmasRoutes);
+app.use('/api/contract-prices', require('./routes/contract-prices'));
+app.use('/api/bexio', bexioRouter);
+app.use('/api/loans', require('./routes/loans'));
 
 // ─── Redirection racine ───────────────────────────────────────────────────────
+
+app.get('/api/me', (req, res) => res.redirect('/api/auth/me'));
 app.get('/', (req, res) => {
   if (req.session.userId) {
     return res.redirect('/dashboard.html');
