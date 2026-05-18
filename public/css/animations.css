@@ -472,8 +472,8 @@
 /* ── 1. TRANSITIONS ENTRE PAGES ─────────────────────────────────── */
 
 body {
-  opacity: 0;
-  transition: opacity 0.22s ease;
+  /* On utilise l'animation fadeIn que tu as déjà définie en haut de ton fichier */
+  animation: fadeIn 0.3s ease-out forwards; 
 }
 
 body.page-enter {
