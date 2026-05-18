@@ -3,6 +3,7 @@
 const express = require('express');
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
+const log = require('../utils/logger');
 
 const router = express.Router();
 

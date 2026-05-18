@@ -249,7 +249,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadChecklists();
 
   // Listeners
-  document.getElementById('logout-btn')?.addEventListener('click', logout);
   document.getElementById('add-checklist-btn')?.addEventListener('click', () => openChecklistModal());
 
   document.getElementById('close-checklist-modal')?.addEventListener('click', closeChecklistModal);
@@ -278,24 +277,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function checkAuth() {
   try {
-    const response = await fetch('/api/me');
+    const response = await fetch('/api/auth/me');
     if (!response.ok) { window.location.href = '/login.html'; return; }
     const data = await response.json();
     currentUser = data.user;
-    document.getElementById('user-info').innerHTML = `<div class="user-avatar">${data.user.name.charAt(0)}</div><div class="user-details"><strong>${escapeHtml(data.user.name)}</strong><span>${data.user.role === 'admin' ? 'Admin' : 'Tech'}</span></div>`;
+    const uAvatar = document.getElementById('u-avatar');
+    const uName   = document.getElementById('u-name');
+    const uRole   = document.getElementById('u-role');
+    if (uAvatar) uAvatar.textContent = data.user.name.charAt(0).toUpperCase();
+    if (uName)   uName.textContent   = data.user.name;
+    if (uRole)   uRole.textContent   = data.user.role;
   } catch { window.location.href = '/login.html'; }
 }
-async function logout() { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login.html'; }
 
 // --- TABS & COUNTS ---
 function switchTab(category) {
   currentTab = category;
-  currentPage = 1; 
-  
+  currentPage = 1;
+ 
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.classList.remove('active');
-    if(btn.getAttribute('onclick').includes(`'${category}'`)) btn.classList.add('active');
+    // Identifie le bon bouton via l'attribut onclick
+    const onclickAttr = btn.getAttribute('onclick') || '';
+    const match = onclickAttr.match(/switchTab\(['"]([^'"]+)['"]\)/);
+    if (match && match[1] === category) {
+      btn.classList.add('active');
+    }
   });
+ 
   filterChecklists();
 }
 
@@ -325,67 +334,185 @@ async function loadChecklists() {
 
 function filterChecklists() {
   const searchTerm = document.getElementById('checklist-search')?.value.toLowerCase() || '';
+  const sortValue  = document.getElementById('checklist-sort')?.value || 'date-desc';
+ 
   filteredChecklists = checklists.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchTerm) || (c.description && c.description.toLowerCase().includes(searchTerm));
-    const matchesTab = currentTab === 'all' ? true : (c.category === currentTab);
-    return matchesSearch && matchesTab;
+    const matchesSearch   = c.name.toLowerCase().includes(searchTerm) ||
+                            (c.description && c.description.toLowerCase().includes(searchTerm));
+    const matchesCategory = currentTab === 'all' || c.category === currentTab;
+    return matchesSearch && matchesCategory;
   });
+ 
+  // Tri
+  filteredChecklists.sort((a, b) => {
+    switch (sortValue) {
+      case 'name-asc':   return a.name.localeCompare(b.name);
+      case 'name-desc':  return b.name.localeCompare(a.name);
+      case 'tasks-desc': return (b.tasks_count || 0) - (a.tasks_count || 0);
+      case 'eq-desc':    return (b.equipment_count || 0) - (a.equipment_count || 0);
+      case 'date-asc':   return new Date(a.updated_at) - new Date(b.updated_at);
+      default:           return new Date(b.updated_at) - new Date(a.updated_at); // date-desc
+    }
+  });
+ 
+  currentPage = 1;
   renderCurrentPage();
+  updateTabCounts();
 }
 
 function renderCurrentPage() {
-    const grid = document.getElementById('checklists-grid');
-    const paginationContainer = document.getElementById('pagination-container');
-    const paginationInfo = document.getElementById('pagination-info');
-    const prevBtn = document.getElementById('prev-page');
-    const nextBtn = document.getElementById('next-page');
-
-    if (filteredChecklists.length === 0) {
-        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:4rem;color:var(--neutral-400);"><i class="fas fa-folder-open fa-3x" style="opacity:0.3;margin-bottom:1rem;"></i><p>Aucune checklist trouvée.</p></div>`;
-        paginationContainer.style.display = 'none';
-        return;
-    }
-
-    const totalPages = Math.ceil(filteredChecklists.length / itemsPerPage);
-    if(currentPage > totalPages) currentPage = totalPages;
-    if(currentPage < 1) currentPage = 1;
-
-    const start = (currentPage - 1) * itemsPerPage;
-    const end = start + itemsPerPage;
-    const itemsToShow = filteredChecklists.slice(start, end);
-
-    paginationContainer.style.display = 'flex';
-    paginationInfo.textContent = `Page ${currentPage} sur ${totalPages} (${filteredChecklists.length} checklists)`;
-    prevBtn.disabled = currentPage === 1;
-    nextBtn.disabled = currentPage === totalPages;
-
-    grid.innerHTML = itemsToShow.map(c => `
-    <div class="checklist-card-clean" onclick="openChecklistWork(${c.id})">
-      
-      <div class="clean-card-header">
-        <span class="card-cat">${c.category ? c.category.toUpperCase() : 'AUTRE'}</span>
-        <div class="card-actions-floating">
-          <button class="btn-icon-sm btn-icon-secondary" onclick="event.stopPropagation(); duplicateChecklist(${c.id})" title="Dupliquer"><i class="fas fa-copy"></i></button>
-          <button class="btn-icon-sm btn-icon-primary" onclick="event.stopPropagation(); openChecklistModal(${c.id})" title="Modifier"><i class="fas fa-pen"></i></button>
-          <button class="btn-icon-sm btn-icon-danger" onclick="event.stopPropagation(); openDeleteModal(${c.id}, '${escapeHtml(c.name).replace(/'/g, "\\'")}')" title="Supprimer"><i class="fas fa-trash"></i></button>
+  const grid            = document.getElementById('checklists-grid');
+  const paginationContainer = document.getElementById('pagination-container');
+  const paginationInfo  = document.getElementById('pagination-info');
+  const prevBtn         = document.getElementById('prev-page');
+  const nextBtn         = document.getElementById('next-page');
+ 
+  if (!grid) return;
+ 
+  if (filteredChecklists.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-tertiary);">
+        <i class="fas fa-clipboard-list fa-3x" style="opacity:0.15;margin-bottom:16px;display:block;"></i>
+        <div style="font-size:var(--text-sm)">Aucune checklist trouvée.</div>
+      </div>`;
+    if (paginationContainer) paginationContainer.style.display = 'none';
+    return;
+  }
+ 
+  const totalPages = Math.ceil(filteredChecklists.length / itemsPerPage);
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * itemsPerPage;
+  const itemsToShow = filteredChecklists.slice(start, start + itemsPerPage);
+ 
+  if (paginationContainer) paginationContainer.style.display = 'flex';
+  if (paginationInfo) paginationInfo.textContent = `Page ${currentPage} sur ${totalPages} (${filteredChecklists.length})`;
+  if (prevBtn) prevBtn.disabled = currentPage === 1;
+  if (nextBtn) nextBtn.disabled = currentPage === totalPages;
+ 
+  const catColors = {
+    'Maintenance': '#3b82f6',
+    'Installation': '#10b981',
+    'Dépannage':   '#f59e0b',
+    'Audit':       '#8b5cf6',
+    'Autre':       '#94a3b8',
+  };
+ 
+  grid.innerHTML = itemsToShow.map(c => {
+    const color      = catColors[c.category] || catColors['Autre'];
+    const totalItems = (c.equipment_count || 0) + (c.tasks_count || 0);
+    const pctDone    = 0; // La progression est en localStorage
+ 
+    return `
+    <div style="
+      background:var(--bg-elevated);
+      border:1px solid var(--border-primary);
+      border-top:3px solid ${color};
+      display:flex;flex-direction:column;
+      cursor:pointer;
+      transition:all 0.15s;
+      position:relative;
+      overflow:hidden;
+    "
+    onmouseenter="this.style.boxShadow='var(--shadow-md)';this.style.transform='translateY(-2px)'"
+    onmouseleave="this.style.boxShadow='none';this.style.transform='translateY(0)'"
+    onclick="openChecklistWork(${c.id})">
+ 
+      <!-- Actions flottantes -->
+      <div style="
+        position:absolute;top:10px;right:10px;
+        display:flex;gap:4px;opacity:0;
+        transition:opacity 0.15s;
+      " class="card-actions-floating">
+        <button class="btn-icon-sm btn-icon-secondary"
+          onclick="event.stopPropagation();duplicateChecklist(${c.id})"
+          title="Dupliquer" style="width:28px;height:28px;">
+          <i class="fas fa-copy" style="font-size:11px"></i>
+        </button>
+        <button class="btn-icon-sm btn-icon-primary"
+          onclick="event.stopPropagation();openChecklistModal(${c.id})"
+          title="Modifier" style="width:28px;height:28px;">
+          <i class="fas fa-pen" style="font-size:11px"></i>
+        </button>
+        <button class="btn-icon-sm btn-icon-danger"
+          onclick="event.stopPropagation();openDeleteModal(${c.id},'${escapeHtml(c.name).replace(/'/g, "\\'")}')"
+          title="Supprimer" style="width:28px;height:28px;">
+          <i class="fas fa-trash" style="font-size:11px"></i>
+        </button>
+      </div>
+ 
+      <style>
+        .checklist-card-wrap:hover .card-actions-floating { opacity: 1 !important; }
+      </style>
+ 
+      <!-- Catégorie -->
+      <div style="padding:14px 14px 0;">
+        <span style="
+          background:${color}18;color:${color};
+          font-size:10px;font-weight:700;
+          text-transform:uppercase;letter-spacing:0.07em;
+          padding:2px 8px;border-radius:2px;
+        ">${c.category || 'Autre'}</span>
+      </div>
+ 
+      <!-- Titre + description -->
+      <div style="padding:10px 14px 0;flex:1;">
+        <div style="
+          font-size:var(--text-base);font-weight:var(--font-bold);
+          color:var(--text-primary);margin-bottom:6px;
+          line-height:1.3;
+        ">${escapeHtml(c.name)}</div>
+        <div style="
+          font-size:var(--text-xs);color:var(--text-tertiary);
+          line-height:1.5;
+          display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+        ">${c.description ? escapeHtml(c.description) : '<span style="font-style:italic">Aucune description</span>'}</div>
+      </div>
+ 
+      <!-- Footer -->
+      <div style="
+        padding:12px 14px;margin-top:12px;
+        border-top:1px solid var(--border-primary);
+        display:flex;align-items:center;justify-content:space-between;
+        background:var(--bg-secondary);
+      ">
+        <div style="display:flex;gap:8px;">
+          <span style="
+            display:flex;align-items:center;gap:4px;
+            font-size:var(--text-xs);color:var(--text-secondary);font-weight:600;
+          ">
+            <i class="fas fa-toolbox" style="color:#3b82f6;font-size:10px"></i>
+            ${c.equipment_count || 0}
+          </span>
+          <span style="
+            display:flex;align-items:center;gap:4px;
+            font-size:var(--text-xs);color:var(--text-secondary);font-weight:600;
+          ">
+            <i class="fas fa-tasks" style="color:#8b5cf6;font-size:10px"></i>
+            ${c.tasks_count || 0}
+          </span>
+        </div>
+        <div style="font-size:11px;color:var(--text-tertiary);">
+          ${formatDate(c.updated_at)}
         </div>
       </div>
-
-      <h3 class="clean-card-title">${escapeHtml(c.name)}</h3>
-      <div class="clean-card-desc">${c.description ? escapeHtml(c.description) : '<span style="font-style:italic;opacity:0.5;">Pas de description</span>'}</div>
-      
-      <div class="clean-card-footer">
-        <div class="card-stats-row">
-            <span class="stat-chip"><i class="fas fa-toolbox"></i> ${c.equipment_count || 0}</span>
-            <span class="stat-chip"><i class="fas fa-tasks"></i> ${c.tasks_count || 0}</span>
-        </div>
-        <div class="card-date">
-            ${formatDate(c.updated_at)}
-        </div>
-      </div>
-
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+ 
+  // Rend les boutons d'action visibles au hover via JS
+  grid.querySelectorAll('[data-card]').forEach(card => {
+    const actions = card.querySelector('.card-actions-floating');
+    if (!actions) return;
+    card.addEventListener('mouseenter', () => actions.style.opacity = '1');
+    card.addEventListener('mouseleave', () => actions.style.opacity = '0');
+  });
+ 
+  // Applique hover via event delegation
+  grid.querySelectorAll('[onmouseenter]').forEach(card => {
+    const actions = card.querySelector('.card-actions-floating');
+    if (!actions) return;
+    card.addEventListener('mouseenter', () => { actions.style.opacity = '1'; });
+    card.addEventListener('mouseleave', () => { actions.style.opacity = '0'; });
+  });
 }
 
 function openChecklistWork(id) { window.location.href = `/checklist-view.html?id=${id}`; }
@@ -514,7 +641,27 @@ async function saveChecklist() {
   finally { btn.innerHTML = 'Enregistrer'; btn.disabled = false; }
 }
 
-function openDeleteModal(id, name) { checklistToDelete = id; document.getElementById('delete-checklist-name').textContent = name; document.getElementById('delete-checklist-modal').classList.add('active'); }
+function openDeleteModal(id, name) {
+  showConfirm({
+    title:       `Supprimer "${name}" ?`,
+    message:     'Cette checklist et toutes ses tâches seront supprimées définitivement.',
+    confirmText: 'Supprimer',
+    cancelText:  'Annuler',
+    type:        'danger'
+  }).then(async ok => {
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/checklists/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showNotification('Checklist supprimée', 'success');
+        loadChecklists();
+      } else {
+        showNotification('Erreur lors de la suppression', 'error');
+      }
+    } catch { showNotification('Erreur réseau', 'error'); }
+  });
+}
+
 function closeDeleteModal() { document.getElementById('delete-checklist-modal').classList.remove('active'); checklistToDelete = null; }
 async function confirmDelete() {
   if(!checklistToDelete) return;

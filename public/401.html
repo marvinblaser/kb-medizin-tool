@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>401 - Non authentifié</title>
+    <link rel="stylesheet" href="/css/tokens.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .error-container {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .error-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+        }
+        .error-code {
+            font-size: 4rem;
+            font-weight: 700;
+            color: var(--neutral-800);
+            line-height: 1;
+            margin-bottom: 1rem;
+        }
+        .error-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--neutral-700);
+            margin-bottom: 1rem;
+        }
+        .error-message {
+            color: var(--neutral-600);
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+        .btn-primary {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-icon">
+            <i class="fas fa-lock"></i>
+        </div>
+        <div class="error-code">401</div>
+        <h1 class="error-title">Authentification requise</h1>
+        <p class="error-message">
+            Votre session a expiré ou vous n'êtes pas connecté. 
+            Veuillez vous identifier pour accéder à cette page.
+        </p>
+        <a href="/login.html" class="btn-primary">
+            <i class="fas fa-sign-in-alt"></i> Se connecter
+        </a>
+    </div>
+    
+    <script>
+        // Redirection automatique après 3 secondes
+        setTimeout(() => {
+            window.location.href = '/login.html';
+        }, 3000);
+    </script>
+</body>
+</html>

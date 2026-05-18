@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
+const log = require('../utils/logger');
 
 // --- STATISTIQUES GLOBALES ---
 router.get('/stats', requireAuth, (req, res) => {

@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appareils de Prêt — KB Med</title>
+  <link rel="shortcut icon" href="/src/images/swiss_flag.webp" type="image/x-icon">
+  <link rel="stylesheet" href="/css/design-tokens.css">
+  <link rel="stylesheet" href="/css/animations.css">
+  <link rel="stylesheet" href="/css/layout-shared.css">
+  <link rel="stylesheet" href="/css/toast.css">
+  <link rel="stylesheet" href="/css/responsive-fix.css">
+  <link rel="stylesheet" href="/css/global-fixes.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+
+    /* ── LAYOUT ────────────────────────────────────────────────── */
+    .loans-container {
+      height: calc(100vh - 53px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TABS ──────────────────────────────────────────────────── */
+    .loans-tabs {
+      display: flex;
+      align-items: center;
+      height: 44px;
+      border-bottom: 1px solid var(--border-primary);
+      background: var(--bg-elevated);
+      padding: 0 20px;
+      gap: 0;
+      flex-shrink: 0;
+    }
+
+    .loans-tab {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 16px;
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+    }
+
+    .loans-tab:hover { color: var(--color-primary); }
+    .loans-tab.active {
+      color: var(--color-primary);
+      border-bottom-color: var(--color-primary);
+      font-weight: var(--font-semibold);
+    }
+
+    .tab-count {
+      background: var(--bg-tertiary);
+      color: var(--text-tertiary);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 2px;
+    }
+
+    .tab-count.danger {
+      background: var(--color-danger-bg);
+      color: var(--color-danger);
+    }
+
+    /* ── TOOLBAR ───────────────────────────────────────────────── */
+    .loans-toolbar {
+      display: flex;
+      align-items: center;
+      height: 48px;
+      padding: 0 20px;
+      gap: 10px;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border-primary);
+      flex-shrink: 0;
+    }
+
+    .loans-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      padding: 0 12px;
+      flex: 1;
+      max-width: 320px;
+      height: 34px;
+      transition: border-color var(--transition-fast);
+    }
+
+    .loans-search:focus-within { border-color: var(--color-primary); }
+    .loans-search input {
+      border: none;
+      background: transparent;
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      outline: none;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    .loans-filter-select {
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      font-size: var(--text-sm);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* ── CONTENT AREA ──────────────────────────────────────────── */
+    .loans-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+    }
+
+    /* ── KPI CARDS ─────────────────────────────────────────────── */
+    .loans-kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .loans-kpi {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      border-top: 3px solid var(--color-primary);
+      padding: 14px 16px;
+    }
+
+    .loans-kpi.danger  { border-top-color: var(--color-danger); }
+    .loans-kpi.warning { border-top-color: var(--color-warning); }
+    .loans-kpi.success { border-top-color: var(--color-success); }
+
+    .loans-kpi-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+    }
+
+    .loans-kpi-value {
+      font-size: 2rem;
+      font-weight: var(--font-bold);
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    /* ── TABLE ─────────────────────────────────────────────────── */
+    .loans-table-wrap {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      overflow: hidden;
+    }
+
+    .loans-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .loans-table thead tr {
+      background: var(--bg-secondary);
+    }
+
+    .loans-table th {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      border-bottom: 1px solid var(--border-primary);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .loans-table th:hover { color: var(--color-primary); }
+
+    .loans-table td {
+      padding: 12px 14px;
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-primary);
+      vertical-align: middle;
+    }
+
+    .loans-table tbody tr:last-child td { border-bottom: none; }
+    .loans-table tbody tr:hover { background: var(--bg-secondary); cursor: pointer; }
+
+    /* ── STATUS BADGES ─────────────────────────────────────────── */
+    .loan-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+
+    .badge-active    { background: rgba(59,130,246,0.1);  color: #3b82f6; }
+    .badge-overdue   { background: var(--color-danger-bg); color: var(--color-danger); }
+    .badge-returned  { background: var(--color-success-bg); color: var(--color-success); }
+    .badge-available { background: var(--color-success-bg); color: var(--color-success); }
+    .badge-loaned    { background: rgba(59,130,246,0.1);   color: #3b82f6; }
+    .badge-maintenance { background: var(--color-warning-bg); color: var(--color-warning); }
+
+    /* ── DEVICE CARDS (Catalogue) ──────────────────────────────── */
+    .devices-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(800px, 1fr));
+      gap: 12px;
+    }
+
+    .device-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      border-top: 3px solid var(--color-primary);
+      padding: 0;
+      cursor: pointer;
+      transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+    }
+
+    .device-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .device-card.loaned     { border-top-color: #3b82f6; }
+    .device-card.maintenance { border-top-color: var(--color-warning); }
+
+    .device-card-body  { padding: 14px 14px 10px; }
+    .device-card-name  { font-size: var(--text-base); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: 3px; }
+    .device-card-brand { font-size: var(--text-xs); color: var(--text-tertiary); margin-bottom: 8px; }
+    .device-card-sn    { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+
+    .device-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      border-top: 1px solid var(--border-primary);
+      background: var(--bg-secondary);
+    }
+
+    /* ── STATS ─────────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .stats-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+    }
+
+    .stats-card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-primary);
+      background: var(--bg-secondary);
+      font-size: var(--text-sm);
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stats-card-body { padding: 12px 16px; }
+
+    .stats-bar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .stats-bar-label {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      width: 140px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-shrink: 0;
+    }
+
+    .stats-bar-track {
+      flex: 1;
+      height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .stats-bar-fill {
+      height: 100%;
+      background: var(--color-primary);
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .stats-bar-val {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--text-secondary);
+      width: 24px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ── EMPTY STATE ───────────────────────────────────────────── */
+    .loans-empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-tertiary);
+    }
+
+    .loans-empty i {
+      font-size: 2.5rem;
+      opacity: 0.15;
+      display: block;
+      margin-bottom: 14px;
+    }
+
+    /* ── MODAL ─────────────────────────────────────────────────── */
+    .modal-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 768px) {
+    .loans-table thead { display: none !important; }
+    .loans-table, .loans-table tbody { display: block !important; }
+    .loans-table tbody tr {
+      display: flex; flex-direction: column; gap: 4px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      border-radius: 4px;
+      margin-bottom: 8px;
+      padding: 12px 14px;
+      cursor: pointer;
+    }
+    .loans-table td { display: block !important; border: none !important; padding: 0 !important; }
+    .loans-table td:nth-child(6),
+    .loans-table td:nth-child(7) > div > .btn-icon-sm:last-child { display: none; }
+    .loans-kpi-row { grid-template-columns: 1fr 1fr; }
+  }
+
+    /* ── RESPONSIVE ────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .loans-container { height: auto; overflow: visible; }
+      .loans-kpi-row   { grid-template-columns: 1fr 1fr; }
+      .stats-grid      { grid-template-columns: 1fr; }
+      .devices-grid    { grid-template-columns: 1fr; }
+      .modal-grid-2    { grid-template-columns: 1fr; }
+      .loans-table-wrap { overflow-x: auto; }
+      .loans-table { min-width: 600px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-container">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <img src="/src/images/logo-kbmed-short.svg" alt="KB Med">
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
+      <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
+      <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
+      <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+      <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
+      <a href="/tickets.html"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
+      <a href="/rmas.html"><i class="fas fa-tools"></i><span>RMA</span></a>
+      <a href="/loans.html" class="active"><i class="fas fa-hand-holding-medical"></i><span>Prêts</span></a>
+      <a href="/admin.html"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card" id="user-info">
+        <div class="user-avatar" id="u-avatar">?</div>
+        <div>
+          <div class="user-name" id="u-name">...</div>
+          <div class="user-role" id="u-role">...</div>
+        </div>
+      </div>
+      <div class="sidebar-btn-row">
+        <button class="sidebar-btn" onclick="openPreferencesModal()">
+          <i class="fas fa-cog"></i> Mes préférences
+        </button>
+        <button class="sidebar-btn danger" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Quitter</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="page-header">
+      <div class="header-title-group">
+        <button class="mobile-menu-btn"><i class="fas fa-bars"></i></button>
+        <h1><i class="fas fa-hand-holding-medical"></i> Appareils de Prêt</h1>
+      </div>
+      <div class="header-actions-group">
+        <button class="btn btn-primary" id="btn-new-loan" onclick="openLoanModal()">
+          <i class="fas fa-plus"></i>
+          <span class="btn-label">Nouveau Prêt</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="loans-container">
+      <!-- TABS -->
+      <div class="loans-tabs">
+        <button class="loans-tab active" onclick="switchTab('loans')" id="tab-loans">
+          <i class="fas fa-list"></i> Prêts
+          <span class="tab-count" id="count-loans">0</span>
+        </button>
+        <button class="loans-tab" onclick="switchTab('catalogue')" id="tab-catalogue">
+          <i class="fas fa-boxes"></i> Catalogue
+          <span class="tab-count" id="count-devices">0</span>
+        </button>
+        <button class="loans-tab" onclick="switchTab('stats')" id="tab-stats">
+          <i class="fas fa-chart-bar"></i> Statistiques
+        </button>
+      </div>
+
+      <!-- TOOLBAR -->
+      <div class="loans-toolbar">
+        <div class="loans-search">
+          <i class="fas fa-search" style="color:var(--text-tertiary);font-size:12px;"></i>
+          <input type="text" id="loans-search" placeholder="Rechercher..." oninput="filterLoans()">
+        </div>
+        <select class="loans-filter-select" id="filter-status" onchange="filterLoans()">
+            <option value="">Prêts actifs</option>          <!-- ← était "Tous les statuts" -->
+            <option value="En cours">En cours</option>
+            <option value="En retard">En retard</option>
+            <option value="Retourné">Retournés</option>     <!-- ← accessible si besoin -->
+        </select>
+        <div style="margin-left:auto;">
+          <button class="btn btn-secondary" id="btn-new-device" onclick="openDeviceModal()"
+            style="display:none;">
+            <i class="fas fa-plus"></i>
+            <span class="btn-label">Ajouter un appareil</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- VUE PRÊTS -->
+      <div class="loans-content" id="view-loans">
+        <!-- KPIs -->
+        <div class="loans-kpi-row">
+          <div class="loans-kpi">
+            <div class="loans-kpi-label"><i class="fas fa-clock"></i> Prêts en cours</div>
+            <div class="loans-kpi-value" id="kpi-active">—</div>
+          </div>
+          <div class="loans-kpi danger">
+            <div class="loans-kpi-label"><i class="fas fa-exclamation-triangle"></i> En retard</div>
+            <div class="loans-kpi-value" id="kpi-overdue">—</div>
+          </div>
+          <div class="loans-kpi success">
+            <div class="loans-kpi-label"><i class="fas fa-check-circle"></i> Retournés</div>
+            <div class="loans-kpi-value" id="kpi-returned">—</div>
+          </div>
+          <div class="loans-kpi">
+            <div class="loans-kpi-label"><i class="fas fa-boxes"></i> Appareils disponibles</div>
+            <div class="loans-kpi-value" id="kpi-available">—</div>
+          </div>
+        </div>
+
+        <!-- TABLE -->
+        <div class="loans-table-wrap">
+          <table class="loans-table">
+            <thead>
+              <tr>
+                <th onclick="sortLoans('status')">Statut <i class="fas fa-sort" style="opacity:0.3"></i></th>
+                <th onclick="sortLoans('device_name')">Appareil <i class="fas fa-sort" style="opacity:0.3"></i></th>
+                <th onclick="sortLoans('cabinet_name')">Client <i class="fas fa-sort" style="opacity:0.3"></i></th>
+                <th onclick="sortLoans('start_date')">Départ <i class="fas fa-sort" style="opacity:0.3"></i></th>
+                <th onclick="sortLoans('expected_return_date')">Retour prévu <i class="fas fa-sort" style="opacity:0.3"></i></th>
+                <th>Motif</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="loans-tbody">
+              <tr><td colspan="7" class="loans-empty">
+                <i class="fas fa-spinner fa-spin"></i> Chargement...
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VUE CATALOGUE -->
+      <div class="loans-content" id="view-catalogue" style="display:none;">
+        <div class="devices-grid" id="devices-grid">
+          <div class="loans-empty"><i class="fas fa-spinner fa-spin"></i></div>
+        </div>
+      </div>
+
+      <!-- VUE STATISTIQUES -->
+      <div class="loans-content" id="view-stats" style="display:none;">
+        <div class="stats-grid" id="stats-grid">
+          <div class="loans-empty" style="grid-column:1/-1">
+            <i class="fas fa-spinner fa-spin"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- ── MODAL NOUVEAU PRÊT ─────────────────────────────────────────── -->
+<div class="modal" id="loan-modal">
+  <div class="modal-content" style="max-width:580px;">
+    <div class="modal-header">
+      <h2 id="loan-modal-title"><i class="fas fa-plus-circle" style="color:var(--color-primary)"></i> Nouveau prêt</h2>
+      <button class="modal-close" onclick="closeModal('loan-modal')">&times;</button>
+    </div>
+    <div class="modal-body" style="display:block;padding:20px;">
+      <form id="loan-form">
+        <input type="hidden" id="loan-id">
+        <div class="modal-grid-2">
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>Appareil <span style="color:var(--color-danger)">*</span></label>
+            <select id="loan-device" required class="form-control">
+              <option value="">-- Sélectionner un appareil --</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>Client</label>
+            <select id="loan-client" class="form-control">
+              <option value="">-- Aucun client --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date de départ <span style="color:var(--color-danger)">*</span></label>
+            <input type="date" id="loan-start" required class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Retour prévu</label>
+            <input type="date" id="loan-expected-return" class="form-control">
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>Motif</label>
+            <input type="text" id="loan-reason" class="form-control"
+  placeholder="Ex: Panne machine client, démonstration, attente livraison...">
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>Notes</label>
+            <textarea id="loan-notes" rows="3" class="form-control"
+              placeholder="Accessoires inclus, conditions particulières..."></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('loan-modal')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveLoan()">
+        <i class="fas fa-save"></i> Enregistrer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL RETOUR ───────────────────────────────────────────────── -->
+<div class="modal" id="return-modal">
+  <div class="modal-content" style="max-width:460px;">
+    <div class="modal-header">
+      <h2><i class="fas fa-undo" style="color:var(--color-success)"></i> Retour appareil</h2>
+      <button class="modal-close" onclick="closeModal('return-modal')">&times;</button>
+    </div>
+    <div class="modal-body" style="display:block;padding:20px;">
+      <input type="hidden" id="return-loan-id">
+      <div class="form-group">
+        <label>Date de retour effective</label>
+        <input type="date" id="return-date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>État à la réception <span style="color:var(--color-danger)">*</span></label>
+        <select id="return-condition" class="form-control" required>
+          <option value="">-- Sélectionner --</option>
+          <option value="Bon état">✅ Bon état</option>
+          <option value="À nettoyer">🧹 À nettoyer</option>
+          <option value="Endommagé">⚠️ Endommagé</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes de retour</label>
+        <textarea id="return-notes" rows="3" class="form-control"
+          placeholder="Observations, dommages constatés..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('return-modal')">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmReturn()" style="background:var(--color-success);border-color:var(--color-success);">
+        <i class="fas fa-check"></i> Confirmer le retour
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL APPAREIL ─────────────────────────────────────────────── -->
+<div class="modal" id="device-modal">
+  <div class="modal-content" style="max-width:480px;">
+    <div class="modal-header">
+      <h2 id="device-modal-title"><i class="fas fa-boxes" style="color:var(--color-primary)"></i> Appareil</h2>
+      <button class="modal-close" onclick="closeModal('device-modal')">&times;</button>
+    </div>
+    <div class="modal-body" style="display:block;padding:20px;">
+      <input type="hidden" id="device-id">
+      <div class="modal-grid-2">
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Nom <span style="color:var(--color-danger)">*</span></label>
+          <input type="text" id="device-name" required class="form-control" placeholder="Ex: Autoclave de démonstration">
+        </div>
+        <div class="form-group">
+          <label>Marque</label>
+          <input type="text" id="device-brand" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>N° de série</label>
+          <input type="text" id="device-serial" class="form-control">
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Statut</label>
+          <select id="device-status" class="form-control">
+            <option value="Disponible">✅ Disponible</option>
+            <option value="En maintenance">🔧 En maintenance</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Notes (état, accessoires...)</label>
+          <textarea id="device-notes" rows="3" class="form-control"
+            placeholder="Accessoires inclus, état général, remarques..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="btn-delete-device" onclick="deleteDevice()" style="display:none;">
+        <i class="fas fa-trash"></i>
+      </button>
+      <button class="btn btn-secondary" onclick="closeModal('device-modal')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveDevice()">
+        <i class="fas fa-save"></i> Enregistrer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL DÉTAIL PRÊT ──────────────────────────────────────────── -->
+<div class="modal" id="loan-detail-modal">
+  <div class="modal-content" style="max-width:620px;">
+    <div class="modal-header">
+      <h2 id="detail-title">Détail du prêt</h2>
+      <button class="modal-close" onclick="closeModal('loan-detail-modal')">&times;</button>
+    </div>
+    <div class="modal-body" style="display:block;padding:20px;" id="detail-body"></div>
+    <div class="modal-footer" id="detail-footer"></div>
+  </div>
+</div>
+
+<script src="/js/confirm.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/loans.js"></script>
+<script src="/js/mobile-menu.js"></script>
+<script src="/js/theme-switcher.js"></script>
+<script src="/js/sidebar-init.js"></script>
+</body>
+</html>

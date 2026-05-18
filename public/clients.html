@@ -1,842 +1,2219 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clients ERP - KB Medizin Tool</title>
-  <link rel="stylesheet" href="/css/tokens.css" />
-  <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/layout.css" />
-  <link rel="stylesheet" href="/css/forms.css" />
-  <link rel="stylesheet" href="/css/components.css" />
-  <link rel="stylesheet" href="/css/table.css" />
-  <link rel="stylesheet" href="/css/pages.css" />
-  <link rel="stylesheet" href="/css/utilities.css" />
-  <link rel="stylesheet" href="/css/transitions.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <link rel="shortcut icon" href="src/images/swiss_flag.webp" type="image/x-icon">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clients — KB Med</title>
+  <link rel="shortcut icon" href="/src/images/swiss_flag.webp" type="image/x-icon">
+
+  <!-- Design System -->
+  <link rel="stylesheet" href="/css/design-tokens.css">
+<link rel="stylesheet" href="/css/animations.css">
+<link rel="stylesheet" href="/css/layout-shared.css">
+<link rel="stylesheet" href="/css/toast.css">
+<link rel="stylesheet" href="/css/responsive-fix.css">
+<link rel="stylesheet" href="/css/global-fixes.css">
+  <!-- External -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css" rel="stylesheet">
-  
+
   <style>
-    /* --- STYLES CLIENTS SPECIFIQUES --- */
-    .client-container-fluid { 
-        width: 100%; height: calc(100vh - 80px); display: flex; flex-direction: column; 
-        padding: 1.5rem 3rem !important; overflow: hidden; 
+    /* ═══════════════════════════════════════════════════════════
+       RESET
+    ═══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); color: var(--text-primary); background: var(--bg-secondary); font-size: var(--text-sm); }
+    a { text-decoration: none; color: inherit; }
+    button { font-family: inherit; cursor: pointer; }
+    input, select, textarea { font-family: inherit; }
+
+    /* ═══════════════════════════════════════════════════════════
+       LAYOUT
+    ═══════════════════════════════════════════════════════════ */
+    .app-container { display: flex; min-height: 100vh; }
+
+    /* ═══════════════════════════════════════════════════════════
+       SIDEBAR
+    ═══════════════════════════════════════════════════════════ */
+    .sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      background: var(--bg-elevated);
+      border-right: 1px solid var(--border-primary);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
     }
 
-    /* BARRE D'OUTILS (Standardisée) */
-    .toolbar-clean-bar {
-        background: white; border: 1px solid var(--border-color); border-radius: 8px;
-        padding: 0 1.5rem; display: flex; align-items: center; height: 64px;
-        box-shadow: var(--shadow-sm); margin-bottom: 1.5rem; flex-shrink: 0; gap: 1.5rem;
+    .sidebar-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border-primary);
     }
-    
-    .toolbar-search-section { display: flex; align-items: center; gap: 0.8rem; color: var(--neutral-400); flex: 0 0 320px; }
-    .toolbar-search-section input { border: none; background: transparent; width: 100%; font-size: 0.95rem; outline: none; padding: 0; }
-    .toolbar-divider { width: 1px; height: 32px; background: var(--border-color); }
-    
-    .toolbar-nav-section { display: flex; gap: 1.5rem; height: 100%; }
-    .nav-text-btn {
-        background: transparent; border: none; border-bottom: 3px solid transparent; height: 100%;
-        display: flex; align-items: center; font-size: 0.95rem; font-weight: 500; color: var(--neutral-500);
-        cursor: pointer; transition: all 0.2s; padding: 0 5px; margin-bottom: -1px;
-    }
-    .nav-text-btn:hover { color: var(--color-primary); }
-    .nav-text-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
 
-    /* FILTRES & BOUTONS */
-    .toolbar-filters-section { display: flex; align-items: center; gap: 0.8rem; }
-    .minimal-select {
-        border: 1px solid var(--border-color); border-radius: 6px; padding: 0.4rem 2rem 0.4rem 0.8rem;
-        font-size: 0.85rem; background-color: white; cursor: pointer; height: 36px; color: var(--neutral-700); font-weight: 500;
-        outline: none; max-width: 160px;
+    .sidebar-header img { height: 32px; width: auto; }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 12px 10px;
+      overflow-y: auto;
     }
-    
-    /* Bouton Filtres Avancés (AGRANDI) */
+
+    .sidebar-nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 4px;
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      transition: all var(--transition-fast);
+      margin-bottom: 2px;
+    }
+
+    .sidebar-nav a:hover { background: var(--bg-secondary); color: var(--text-primary); }
+    .sidebar-nav a.active { background: var(--color-primary); color: #fff; }
+    .sidebar-nav a i { width: 16px; text-align: center; font-size: 13px; }
+
+    .sidebar-footer {
+      padding: 12px 10px;
+      border-top: 1px solid var(--border-primary);
+    }
+
+    .user-card-sidebar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+
+    .user-avatar-sidebar {
+      width: 34px; height: 34px;
+      border-radius: 4px;
+      background: var(--color-primary);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: var(--font-bold);
+      font-size: var(--text-sm);
+      flex-shrink: 0;
+    }
+
+    .sidebar-btn-row { display: flex; gap: 6px; }
+
+    .sidebar-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 4px;
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+      transition: all var(--transition-fast);
+    }
+
+    .sidebar-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    .sidebar-btn.danger:hover { background: var(--color-danger-bg); border-color: var(--color-danger); color: var(--color-danger); }
+
+    /* ═══════════════════════════════════════════════════════════
+       MAIN CONTENT
+    ═══════════════════════════════════════════════════════════ */
+    .main-content {
+      flex: 1;
+      margin-left: 240px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       PAGE HEADER
+    ═══════════════════════════════════════════════════════════ */
+    .page-header {
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border-primary);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .header-title-group h1 {
+      font-size: var(--text-xl);
+      font-weight: var(--font-bold);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-title-group h1 i { color: var(--color-primary); font-size: 18px; }
+
+    .header-actions-group { display: flex; gap: 8px; align-items: center; }
+
+    /* ═══════════════════════════════════════════════════════════
+       BUTTONS
+    ═══════════════════════════════════════════════════════════ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 3px;
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      border: 1px solid transparent;
+      transition: all var(--transition-fast);
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .btn-primary { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+    .btn-primary:hover { background: var(--kb-blue-dark); border-color: var(--kb-blue-dark); }
+    .btn-secondary { background: var(--bg-secondary); border-color: var(--border-primary); color: var(--text-primary); }
+    .btn-secondary:hover { background: var(--bg-tertiary); }
+    .btn-danger { background: var(--color-danger); color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: var(--color-success); color: #fff; }
+    .btn-success:hover { background: #059669; }
+    .btn-sm { padding: 5px 10px; font-size: var(--text-xs); }
     .btn-icon-simple {
-        background: white; border: 1px solid var(--border-color); color: var(--neutral-500); cursor: pointer; border-radius: 6px; 
-        height: 44px; width: 44px; /* Agrandissement */
-        font-size: 1.1rem; /* Icône plus grande */
-        display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      transition: all var(--transition-fast);
     }
-    .btn-icon-simple:hover { background: var(--neutral-50); color: var(--color-primary); border-color: var(--color-primary-light); }
+    .btn-icon-simple:hover { background: var(--bg-tertiary); color: var(--color-primary); border-color: var(--color-primary); }
 
-    /* TABLEAUX ERP */
+    /* ═══════════════════════════════════════════════════════════
+       CONTAINER
+    ═══════════════════════════════════════════════════════════ */
+    .client-container-fluid {
+      flex: 1;
+      padding: 20px 28px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      height: calc(100vh - 53px);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       TOOLBAR
+    ═══════════════════════════════════════════════════════════ */
+    .toolbar-clean-bar {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      height: 52px;
+      margin-bottom: 16px;
+      flex-shrink: 0;
+      gap: 0;
+    }
+
+    .toolbar-search-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-tertiary);
+      flex: 0 0 280px;
+    }
+
+    .toolbar-search-section input {
+      border: none;
+      background: transparent;
+      width: 100%;
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      outline: none;
+    }
+
+    .toolbar-search-section input::placeholder { color: var(--text-tertiary); }
+
+    .toolbar-divider {
+      width: 1px;
+      height: 28px;
+      background: var(--border-primary);
+      margin: 0 12px;
+      flex-shrink: 0;
+    }
+
+    .toolbar-nav-section {
+      display: flex;
+      gap: 0;
+      height: 100%;
+    }
+
+    .nav-text-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      padding: 0 14px;
+      white-space: nowrap;
+    }
+
+    .nav-text-btn:hover { color: var(--color-primary); }
+    .nav-text-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: var(--font-semibold); }
+
+    .toolbar-filters-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .minimal-select {
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      padding: 5px 10px;
+      font-size: var(--text-xs);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+      /* height: 32px; */
+      font-family: inherit;
+      outline: none;
+      transition: border-color var(--transition-fast);
+    }
+
+    .minimal-select:focus { border-color: var(--color-primary); }
+
+    /* Show hidden checkbox */
+    .filter-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-secondary);
+      padding: 4px 10px;
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+    }
+
+    .filter-item input[type="checkbox"] { cursor: pointer; accent-color: var(--color-primary); }
+    .filter-item label { cursor: pointer; margin: 0; }
+
+    /* ═══════════════════════════════════════════════════════════
+       ADVANCED FILTERS
+    ═══════════════════════════════════════════════════════════ */
+    .filters-panel {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      padding: 16px;
+      margin-bottom: 16px;
+      margin-top: -8px;
+    }
+
+    .filters-panel.hidden { display: none; }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .filters-grid .form-group { margin: 0; }
+
+    .filters-grid label {
+      display: block;
+      font-size: 11px;
+      font-weight: var(--font-semibold);
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .filters-grid input,
+    .filters-grid select {
+      width: 100%;
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      font-size: var(--text-sm);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-family: inherit;
+      outline: none;
+      transition: border-color var(--transition-fast);
+    }
+
+    .filters-grid input:focus,
+    .filters-grid select:focus { border-color: var(--color-primary); }
+
+    .filters-footer { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+    .btn-link-reset {
+      background: none;
+      border: none;
+      color: var(--color-danger);
+      font-size: var(--text-xs);
+      cursor: pointer;
+      text-decoration: underline;
+      font-family: inherit;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       VIEW CONTENT
+    ═══════════════════════════════════════════════════════════ */
     .view-content { flex: 1; overflow: hidden; display: none; flex-direction: column; }
     .view-content.active { display: flex; }
-    
-    .erp-table-wrapper { 
-        flex: 1; overflow: auto; border: 1px solid var(--border-color); border-radius: 8px; 
-        background: white; box-shadow: var(--shadow-sm); 
+
+    /* ═══════════════════════════════════════════════════════════
+       ERP TABLE
+    ═══════════════════════════════════════════════════════════ */
+    .erp-table-wrapper {
+      flex: 1;
+      overflow: auto;
+      border: 1px solid var(--border-primary);
+      background: var(--bg-elevated);
     }
-    .erp-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-    .erp-table thead { position: sticky; top: 0; z-index: 10; background: var(--neutral-50); }
+
+    .erp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--text-sm);
+    }
+
+    .erp-table thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--bg-secondary);
+    }
+
     .erp-table th {
-        color: var(--neutral-600); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em;
-        padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); text-align: left; white-space: nowrap; cursor: pointer;
+      color: var(--text-tertiary);
+      font-weight: var(--font-semibold);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-primary);
+      text-align: left;
+      white-space: nowrap;
     }
-    .erp-table td { padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border-color-light); vertical-align: middle; font-size: 0.9rem; color: var(--neutral-800); }
-    .erp-table tbody tr:hover { background: var(--neutral-50); }
 
-    /* Lignes Planning (Code Couleur) */
-    .row-ok td:first-child { border-left: 4px solid var(--color-success); }
-    .row-warning { background: #fffbf0; } .row-warning td:first-child { border-left: 4px solid var(--color-warning); }
-    .row-expired { background: #fff5f5; } .row-expired td:first-child { border-left: 4px solid var(--color-danger); }
+    .erp-table th.sortable { cursor: pointer; user-select: none; }
+    .erp-table th.sortable:hover { color: var(--color-primary); }
 
-    /* MODALE FICHE CLIENT (Sheet) */
+    .erp-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-primary);
+      vertical-align: middle;
+      color: var(--text-secondary);
+    }
+
+    .erp-table tbody tr { transition: background var(--transition-fast); cursor: pointer; }
+    .erp-table tbody tr:hover { background: var(--bg-secondary); }
+    .erp-table tbody tr:last-child td { border-bottom: none; }
+
+    /* Status rows */
+    .row-ok td:first-child { border-left: 3px solid var(--color-success); }
+    .row-warning { background: rgba(245, 158, 11, 0.04); }
+    .row-warning td:first-child { border-left: 3px solid var(--color-warning); }
+    .row-expired { background: rgba(239, 68, 68, 0.04); }
+    .row-expired td:first-child { border-left: 3px solid var(--color-danger); }
+
+    /* Row checkbox */
+    .row-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-primary); }
+    tr.row-selected { background: rgba(44, 90, 160, 0.06) !important; }
+
+    /* Canton badge */
+    .badge-canton {
+      background: var(--neutral-800);
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: var(--font-bold);
+      font-size: 10px;
+      margin-right: 4px;
+    }
+
+    [data-theme="dark"] .badge-canton { background: var(--neutral-600); }
+
+    /* Planning rows */
+    .planning-row { transition: background var(--transition-fast); }
+    .planning-row:hover { background: var(--bg-secondary); }
+    .details-row.hidden { display: none; }
+    .details-row td { border-top: none !important; background: var(--bg-secondary); }
+
+    /* Total count */
+    .table-footer-count {
+      padding: 8px 14px;
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      border-top: 1px solid var(--border-primary);
+      text-align: right;
+      background: var(--bg-elevated);
+      flex-shrink: 0;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       BULK ACTIONS BAR
+    ═══════════════════════════════════════════════════════════ */
+    .bulk-actions-bar {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--color-primary);
+      color: #fff;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-radius: 4px;
+      box-shadow: var(--shadow-xl);
+      z-index: 200;
+      min-width: 360px;
+    }
+
+    .bulk-actions-bar.visible { display: flex; }
+
+    .bulk-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+    }
+
+    .bulk-badge {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      font-weight: var(--font-bold);
+      padding: 2px 8px;
+      border-radius: 2px;
+      font-size: var(--text-sm);
+    }
+
+    .bulk-separator { width: 1px; height: 24px; background: rgba(255,255,255,0.2); }
+
+    .bulk-buttons { display: flex; gap: 6px; }
+
+    .btn-bulk {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 3px;
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-family: inherit;
+    }
+
+    .btn-bulk-secondary { background: rgba(255,255,255,0.1); color: #fff; }
+    .btn-bulk-secondary:hover { background: rgba(255,255,255,0.25); }
+    .btn-bulk-danger { background: rgba(239, 68, 68, 0.8); color: #fff; border-color: transparent; }
+    .btn-bulk-danger:hover { background: var(--color-danger); }
+
+    .btn-bulk-close {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 3px;
+      font-size: 14px;
+      transition: all var(--transition-fast);
+    }
+
+    .btn-bulk-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+    /* ═══════════════════════════════════════════════════════════
+       MODALS BASE
+    ═══════════════════════════════════════════════════════════ */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal.active { display: flex; }
+
+    .modal-content {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-2xl);
+      animation: scaleIn 0.2s ease-out;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-primary);
+    }
+
+    .modal-header h2 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-bold);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-close {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      color: var(--text-secondary);
+      font-size: 16px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .modal-close:hover { background: var(--bg-secondary); }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border-primary);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       FORMS (in modals)
+    ═══════════════════════════════════════════════════════════ */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      font-size: var(--text-sm);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: inherit;
+      outline: none;
+      transition: border-color var(--transition-fast);
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(44,90,160,0.1); }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+    }
+
+    .form-row .form-group { margin-bottom: 0; }
+    .form-control { /* alias */ }
+    .form-input { /* alias */ }
+    .mb-0 { margin-bottom: 0; }
+    .mb-4 { margin-bottom: 16px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       CLIENT SHEET MODAL (full-screen)
+    ═══════════════════════════════════════════════════════════ */
     .client-sheet-modal {
-        width: 95vw !important; max-width: 1200px !important; height: 90vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px;
+      width: 95vw !important;
+      max-width: 1200px !important;
+      height: 88vh;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
     }
-    .sheet-header {
-        padding: 1.5rem 2rem; background: white; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;
-    }
-    .sheet-title-box { display: flex; align-items: center; gap: 1.5rem; }
-    .sheet-icon-box {
-        width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
-        font-size: 1.5rem; color: var(--color-primary); background: var(--color-primary-light);
-    }
-    .sheet-meta-tags { display: flex; gap: 0.5rem; margin-top: 0.4rem; color: var(--neutral-500); font-size: 0.9rem; align-items: center; }
-    .meta-badge { background: var(--neutral-100); padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: var(--neutral-600); }
 
-    .sheet-layout { display: flex; flex: 1; overflow: hidden; }
-    .sheet-sidebar { width: 320px; background: var(--neutral-50); border-right: 1px solid var(--border-color); padding: 2rem; overflow-y: auto; flex-shrink: 0; }
-    .sheet-content { flex: 1; background: white; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
-    
-    .sheet-tabs { display: flex; border-bottom: 1px solid var(--border-color); padding: 0 2rem; background: white; }
-    .sheet-tab {
-        background: transparent; border: none; padding: 1rem 0; margin-right: 2rem; font-weight: 600; color: var(--neutral-500); cursor: pointer;
-        border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.9rem;
+    .sheet-header {
+      padding: 16px 24px;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border-primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
     }
+
+    .sheet-title-box {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .sheet-icon-box {
+      width: 48px; height: 48px;
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      color: var(--color-primary);
+      background: rgba(44,90,160,0.1);
+    }
+
+    .sheet-title-box h2 {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-bold);
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .sheet-meta-tags {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+    }
+
+    .meta-badge {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-primary);
+      padding: 2px 8px;
+      border-radius: 2px;
+      font-weight: var(--font-semibold);
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .meta-sep { opacity: 0.4; }
+
+    .sheet-actions-row { display: flex; gap: 8px; align-items: center; }
+
+    .sheet-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .sheet-sidebar {
+      width: 300px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-primary);
+      padding: 20px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .sheet-content {
+      flex: 1;
+      background: var(--bg-elevated);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .info-group { margin-bottom: 20px; }
+
+    .info-group label {
+      display: block;
+      font-size: 10px;
+      font-weight: var(--font-bold);
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+
+    .info-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    .info-line i { color: var(--color-primary); width: 14px; margin-top: 2px; flex-shrink: 0; }
+
+    .geo-box {
+      background: rgba(16,185,129,0.1);
+      color: var(--color-success);
+      border: 1px solid rgba(16,185,129,0.2);
+      padding: 6px 10px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      display: inline-block;
+    }
+
+    /* Sheet tabs */
+    .sheet-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-primary);
+      padding: 0 24px;
+      background: var(--bg-secondary);
+      flex-shrink: 0;
+    }
+
+    .sheet-tab {
+      background: transparent;
+      border: none;
+      padding: 12px 0;
+      margin-right: 24px;
+      font-weight: var(--font-semibold);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all var(--transition-fast);
+    }
+
     .sheet-tab:hover { color: var(--color-primary); }
     .sheet-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-    .badge-count { background: var(--neutral-100); color: var(--neutral-600); padding: 1px 8px; border-radius: 10px; font-size: 0.75rem; margin-left: 6px; }
 
-    .tab-pane { flex: 1; padding: 2rem; overflow-y: auto; display: none; }
+    .badge-count {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-primary);
+      color: var(--text-tertiary);
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 10px;
+      margin-left: 5px;
+    }
+
+    .tab-pane { flex: 1; padding: 20px 24px; overflow-y: auto; display: none; }
     .tab-pane.active { display: block; }
 
-    /* INFO SIDEBAR */
-    .info-group { margin-bottom: 2rem; }
-    .info-group label { display: block; font-size: 0.7rem; font-weight: 700; color: var(--neutral-400); text-transform: uppercase; margin-bottom: 0.75rem; letter-spacing: 0.05em; }
-    .info-line { display: flex; align-items: flex-start; gap: 0.75rem; font-size: 0.9rem; color: var(--neutral-700); margin-bottom: 0.6rem; line-height: 1.4; }
-    .info-line i { color: var(--color-primary); width: 16px; margin-top: 3px; }
-    .geo-box { background: #ecfdf5; color: #166534; border: 1px solid #bbf7d0; padding: 6px 10px; border-radius: 6px; font-family: monospace; display: inline-block; font-size: 0.8rem; }
-    
-    /* CARDS MACHINES */
-    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+    /* ═══════════════════════════════════════════════════════════
+       EQUIPMENT CARDS
+    ═══════════════════════════════════════════════════════════ */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
     .eq-card-pro {
-        background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;
-        display: flex; justify-content: space-between; align-items: start;
-        border-left: 4px solid var(--border-color); transition: all 0.2s;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      border-left: 3px solid var(--border-primary);
+      padding: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      transition: all var(--transition-fast);
     }
-    .eq-card-pro:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--color-primary-light); }
-    .eq-title { margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 700; color: var(--neutral-800); }
-    .eq-sub { margin: 0; font-size: 0.8rem; color: var(--neutral-500); }
-    .eq-date { font-size: 0.75rem; font-weight: 600; margin-top: 8px; display: block; }
 
-    /* FILTRES AVANCÉS */
-    .filters-panel { background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; margin-top: -1rem; box-shadow: var(--shadow-sm); }
-    .filters-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
-    .btn-link-reset { background: none; border: none; color: var(--color-danger); font-size: 0.85rem; cursor: pointer; text-decoration: underline; margin-top: 1rem; display: block; margin-left: auto; }
+    .eq-card-pro:hover { box-shadow: var(--shadow-md); border-color: var(--color-primary); }
+    .eq-title { margin: 0 0 3px 0; font-size: var(--text-sm); font-weight: var(--font-bold); color: var(--text-primary); }
+    .eq-sub { margin: 0; font-size: var(--text-xs); color: var(--text-tertiary); }
+    .eq-date { font-size: var(--text-xs); font-weight: var(--font-semibold); margin-top: 6px; display: block; }
 
-    /* Pagination (Harmonisée) */
-    .erp-pagination { display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; margin-top: 0.5rem; }
-    .pg-btn { width: 32px; height: 32px; border: 1px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: var(--neutral-600); }
-    .pg-btn:hover { background: var(--neutral-50); color: var(--color-primary); }
-    .pg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .history-feed { 
-        display: flex; flex-direction: column; gap: 0; padding-left: 10px; margin-top: 1rem; 
+    /* ═══════════════════════════════════════════════════════════
+       TIMELINE (History)
+    ═══════════════════════════════════════════════════════════ */
+    .history-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding-left: 8px;
     }
-    
-    .timeline-item { 
-        position: relative; padding-left: 2.5rem; padding-bottom: 2rem; border-left: 2px solid var(--border-color-light); 
+
+    .timeline-item {
+      position: relative;
+      padding-left: 32px;
+      padding-bottom: 24px;
+      border-left: 2px solid var(--border-primary);
     }
+
     .timeline-item:last-child { border-left-color: transparent; padding-bottom: 0; }
-    
+
     .timeline-machine {
-        display: inline-flex; align-items: center; gap: 6px;
-        background: var(--neutral-50); color: var(--neutral-700);
-        border: 1px solid var(--border-color);
-        padding: 4px 10px; border-radius: 6px; 
-        font-size: 0.8rem; font-weight: 500; font-family: var(--font-mono);
-        margin-bottom: 0.75rem; width: fit-content;
-    }
-    .timeline-machine i { color: var(--color-secondary); font-size: 0.75rem; }
-
-    /* FIX POUR LE SELECT DANS LA MODALE */
-#schedule-modal .ss-main {
-    background-color: white !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: 6px !important;
-    height: 40px !important;
-    display: flex !important;
-    align-items: center !important;
-}
-#schedule-modal .ss-content {
-    z-index: 99999 !important; /* Passe au dessus de la modale */
-}
-
-    /* Marqueur avec Icône */
-    .timeline-marker { 
-        position: absolute; left: -12px; top: 0; 
-        width: 26px; height: 26px; border-radius: 50%; 
-        background: white; border: 2px solid var(--neutral-300);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 0.75rem; color: var(--neutral-500); z-index: 2;
-        box-shadow: 0 0 0 3px white; /* Effet de détourage */
-    }
-    
-    /* Couleurs des marqueurs selon le type */
-    .timeline-item.type-report .timeline-marker { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-light); }
-    .timeline-item.type-rdv .timeline-marker { border-color: var(--color-warning); color: var(--color-warning); background: #fffbeb; }
-
-    /* Date au dessus de la carte */
-    .timeline-date { 
-        font-size: 0.75rem; font-weight: 700; color: var(--neutral-500); 
-        margin-bottom: 0.5rem; display: block; text-transform: uppercase; letter-spacing: 0.05em;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-primary);
+      padding: 3px 10px;
+      border-radius: 2px;
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      font-family: var(--font-mono);
+      margin-bottom: 8px;
     }
 
-    /* Carte Contenu */
-    .timeline-card { 
-        background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem 1.25rem;
-        box-shadow: var(--shadow-sm); transition: all 0.2s; position: relative;
-    }
-    .timeline-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--color-primary-light); }
-    
-    /* En-tête de la carte */
-    .timeline-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
-    .timeline-title { font-size: 0.95rem; font-weight: 700; color: var(--neutral-800); margin: 0; }
-    
-    .timeline-tag { 
-        font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase;
-    }
-    .tag-report { background: var(--neutral-100); color: var(--neutral-600); }
-    .tag-rdv { background: #fff7ed; color: #c2410c; }
+    .timeline-machine i { color: var(--kb-red); }
 
-    .timeline-desc { font-size: 0.9rem; color: var(--neutral-600); line-height: 1.5; }
-
-    /* Bouton PDF Flottant */
-    /* MODIFICATION: Bouton Document (Nouveau Style) */
-    .timeline-action { 
-        margin-top: 1rem; padding-top: 0.75rem; border-top: 1px dashed var(--border-color-light); 
-        display: flex; justify-content: flex-end;
+    .timeline-marker {
+      position: absolute;
+      left: -11px;
+      top: 0;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--bg-elevated);
+      border: 2px solid var(--border-secondary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px;
+      color: var(--text-tertiary);
+      z-index: 2;
     }
-    
+
+    .timeline-item.type-report .timeline-marker { border-color: var(--color-primary); color: var(--color-primary); background: rgba(44,90,160,0.1); }
+    .timeline-item.type-rdv .timeline-marker { border-color: var(--color-warning); color: var(--color-warning); background: rgba(245,158,11,0.1); }
+
+    .timeline-date {
+      font-size: 10px;
+      font-weight: var(--font-bold);
+      color: var(--text-tertiary);
+      margin-bottom: 5px;
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .timeline-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      padding: 12px 16px;
+      box-shadow: var(--shadow-sm);
+      transition: all var(--transition-fast);
+    }
+
+    .timeline-card:hover { box-shadow: var(--shadow-md); }
+
+    .timeline-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+    .timeline-title { font-size: var(--text-sm); font-weight: var(--font-bold); color: var(--text-primary); margin: 0; }
+
+    .timeline-tag {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 2px;
+      font-weight: var(--font-semibold);
+      text-transform: uppercase;
+    }
+
+    .tag-report { background: var(--bg-tertiary); color: var(--text-secondary); }
+    .tag-rdv { background: rgba(245,158,11,0.1); color: #92400e; }
+    [data-theme="dark"] .tag-rdv { color: var(--color-warning); }
+
+    .timeline-desc { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; }
+
+    .timeline-action {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border-primary);
+      display: flex;
+      justify-content: flex-end;
+    }
+
     .btn-doc-action {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: white; 
-        border: 1px solid var(--color-primary); 
-        color: var(--color-primary);
-        padding: 6px 14px; 
-        border-radius: 20px; /* Style "Pill" */
-        font-size: 0.85rem; font-weight: 600;
-        cursor: pointer; transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--color-primary);
+      color: var(--color-primary);
+      padding: 5px 12px;
+      border-radius: 3px;
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      cursor: pointer;
+      transition: all var(--transition-fast);
     }
-    .btn-doc-action:hover {
-        background: var(--color-primary-light);
-        box-shadow: 0 2px 4px rgba(2, 119, 189, 0.15);
-        transform: translateY(-1px);
-    }
-    .btn-doc-action i { font-size: 0.9rem; }
-    .btn-pdf-link {
-        color: var(--color-primary); font-size: 0.85rem; font-weight: 500; text-decoration: none; 
-        display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 4px; transition: background 0.2s;
-    }
-    .btn-pdf-link:hover { background: var(--color-primary-light); }
 
-/* Style pour le mode Planning Groupé */
-.badge-canton {
-    background: var(--neutral-800); color: white;
-    padding: 2px 6px; border-radius: 4px; 
-    font-weight: bold; font-size: 0.75rem; margin-right: 5px;
+    .btn-doc-action:hover { background: rgba(44,90,160,0.1); }
+    .btn-pdf-link { color: var(--color-primary); font-size: var(--text-xs); display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 3px; text-decoration: none; }
+    .btn-pdf-link:hover { background: rgba(44,90,160,0.1); }
+
+    /* ═══════════════════════════════════════════════════════════
+       GPS BOX (in client form)
+    ═══════════════════════════════════════════════════════════ */
+    .gps-container {
+      background: rgba(16,185,129,0.06);
+      border: 1px solid rgba(16,185,129,0.2);
+      padding: 12px;
+      border-radius: 3px;
+      margin-bottom: 16px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       SCHEDULE MODAL (SlimSelect fix)
+    ═══════════════════════════════════════════════════════════ */
+    #schedule-modal .ss-main {
+      background-color: var(--bg-primary) !important;
+      border: 1px solid var(--border-primary) !important;
+      border-radius: 3px !important;
+      height: 38px !important;
+      display: flex !important;
+      align-items: center !important;
+      color: var(--text-primary) !important;
+    }
+
+    #schedule-modal .ss-content { z-index: 99999 !important; }
+
+    .ss-main {
+      background-color: var(--bg-primary) !important;
+      border: 1px solid var(--border-primary) !important;
+      border-radius: 3px !important;
+      color: var(--text-primary) !important;
+    }
+
+    .ss-content {
+      background: var(--bg-elevated) !important;
+      border: 1px solid var(--border-primary) !important;
+      border-radius: 3px !important;
+      z-index: 9999 !important;
+    }
+
+    .ss-option:hover, .ss-option.ss-highlighted { background: var(--color-primary) !important; color: #fff !important; }
+
+    /* ═══════════════════════════════════════════════════════════
+       CONFIRM MODAL (centered)
+    ═══════════════════════════════════════════════════════════ */
+    #confirm-modal .modal-content {
+      max-width: 400px;
+      text-align: center;
+      padding: 0;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       NOTIFICATION CONTAINER (legacy JS)
+    ═══════════════════════════════════════════════════════════ */
+    #notification-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       PAGINATION
+    ═══════════════════════════════════════════════════════════ */
+    .erp-pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      border-top: 1px solid var(--border-primary);
+      background: var(--bg-elevated);
+      flex-shrink: 0;
+    }
+
+    .pg-btn {
+      width: 30px; height: 30px;
+      border: 1px solid var(--border-primary);
+      background: var(--bg-secondary);
+      border-radius: 3px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary);
+      font-size: 12px;
+      transition: all var(--transition-fast);
+    }
+
+    .pg-btn:hover { background: var(--bg-tertiary); color: var(--color-primary); }
+    .pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Fix SlimSelect Canton/Secteur */
+    .ss-main {
+      min-height: 32px !important;
+      height: 32px !important;
+      padding: 0 8px !important;
+      border-radius: 3px !important;
+      font-size: var(--text-xs) !important;
+      background: var(--bg-secondary) !important;
+      border: 1px solid var(--border-primary) !important;
+      color: var(--text-primary) !important;
+    }
+    .ss-content { z-index: var(--z-dropdown) !important; }
+    .ss-option:hover, .ss-option.ss-highlighted {
+      background: var(--color-primary) !important;
+      color: #fff !important;
+    }
+
+    /* Fix largeur SlimSelect filtres */
+#filter-canton + .ss-main,
+#filter-sector + .ss-main,
+#adv-status + .ss-main {
+  min-width: 160px !important;
+  width: auto !important;
 }
 
-.planning-row { transition: background 0.2s; }
-.planning-row:hover { background: var(--neutral-50); }
+/* Dropdown assez large pour afficher le contenu */
+#filter-canton ~ .ss-content,
+#filter-sector ~ .ss-content,
+#adv-status ~ .ss-content {
+  min-width: 200px !important;
+  width: auto !important;
+}
 
-/* Animation simple pour l'accordéon */
-.details-row.hidden { display: none; }
-.details-row td { border-top: none !important; box-shadow: inset 0 6px 6px -6px rgba(0,0,0,0.1); }
-
-/* --- FIX SLIMSELECT (VERSION PROPRE) --- */
-
-/* 1. La barre fermée (dans la toolbar) */
+/* Alternative si les sélecteurs ci-dessus ne fonctionnent pas */
 .toolbar-filters-section .ss-main {
-    background-color: white !important;
-    border: 1px solid var(--border-color) !important;
-    height: 38px !important;
-    width: 160px !important; /* Largeur fixe */
-    border-radius: 6px !important;
-    padding: 0 10px !important;
-    box-shadow: none !important;
-    color: var(--neutral-700) !important;
+  min-width: 160px !important;
+}
+
+.toolbar-filters-section .ss-content {
+  min-width: 200px !important;
+}
+
+    /* ═══════════════════════════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════════════════════════ */
+    .app-footer {
+      background: var(--bg-elevated);
+      border-top: 1px solid var(--border-primary);
+      padding: 28px 28px 16px;
+    }
+
+    .footer-content {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 20px;
+    }
+
+    .footer-logo { font-size: var(--text-base); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: 8px; }
+    .footer-desc { font-size: var(--text-sm); color: var(--text-tertiary); line-height: var(--leading-relaxed); margin-bottom: 12px; }
+
+    .footer-socials { display: flex; gap: 6px; }
+    .social-link {
+      width: 28px; height: 28px;
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-tertiary);
+      font-size: 11px;
+      transition: all var(--transition-fast);
+      text-decoration: none;
+    }
+    .social-link:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+    .footer-col h4 { font-size: var(--text-sm); font-weight: var(--font-semibold); color: var(--text-primary); margin-bottom: 10px; }
+    .footer-nav { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .footer-nav a { font-size: var(--text-sm); color: var(--text-tertiary); transition: color var(--transition-fast); text-decoration: none; }
+    .footer-nav a:hover { color: var(--color-primary); }
+
+    .contact-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .contact-list li { display: flex; align-items: flex-start; gap: 8px; font-size: var(--text-sm); color: var(--text-tertiary); }
+    .contact-list i { color: var(--color-primary); width: 12px; flex-shrink: 0; margin-top: 2px; }
+    .contact-list a { color: var(--text-tertiary); text-decoration: none; transition: color var(--transition-fast); }
+    .contact-list a:hover { color: var(--color-primary); }
+
+    .footer-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-primary);
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .footer-legal { display: flex; align-items: center; gap: 8px; }
+    .footer-legal a { color: var(--text-tertiary); text-decoration: none; transition: color var(--transition-fast); }
+    .footer-legal a:hover { color: var(--color-primary); }
+    .sep { opacity: 0.4; }
+
+    /* ═══════════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════════ */
+    @media (max-width: 1100px) {
+      .footer-content { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .main-content { margin-left: 0; }
+      .client-container-fluid { padding: 12px; height: calc(100vh - 53px); overflow: hidden; }
+      .sheet-sidebar { display: none; }
+      .footer-content { grid-template-columns: 1fr; gap: 20px; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+   RESPONSIVE COMPLET
+═══════════════════════════════════════════════════════════ */
+
+/* Bouton hamburger (mobile) */
+.mobile-menu-btn {
+  display: none;
+  width: 34px; height: 34px;
+  align-items: center; justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* Overlay sidebar mobile */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 99;
+}
+
+/* Planning rows colorés */
+    .row-expired { background: rgba(239,68,68,0.06) !important; }
+    .row-expired td:first-child { border-left: 3px solid var(--color-danger); }
+    .row-warning { background: rgba(245,158,11,0.06) !important; }
+    .row-warning td:first-child { border-left: 3px solid var(--color-warning); }
+ 
+    /* Légende planning */
+    .planning-legend {
+      display: flex;
+      gap: 16px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-primary);
+      background: var(--bg-secondary);
+      font-size: 11px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+.sidebar-overlay.active { display: block; }
+
+@media (max-width: 1024px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .footer-content { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 768px) {
+  /* Sidebar mobile */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+    z-index: 100;
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .main-content { margin-left: 0; }
+
+  /* Header */
+  .mobile-menu-btn { display: flex; }
+  .page-header { padding: 10px 14px; }
+  .header-title-group h1 { font-size: var(--text-base); }
+  .header-actions-group .btn span { display: none; }
+  .header-actions-group .btn { padding: 7px 10px; }
+
+  /* Container */
+  .client-container-fluid {
+    padding: 12px 14px;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Toolbar responsive */
+  .toolbar-clean-bar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .toolbar-search-section { flex: 1 1 100%; }
+  .toolbar-divider { display: none; }
+  .toolbar-nav-section { flex: 1 1 auto; }
+  .toolbar-filters-section {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+    gap: 6px;
+  }
+
+  .minimal-select { flex: 1; max-width: none; }
+  .filter-item { flex: 1; }
+
+  /* Filtres avancés */
+  .filters-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Tables */
+  .erp-table-wrapper { overflow-x: auto; }
+
+  /* Cacher les colonnes moins importantes sur mobile */
+  .erp-table th:nth-child(4),
+  .erp-table td:nth-child(4),
+  .erp-table th:nth-child(5),
+  .erp-table td:nth-child(5) { display: none; }
+
+  /* Client sheet modal */
+  .client-sheet-modal {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .sheet-layout { flex-direction: column; }
+  .sheet-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border-primary); max-height: 200px; }
+  .sheet-header { padding: 12px 16px; }
+  .sheet-actions-row .btn span { display: none; }
+
+  /* Footer */
+  .footer-content { grid-template-columns: 1fr; gap: 20px; }
+  .app-footer { padding: 20px 16px 14px; }
+
+  /* Bulk bar */
+  .bulk-actions-bar {
+    min-width: calc(100vw - 32px);
+    bottom: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 10px 12px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CLIENTS — RESPONSIVE COMPLET
+════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* ── SIDEBAR ── */
+  .sidebar { transform: translateX(-100%); transition: transform var(--transition-base); z-index: 100; }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .main-content { margin-left: 0; }
+  .mobile-menu-btn { display: flex; }
+
+  /* ── HEADER ── */
+  .page-header {
+    padding: 0 12px;
+    height: 53px;
+    flex-wrap: nowrap;
+  }
+  .header-title-group h1 { font-size: 0.9rem; }
+  .header-actions-group .btn-label { display: none; }
+  .header-actions-group .btn { padding: 6px 10px; }
+
+  /* ── CONTAINER ── */
+  .client-container-fluid {
+    padding: 10px 12px;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* ── TOOLBAR ── */
+  .toolbar-clean-bar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .toolbar-search-section { flex: 1 1 100%; order: 1; }
+  .toolbar-divider { display: none; }
+  .toolbar-nav-section {
+    order: 2;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    flex: 1 1 auto;
+  }
+  .toolbar-nav-section::-webkit-scrollbar { display: none; }
+  .tab-btn { flex-shrink: 0; white-space: nowrap; font-size: 12px; padding: 5px 10px; }
+  .toolbar-filters-section {
+    order: 3;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-left: 0;
+  }
+  .minimal-select { flex: 1; min-width: 120px; }
+
+  /* ── FILTRES AVANCÉS ── */
+  .filters-panel { padding: 12px; }
+  .filters-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* ── TABLE ANNUAIRE → CARTES ── */
+  .erp-table-wrapper { overflow: visible; border: none; background: transparent; }
+  .erp-table thead { display: none; }
+  .erp-table, .erp-table tbody { display: block; width: 100%; }
+
+  .erp-table tbody tr {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-primary);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+  }
+
+  .erp-table tbody tr:hover { background: var(--bg-secondary); border-color: var(--color-primary); }
+  .erp-table td { display: none; border: none; padding: 0; }
+
+  /* Garde : checkbox (1), nom (2), ville (3), statut (6 ou 7) */
+  .erp-table td:nth-child(1) { display: flex; align-items: center; }
+  .erp-table td:nth-child(2) {
+    display: block;
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+    font-size: var(--text-base);
+  }
+  .erp-table td:nth-child(3) {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+  }
+  /* Cache les colonnes moyennement utiles */
+  .erp-table td:nth-child(4),
+  .erp-table td:nth-child(5) { display: none; }
+
+  /* ── PLANNING TABLE ── */
+  #planning-tbody tr { display: table-row !important; }
+  #planning-table { display: table !important; min-width: 650px; }
+  .planning-table-wrapper,
+  #view-planning .erp-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── BULK BAR ── */
+  .bulk-actions-bar {
+    min-width: calc(100vw - 24px);
+    bottom: 10px;
+    left: 12px;
+    right: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 10px;
+    gap: 6px;
+  }
+  .bulk-actions-bar span { width: 100%; text-align: center; }
+
+  /* ══════════════════════════════════════════════════
+     FICHE CLIENT — Bottom sheet mobile
+  ══════════════════════════════════════════════════ */
+
+  .modal#client-details-modal {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .client-sheet-modal {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 92vh !important;
+    max-height: 92vh !important;
+    border-radius: 16px 16px 0 0 !important;
     display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Poignée de glissement */
+  .client-sheet-modal::before {
+    content: '';
+    display: block;
+    width: 40px; height: 4px;
+    background: var(--border-secondary);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+  }
+
+  /* Header fiche */
+  .sheet-header {
+    padding: 10px 16px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .sheet-title-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .sheet-icon-box {
+    width: 36px; height: 36px;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .sheet-title-box h2 {
+    font-size: var(--text-base) !important;
+    line-height: 1.3;
+  }
+
+  .sheet-meta-tags { font-size: 11px; }
+
+  .sheet-actions-row {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .sheet-actions-row .btn span { display: none; }
+
+  /* Layout : info client en bandeau compact en haut */
+  .sheet-layout {
+    flex-direction: column !important;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .sheet-sidebar {
+    display: flex !important;       /* Visible mais compact */
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-primary);
+    padding: 10px 16px !important;
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+    overflow: hidden;
+    max-height: none !important;
+  }
+
+  /* Cache les sections moins utiles dans la sidebar */
+  .sheet-sidebar .info-group:nth-child(2),  /* Géolocalisation */
+  .sheet-sidebar .info-group:nth-child(3) { /* Notes */
+    display: none;
+  }
+
+  /* Info lines horizontales */
+  .sheet-sidebar .info-group:first-child {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    width: 100%;
+  }
+
+  .sheet-sidebar .info-group > label { display: none; }
+
+  .info-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+  }
+
+  .info-line a { color: var(--color-primary); text-decoration: none; }
+
+  /* Contenu principal scrollable */
+  .sheet-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 14px;
+    min-height: 0;
+  }
+
+  /* Onglets fiche */
+  .sheet-tabs {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 4px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--border-primary);
+    flex-wrap: nowrap;
+  }
+
+  .sheet-tabs::-webkit-scrollbar { display: none; }
+  .sheet-tab { flex-shrink: 0; font-size: 12px; padding: 7px 12px; white-space: nowrap; }
+
+  /* Equipements → cartes 1 colonne */
+  .cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Histoire → items compacts */
+  .history-feed { gap: 8px !important; }
+  .timeline-item { padding: 10px 12px !important; }
+
+  /* ── MODAL ÉDITION CLIENT ── */
+  .modal#client-modal {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .modal#client-modal .modal-content {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 90vh !important;
+    max-height: 90vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .modal#client-modal .modal-body {
+    overflow-y: auto !important;
+    flex: 1 !important;
+    padding: 14px !important;
+  }
+
+  .form-row {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  /* Footer */
+  .app-footer { padding: 16px 14px; }
+  .footer-content { grid-template-columns: 1fr; gap: 16px; }
+  .footer-bottom { flex-direction: column; gap: 6px; text-align: center; }
 }
 
-/* 2. Le texte à l'intérieur */
-.ss-single {
-    margin: 0 !important;
-    font-size: 0.85rem !important;
-    font-weight: 500 !important;
+/* ── 480px : encore plus compact ── */
+@media (max-width: 480px) {
+  .header-title-group h1 { font-size: 0.85rem; }
+  .filters-grid { grid-template-columns: 1fr; }
+  .sheet-icon-box { display: none; }
+  .client-sheet-modal { height: 95vh !important; }
 }
 
-/* 3. Le Menu Déroulant (Flottant) */
-.ss-content {
-    width: 220px !important; /* Un peu plus large pour lire */
-    z-index: 10000 !important; /* Passe DEVANT le tableau */
-    border: 1px solid var(--border-color) !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-    margin-top: 4px !important;
+@media (max-width: 480px) {
+  .page-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .header-actions-group { width: 100%; justify-content: flex-end; }
+  .filters-grid { grid-template-columns: 1fr; }
+  
+  /* Cacher encore plus de colonnes sur très petit écran */
+  .erp-table th:nth-child(3),
+  .erp-table td:nth-child(3) { display: none; }
 }
-
-/* 4. Les Options */
-.ss-list .ss-option {
-    padding: 8px 15px !important;
-    font-size: 0.85rem !important;
-    color: var(--neutral-800) !important; /* Texte bien noir */
-    cursor: pointer !important;
-}
-
-.ss-list .ss-option:hover {
-    background-color: var(--neutral-50) !important;
-    color: var(--color-primary) !important;
-}
-
-/* 5. Masquer la recherche (Sécurité supplémentaire) */
-.ss-search {
-    display: none !important;
-}
-/* --- BARRE D'ACTION FLOTTANTE (DESIGN SYSTEM) --- */
-.bulk-actions-bar {
-    position: fixed; bottom: 30px; left: 50%; transform: translate(-50%, 30px);
-    background: white; 
-    border: 1px solid var(--border-color);
-    padding: 8px 16px; border-radius: 12px;
-    display: flex; align-items: center; gap: 16px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.12);
-    z-index: 2000; opacity: 0; pointer-events: none;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.bulk-actions-bar.active { opacity: 1; pointer-events: all; transform: translate(-50%, 0); }
-
-.bulk-info { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 500; color: var(--neutral-600); }
-.bulk-badge { 
-    background: var(--color-primary); color: white; 
-    min-width: 24px; height: 24px; padding: 0 6px; border-radius: 12px; 
-    display: flex; align-items: center; justify-content: center; 
-    font-size: 0.8rem; font-weight: 700; 
-}
-
-.bulk-separator { width: 1px; height: 24px; background: var(--border-color); }
-
-.bulk-buttons { display: flex; gap: 8px; }
-
-.btn-bulk { 
-    border: none; cursor: pointer; font-size: 0.85rem; font-weight: 500; 
-    display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 6px; 
-    transition: all 0.2s;
-}
-.btn-bulk-secondary { background: var(--neutral-50); color: var(--neutral-700); }
-.btn-bulk-secondary:hover { background: var(--neutral-100); color: var(--color-primary); }
-
-.btn-bulk-danger { background: #fee2e2; color: #dc2626; }
-.btn-bulk-danger:hover { background: #fecaca; }
-
-.btn-bulk-close {
-    background: transparent; border: none; color: var(--neutral-400); 
-    cursor: pointer; margin-left: 5px; font-size: 1.1rem;
-    display: flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; border-radius: 50%; transition: all 0.2s;
-}
-.btn-bulk-close:hover { background: var(--neutral-100); color: var(--neutral-700); }
-
-/* Checkbox propre */
-.row-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: var(--color-primary); }
-tr.row-selected { background-color: var(--color-primary-light) !important; }
   </style>
 </head>
 <body>
-  <div class="app-container">
-    <aside class="sidebar">
-      <div class="sidebar-header"><h2>KB Medizin</h2></div>
-      <nav class="sidebar-nav">
-        <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
-        <a href="/clients.html" class="active"><i class="fas fa-users"></i><span>Clients</span></a>
-        <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
-        <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
-        <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
-        <a href="/tickets.html"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
-        <a href="/admin.html"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
-      </nav>
-      <div class="sidebar-footer">
-          <div class="user-info" id="user-info"></div>
-          <li style="list-style-type: none;;margin-top: auto; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-              <a href="#" onclick="openSettings(); return false;" style="display: flex; align-items: center; gap: 10px; padding: 10px 15px; color: #475569; text-decoration: none; border-radius: 8px; transition: 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                  <i class="fas fa-cog"></i> Mes Préférences
-              </a>
-          </li>
-          <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%"><i class="fas fa-sign-out-alt"></i>Déconnexion</button>
-        </div>
-    </aside>
+<div class="app-container">
 
-    <main class="main-content">
-      
-      <div class="page-header">
-        <div class="header-title-group">
-            <h1><i class="fas fa-building"></i> Répertoire Clients</h1>
+  <!-- ─── SIDEBAR ──────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <img src="/src/images/logo-kbmed-short.svg" alt="KB Med">
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/dashboard.html"><i class="fas fa-chart-line"></i><span>Tableau de bord</span></a>
+      <a href="/clients.html" class="active"><i class="fas fa-users"></i><span>Clients</span></a>
+      <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
+      <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+      <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
+      <a href="/tickets.html"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
+      <a href="/admin.html"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card-sidebar" id="user-info">
+        <div class="user-avatar-sidebar" id="user-avatar">?</div>
+        <div>
+          <div style="font-size:var(--text-sm);font-weight:var(--font-semibold);color:var(--text-primary)" id="user-name-display">...</div>
+          <div style="font-size:11px;color:var(--text-tertiary)" id="user-role-display">...</div>
         </div>
-        <div class="header-actions-group" style="display: flex; gap: 10px;">
-            <input type="file" id="import-excel-input" hidden accept=".xlsx, .xls" />
-            
-            <button class="btn btn-secondary" onclick="document.getElementById('import-excel-input').click()" title="Importer depuis Excel">
-                <i class="fas fa-file-import"></i> Importer
-            </button>
+      </div>
+      <div class="sidebar-btn-row">
+        <button class="sidebar-btn" onclick="openPreferencesModal()">
+          <i class="fas fa-cog"></i> Mes préférences
+        </button>
+        <button class="sidebar-btn danger" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Quitter</button>
+      </div>
+    </div>
+  </aside>
 
-            <button class="btn btn-secondary" onclick="exportData()" title="Exporter en CSV">
-                <i class="fas fa-file-export"></i> Exporter
-            </button>
-            <button class="btn btn-primary" onclick="openClientModal()">
-                <i class="fas fa-plus"></i> Nouveau Client
-            </button>
+  <!-- ─── MAIN ─────────────────────────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div class="header-title-group">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()">
+            <i class="fas fa-bars"></i>
+        </button>
+        <h1><i class="fas fa-building"></i> Répertoire Clients</h1>
+      </div>
+      <div class="header-actions-group">
+        <input type="file" id="import-excel-input" hidden accept=".xlsx,.xls">
+        <button class="btn btn-secondary" onclick="document.getElementById('import-excel-input').click()">
+          <i class="fas fa-file-import"></i> Importer
+        </button>
+        <button class="btn btn-secondary" onclick="exportData()">
+          <i class="fas fa-file-export"></i> Exporter
+        </button>
+        <button class="btn btn-primary" onclick="openClientModal()">
+          <i class="fas fa-plus"></i> Nouveau Client
+        </button>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="client-container-fluid">
+
+      <!-- TOOLBAR -->
+      <div class="toolbar-clean-bar">
+        <div class="toolbar-search-section">
+          <i class="fas fa-search"></i>
+          <input type="text" id="global-search" placeholder="Rechercher un client, une ville...">
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="toolbar-nav-section">
+          <button class="nav-text-btn active" onclick="switchView('directory')" id="tab-directory">Annuaire</button>
+          <button class="nav-text-btn" onclick="switchView('planning')" id="tab-planning">Planning Services</button>
+        </div>
+
+        <div class="toolbar-filters-section">
+          <div class="filter-item">
+            <input type="checkbox" id="show-hidden-cb">
+            <label for="show-hidden-cb">Voir masqués</label>
+          </div>
+
+          <select id="filter-canton" class="minimal-select">
+            <option value="">Canton (Tous)</option>
+            <option value="AG">Argovie (AG)</option>
+            <option value="AI">Appenzell Rh.-Int. (AI)</option>
+            <option value="AR">Appenzell Rh.-Ext. (AR)</option>
+            <option value="BE">Berne (BE)</option>
+            <option value="BL">Bâle-Campagne (BL)</option>
+            <option value="BS">Bâle-Ville (BS)</option>
+            <option value="FR">Fribourg (FR)</option>
+            <option value="GE">Genève (GE)</option>
+            <option value="GL">Glaris (GL)</option>
+            <option value="GR">Grisons (GR)</option>
+            <option value="JU">Jura (JU)</option>
+            <option value="LU">Lucerne (LU)</option>
+            <option value="NE">Neuchâtel (NE)</option>
+            <option value="NW">Nidwald (NW)</option>
+            <option value="OW">Obwald (OW)</option>
+            <option value="SG">Saint-Gall (SG)</option>
+            <option value="SH">Schaffhouse (SH)</option>
+            <option value="SO">Soleure (SO)</option>
+            <option value="SZ">Schwytz (SZ)</option>
+            <option value="TG">Thurgovie (TG)</option>
+            <option value="TI">Tessin (TI)</option>
+            <option value="UR">Uri (UR)</option>
+            <option value="VD">Vaud (VD)</option>
+            <option value="VS">Valais (VS)</option>
+            <option value="ZG">Zoug (ZG)</option>
+            <option value="ZH">Zurich (ZH)</option>
+          </select>
+
+          <select id="filter-sector" class="minimal-select">
+            <option value="">Secteur (Tous)</option>
+            <option value="ORL">ORL</option>
+            <option value="Gynécologie">Gynécologie</option>
+            <option value="Stérilisation">Stérilisation</option>
+          </select>
+
+          <button class="btn-icon-simple" id="toggle-advanced-filters" title="Filtres avancés">
+            <i class="fas fa-sliders-h"></i>
+          </button>
         </div>
       </div>
 
-      <div class="client-container-fluid">
-        
-        <div class="toolbar-clean-bar">
-            
-            <div class="toolbar-search-section">
-                <i class="fas fa-search"></i>
-                <input type="text" id="global-search" placeholder="Rechercher un client, une ville..." />
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-nav-section">
-                <button class="nav-text-btn active" onclick="switchView('directory')" id="tab-directory">
-                    Annuaire
-                </button>
-                <button class="nav-text-btn" onclick="switchView('planning')" id="tab-planning">
-                    Planning Services
-                </button>
-            </div>
-
-            <div style="flex: 1;"></div> 
-            
-            <div class="toolbar-filters-section">
-                <div class="filter-item" style="display:flex; align-items:center; gap:8px; background:white; padding:5px 10px; border:1px solid #e2e8f0; border-radius:6px;">
-    <input type="checkbox" id="show-hidden-cb" style="cursor:pointer;">
-    <label for="show-hidden-cb" style="font-size:0.9rem; color:#64748b; cursor:pointer; margin:0;">Voir masqués</label>
-</div>
-    <select id="filter-canton">
-        <option value="">Canton (Tous)</option>
-        <option value="AG">Argovie (AG)</option>
-        <option value="AI">Appenzell Rh.-Int. (AI)</option>
-        <option value="AR">Appenzell Rh.-Ext. (AR)</option>
-        <option value="BE">Berne (BE)</option>
-        <option value="BL">Bâle-Campagne (BL)</option>
-        <option value="BS">Bâle-Ville (BS)</option>
-        <option value="FR">Fribourg (FR)</option>
-        <option value="GE">Genève (GE)</option>
-        <option value="GL">Glaris (GL)</option>
-        <option value="GR">Grisons (GR)</option>
-        <option value="JU">Jura (JU)</option>
-        <option value="LU">Lucerne (LU)</option>
-        <option value="NE">Neuchâtel (NE)</option>
-        <option value="NW">Nidwald (NW)</option>
-        <option value="OW">Obwald (OW)</option>
-        <option value="SG">Saint-Gall (SG)</option>
-        <option value="SH">Schaffhouse (SH)</option>
-        <option value="SO">Soleure (SO)</option>
-        <option value="SZ">Schwytz (SZ)</option>
-        <option value="TG">Thurgovie (TG)</option>
-        <option value="TI">Tessin (TI)</option>
-        <option value="UR">Uri (UR)</option>
-        <option value="VD">Vaud (VD)</option>
-        <option value="VS">Valais (VS)</option>
-        <option value="ZG">Zoug (ZG)</option>
-        <option value="ZH">Zurich (ZH)</option>
-    </select>
-    
-    <select id="filter-sector">
-        <option value="">Secteur (Tous)</option>
-        <option value="ORL">ORL</option>
-        <option value="Gynécologie">Gynécologie</option>
-        <option value="Stérilisation">Stérilisation</option>
-    </select>
-
-    <button class="btn-icon-simple" id="toggle-advanced-filters" title="Filtres avancés">
-        <i class="fas fa-sliders-h"></i>
-    </button>
-</div>
+      <!-- ADVANCED FILTERS -->
+      <div id="advanced-filters-panel" class="filters-panel hidden">
+        <div class="filters-grid">
+          <div class="form-group mb-0">
+            <label>Marque</label>
+            <input type="text" id="adv-brand" placeholder="Ex: Atmos">
+          </div>
+          <div class="form-group mb-0">
+            <label>Modèle</label>
+            <input type="text" id="adv-model" placeholder="Ex: C31">
+          </div>
+          <div class="form-group mb-0">
+            <label>N° Série</label>
+            <input type="text" id="adv-serial" placeholder="S/N...">
+          </div>
+          <div class="form-group mb-0">
+            <label>Statut</label>
+            <select id="adv-status">
+              <option value="">Tous</option>
+              <option value="planned">Planifié (RDV)</option>
+              <option value="expired">Expiré</option>
+              <option value="warning">Bientôt</option>
+              <option value="ok">À jour</option>
+            </select>
+          </div>
         </div>
-
-        <div id="advanced-filters-panel" class="filters-panel hidden">
-            <div class="filters-grid">
-                <div class="form-group mb-0"><label>Marque</label><input type="text" id="adv-brand" placeholder="Ex: Atmos"></div>
-                <div class="form-group mb-0"><label>Modèle</label><input type="text" id="adv-model" placeholder="Ex: C31"></div>
-                <div class="form-group mb-0"><label>N° Série</label><input type="text" id="adv-serial" placeholder="S/N..."></div>
-                <select id="adv-status">
-                    <option value="">Tous</option>
-                    <option value="planned">Planifié (RDV)</option> <option value="expired">Expiré</option>
-                    <option value="warning">Bientôt</option>
-                    <option value="ok">À jour</option>
-                </select>
-            </div>
-            <div class="filters-footer">
-                <button class="btn-link-reset" id="clear-filters">Effacer les filtres</button>
-            </div>
+        <div class="filters-footer">
+          <button class="btn-link-reset" id="clear-filters">Effacer les filtres</button>
         </div>
+      </div>
 
-        <div id="view-directory" class="view-content active">
-            <div class="erp-table-wrapper">
-                <table class="erp-table" id="clients-table">
-                    <thead>
-                        <tr>
-                            <th style="width:40px; text-align:center; padding-left:10px;">
-                                <input type="checkbox" id="select-all-cb" class="row-checkbox" onclick="toggleSelectAll()">
-                            </th>
-                            <th class="sortable" onclick="handleSort('cabinet_name')" style="width:25%;">Client / Cabinet <i class="fas fa-sort"></i></th>
-                            <th class="sortable" onclick="handleSort('city')" style="width:15%;">Localisation <i class="fas fa-sort"></i></th>
-                            <th style="width:20%;">Contact</th>
-                            <th style="width:25%;">Parc Machine</th>
-                            <th class="sortable" onclick="handleSort('appointment_at')" style="width:10%;">RDV <i class="fas fa-sort"></i></th>
-                            <th style="width:60px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="clients-tbody"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="view-planning" class="view-content">
-    <div class="erp-table-wrapper planning-mode">
-        <table class="erp-table planning-table" id="planning-table">
+      <!-- VIEW: DIRECTORY -->
+      <div id="view-directory" class="view-content active">
+        <div class="erp-table-wrapper">
+          <table class="erp-table" id="clients-table">
             <thead>
-                <tr>
-                    <th style="width: 50px;">État</th> <th style="width: 25%;">Client / Cabinet</th>
-                    <th style="width: 15%;">Localisation</th>
-                    <th style="width: 30%;">Synthèse Parc</th> <th style="width: 15%;">Prochaine Échéance</th>
-                    <th style="text-align:right;">Actions</th>
-                </tr>
+              <tr>
+                <th style="width:40px;text-align:center;padding-left:10px;">
+                  <input type="checkbox" id="select-all-cb" class="row-checkbox" onclick="toggleSelectAll()">
+                </th>
+                <th class="sortable" onclick="handleSort('cabinet_name')" style="width:25%;">Client / Cabinet <i class="fas fa-sort"></i></th>
+                <th class="sortable" onclick="handleSort('city')" style="width:15%;">Localisation <i class="fas fa-sort"></i></th>
+                <th style="width:20%;">Contact</th>
+                <th style="width:25%;">Parc Machine</th>
+                <th class="sortable" onclick="handleSort('appointment_at')" style="width:10%;">RDV <i class="fas fa-sort"></i></th>
+                <th style="width:60px;"></th>
+              </tr>
+            </thead>
+            <tbody id="clients-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer-count">
+          Total affiché : <strong id="total-clients-count">0</strong> clients
+        </div>
+      </div>
+
+      <!-- VIEW: PLANNING -->
+      <div id="view-planning" class="view-content">
+        <!-- Légende -->
+        <div class="planning-legend">
+          <span><span class="legend-dot" style="background:var(--color-success)"></span>À jour (&gt;30 jours)</span>
+          <span><span class="legend-dot" style="background:var(--color-warning)"></span>Bientôt (≤30 jours)</span>
+          <span><span class="legend-dot" style="background:var(--color-danger)"></span>Expiré</span>
+          <span style="margin-left:auto"><i class="fas fa-calendar-check" style="color:var(--color-info);margin-right:4px"></i>RDV = planifié</span>
+        </div>
+        <div class="erp-table-wrapper planning-mode">
+          <table class="erp-table planning-table" id="planning-table">
+            <thead>
+              <tr>
+                <th class="planning-th-sort" data-col="cabinet" onclick="planningHandleSort('cabinet')" style="cursor:pointer;width:22%;user-select:none;">
+                  Cabinet <i class="fas fa-sort" style="opacity:0.4;margin-left:4px"></i>
+                </th>
+                <th class="planning-th-sort" data-col="canton" onclick="planningHandleSort('canton')" style="cursor:pointer;width:10%;user-select:none;">
+                  Canton <i class="fas fa-sort" style="opacity:0.4;margin-left:4px"></i>
+                </th>
+                <th class="planning-th-sort" data-col="machine" onclick="planningHandleSort('machine')" style="cursor:pointer;width:20%;user-select:none;">
+                  Appareil <i class="fas fa-sort" style="opacity:0.4;margin-left:4px"></i>
+                </th>
+                <th class="planning-th-sort" data-col="installed" onclick="planningHandleSort('installed')" style="cursor:pointer;width:10%;user-select:none;">
+                  Installation <i class="fas fa-sort" style="opacity:0.4;margin-left:4px"></i>
+                </th>
+                <th class="planning-th-sort" data-col="last_service" onclick="planningHandleSort('last_service')" style="cursor:pointer;width:11%;user-select:none;">
+                  Dernier service <i class="fas fa-sort" style="opacity:0.4;margin-left:4px"></i>
+                </th>
+                <th class="planning-th-sort" data-col="next_service" onclick="planningHandleSort('next_service')" style="cursor:pointer;width:11%;user-select:none;">
+                  Prochain service <i class="fas fa-sort" style="opacity:0.4;margin-left:4px"></i>
+                </th>
+                <th class="planning-th-sort" data-col="days" onclick="planningHandleSort('days')" style="cursor:pointer;width:8%;text-align:center;user-select:none;">
+                  Jours <i class="fas fa-sort-up" style="opacity:0.8;margin-left:4px"></i>
+                </th>
+                <th style="width:8%;text-align:right;">Actions</th>
+              </tr>
             </thead>
             <tbody id="planning-tbody"></tbody>
-        </table>
-    </div>
-</div>
-
-        <div style="margin-top: 1rem; padding: 0.5rem 1rem; text-align: right; color: var(--neutral-500); border-top: 1px solid var(--border-color);">
-    Total affiché : <strong id="total-clients-count" style="color: var(--neutral-800);">0</strong> clients
-</div>
-
+          </table>
+        </div>
+        <div class="table-footer-count">
+          Total affiché : <strong id="total-clients-count">0</strong>
+        </div>
       </div>
-      <div id="bulk-toolbar" class="bulk-actions-bar">
-    <div class="bulk-info">
+
+    </div><!-- /client-container-fluid -->
+
+    <!-- BULK ACTIONS BAR -->
+    <div id="bulk-toolbar" class="bulk-actions-bar">
+      <div class="bulk-info">
         <div class="bulk-badge" id="selected-count">0</div>
         <span>clients sélectionnés</span>
-    </div>
-    
-    <div class="bulk-separator"></div>
-    
-    <div class="bulk-buttons">
+      </div>
+      <div class="bulk-separator"></div>
+      <div class="bulk-buttons">
         <button class="btn-bulk btn-bulk-secondary" onclick="requestBulkAction('hide')">
-            <i class="fas fa-eye-slash"></i> Masquer
+          <i class="fas fa-eye-slash"></i> Masquer
         </button>
         <button class="btn-bulk btn-bulk-secondary" onclick="requestBulkAction('show')">
-            <i class="fas fa-eye"></i> Afficher
+          <i class="fas fa-eye"></i> Afficher
         </button>
         <button class="btn-bulk btn-bulk-danger" onclick="requestBulkAction('delete')">
-            <i class="fas fa-trash"></i>
+          <i class="fas fa-trash"></i>
         </button>
-    </div>
-
-    <button class="btn-bulk-close" onclick="clearSelection()" title="Annuler">
-        <i class="fas fa-times"></i>
-    </button>
-</div>
-<!-- Footer -->
-        <footer class="app-footer">
-  <div class="footer-content">
-    
-    <div class="footer-col brand-col">
-      <div class="footer-logo">
-        <i class="fas fa-stethoscope"></i> KB Medizin
       </div>
-      <p class="footer-desc">
-        Solutions médicales professionnelles pour cabinets, cliniques et hôpitaux. Vente, installation et maintenance.
-      </p>
-      <div class="footer-socials">
-        <a href="#" class="social-link"><i class="fab fa-linkedin-in"></i></a>
-        <a href="#" class="social-link"><i class="fab fa-facebook-f"></i></a>
-        <a href="https://www.kbmed.ch" class="social-link"><i class="fas fa-globe"></i></a>
-      </div>
+      <button class="btn-bulk-close" onclick="clearSelection()"><i class="fas fa-times"></i></button>
     </div>
 
-    <div class="footer-col links-col">
-      <h4>Navigation</h4>
-      <ul class="footer-nav">
-        <li><a href="/dashboard.html">Tableau de bord</a></li>
-        <li><a href="/clients.html">Clients & Planning</a></li>
-        <li><a href="/checklists.html">Checklists</a></li>
-        <li><a href="/reports.html">Rapports d'intervention</a></li>
-        <li><a href="/reports.html">STK</a></li>
-      </ul>
-    </div>
-
-    <div class="footer-col contact-col">
-      <h4>Nous contacter</h4>
-      <ul class="contact-list">
-        <li>
-            <i class="fas fa-map-marker-alt"></i>
-            <span>Gewerbestrasse 6<br>4105 Biel-Benken, Suisse</span>
-        </li>
-        <li>
-            <i class="fas fa-phone"></i>
-            <a href="tel:+41617211111">061 331 68 51</a>
-        </li>
-        <li>
-            <i class="fas fa-envelope"></i>
-            <a href="mailto:info@kbmedizin.ch">info@kbmed.ch</a>
-        </li>
-      </ul>
-    </div>
-
-  </div>
-
-  <div class="footer-bottom">
-    <div class="copyright">
-      &copy; 2025 KB Medizin Technik GmbH. Tous droits réservés.
-    </div>
-    <div class="footer-legal">
-      <a href="#">Mentions légales</a>
-      <span class="sep">•</span>
-      <a href="#">Confidentialité</a>
-      <span class="sep">•</span>
-      <span class="version">v1.6.0</span>
-    </div>
-  </div>
-</footer>
-    </main>
-  </div>
-
-  <div class="modal" id="client-details-modal">
-      <div class="modal-content client-sheet-modal">
-          <div class="sheet-header">
-              <div class="sheet-title-box">
-                  <div class="sheet-icon-box"><i class="fas fa-hospital-user"></i></div>
-                  <div>
-                      <h2 id="sheet-name" style="margin:0; font-size:1.4rem;">Nom Cabinet</h2>
-                      <div class="sheet-meta-tags">
-                          <span id="sheet-category" class="meta-badge">SECTEUR</span>
-                          <span class="meta-sep">•</span>
-                          <span id="sheet-city-header">VILLE</span>
-                      </div>
-                  </div>
-              </div>
-              <div class="sheet-actions-row" style="display:flex; gap:10px;">
-                  <button class="btn btn-secondary btn-sm" onclick="openClientModal(currentClientId)">
-                      <i class="fas fa-pen"></i> Modifier
-                  </button>
-                  <button class="btn btn-danger btn-sm" onclick="openDeleteModal(currentClientId)">
-                      <i class="fas fa-trash"></i>
-                  </button>
-                  <button class="modal-close" onclick="closeClientDetailsModal()">&times;</button>
-              </div>
-          </div>
-          
-          <div class="sheet-layout">
-              <div class="sheet-sidebar">
-                  <div class="info-group">
-                      <label>COORDONNÉES</label>
-                      <div class="info-line"><i class="fas fa-map-marker-alt"></i> <span id="sheet-address">-</span></div>
-                      <div class="info-line"><i class="fas fa-phone"></i> <span id="sheet-phone">-</span></div>
-                      <div class="info-line"><i class="fas fa-envelope"></i> <span id="sheet-email">-</span></div>
-                      <div class="info-line"><i class="fas fa-user-md"></i> <strong id="sheet-contact">-</strong></div>
-                  </div>
-                  
-                  <div class="info-group">
-                      <label>GÉOLOCALISATION</label>
-                      <div id="sheet-coords" class="geo-box">Non défini</div>
-                  </div>
-
-                  <div class="info-group">
-                      <label>NOTES INTERNES</label>
-                      <div id="sheet-notes" style="background:white; border:1px solid var(--border-color); padding:10px; border-radius:6px; font-style:italic; font-size:0.9rem; color:var(--neutral-500);">Aucune note.</div>
-                  </div>
-              </div>
-
-              <div class="sheet-content">
-                  <div class="sheet-tabs">
-                      <button class="sheet-tab active" onclick="switchSheetTab('equipment')" id="btn-tab-equipment">Parc Machines <span class="badge-count" id="count-eq">0</span></button>
-                      <button class="sheet-tab" onclick="switchSheetTab('history')" id="btn-tab-history">Historique <span class="badge-count" id="count-hist">0</span></button>
-                  </div>
-                  
-                  <div id="tab-equipment" class="tab-pane active">
-                      <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem;">
-                          <h3 style="margin:0; font-size:1.1rem;">Équipements installés</h3>
-                          <button class="btn btn-primary btn-sm" onclick="openEquipFormModal()">
-                              <i class="fas fa-plus"></i> Ajouter
-                          </button>
-                      </div>
-                      <div id="sheet-equipment-list" class="cards-grid"></div>
-                  </div>
-
-                  <div id="tab-history" class="tab-pane">
-                      <div id="sheet-history-list" class="history-feed"></div>
-                  </div>
-              </div>
-          </div>
-      </div>
-  </div>
-
-  <div class="modal" id="client-modal">
-      <div class="modal-content" style="max-width: 700px;">
-          <div class="modal-header">
-    <h2 id="modal-title"><i class="fas fa-user-edit"></i> Édition Client</h2>
-    <button class="modal-close" onclick="closeClientModal()">&times;</button>
-</div>
-          <div class="modal-body">
-              <form id="client-form">
-                  <input type="hidden" id="client-id">
-                  <div class="form-row">
-                      <div class="form-group" style="flex:2"><label>Nom Cabinet *</label><input type="text" id="client-name" required></div>
-                      <div class="form-group"><label>Secteur</label><select id="client-activity"><option value="ORL">ORL</option><option value="Gynécologie">Gynécologie</option><option value="Stérilisation">Stérilisation</option><option value="Autre">Autre</option></select></div>
-                  </div>
-                  <div class="form-row">
-                      <div class="form-group"><label>Contact</label><input type="text" id="client-contact"></div>
-                      <div class="form-group"><label>Téléphone</label><input type="text" id="client-phone"></div>
-                      <div class="form-group"><label>Email</label><input type="email" id="client-email"></div>
-                  </div>
-                  <div class="form-group"><label>Adresse</label><input type="text" id="client-address" placeholder="Rue et numéro"></div>
-                  <div class="form-row">
-                      <div class="form-group"><label>NPA</label><input type="text" id="client-npa"></div>
-                      <div class="form-group" style="flex:2"><label>Ville</label><input type="text" id="client-city"></div>
-                      <div class="form-group"><label>Canton</label><input type="text" id="client-canton" style="text-transform:uppercase" maxlength="2"></div>
-                  </div>
-
-                  <div class="form-group mb-4" style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <label style="margin: 0; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; color: var(--neutral-800);">
-                                <input type="checkbox" id="client-has-contract" style="width: 18px; height: 18px; accent-color: var(--color-primary);" onchange="toggleContractZone()">
-                                Contrat de maintenance actif
-                            </label>
-                            <span id="contract-status-badge" class="badge" style="display: none;"></span>
-                        </div>
-
-                        <div id="contract-file-zone" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
-                            <div id="contract-file-container" style="display: flex; align-items: center; gap: 15px;">
-                                </div>
-                            <input type="file" id="input-contract-file" style="display: none;" accept=".pdf,.jpg,.jpeg,.png" onchange="uploadContractFile(this)">
-                        </div>
-                    </div>
-                  
-                  <div class="gps-container" style="background:#f0fdf4; padding:12px; border-radius:8px; margin-bottom:1.5rem; border:1px solid #bbf7d0;">
-                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                          <label style="margin:0; font-size:0.8rem; font-weight:bold; color:#166534;">COORDONNÉES GPS</label>
-                          <button type="button" id="btn-geo-search" class="btn btn-sm btn-success" style="padding:2px 8px; font-size:0.75rem;">Détecter</button>
-                      </div>
-                      <div class="form-row">
-                          <div class="form-group mb-0"><input type="number" id="client-lat" step="0.0000001" placeholder="Latitude"></div>
-                          <div class="form-group mb-0"><input type="number" id="client-lon" step="0.0000001" placeholder="Longitude"></div>
-                      </div>
-                      <div id="geo-status" style="font-size:0.75rem; margin-top:5px; min-height:1rem;"></div>
-                  </div>
-
-                  <div class="form-group"><label>Notes</label><textarea id="client-notes" rows="2"></textarea></div>
-              </form>
-          </div>
-          <div class="modal-footer"><button class="btn btn-secondary" onclick="closeClientModal()">Annuler</button><button class="btn btn-primary" onclick="saveClient()">Enregistrer</button></div>
-      </div>
-  </div>
-
-  <div class="modal" id="equipment-form-modal">
-      <div class="modal-content" style="max-width:600px;">
-          <div class="modal-header"><h2><i class="fas fa-server"></i> Machine</h2><button class="modal-close" onclick="closeEquipModal()">&times;</button></div>
-          <div class="modal-body">
-              <form id="equip-form">
-                  <input type="hidden" id="equip-id">
-                  <div class="form-group"><label>Modèle</label><select id="equip-select" required></select></div>
-                  <div class="form-group">
-        <label>Emplacement / Médecin</label>
-        <input type="text" id="equip-location" placeholder="Ex: Salle 1, Dr. Müller...">
-    </div>
-                  <div class="form-group"><label>N° Série</label><input type="text" id="equip-serial"></div>
-                  <div class="form-row">
-                      <div class="form-group"><label>Installé le</label><input type="date" id="equip-install"></div>
-                      <div class="form-group"><label>Dernière Maint.</label><input type="date" id="equip-last"></div>
-                  </div>
-                  <div class="form-group full-width" style="grid-column: 1 / -1; margin-top: 10px;">
-    <label for="equip-notes">Notes spécifiques (Technique, Accès...)</label>
-    <textarea id="equip-notes" class="form-input" rows="2" placeholder="Ex: Code porte 1234, placer à gauche..."></textarea>
-</div>
-                  <div class="form-group"><label>Intervalle (Années)</label><select id="equip-interval"><option value="1">1 An</option><option value="2">2 Ans</option><option value="3">3 Ans</option></select></div>
-              </form>
-              <div class="form-group full-width" style="grid-column: 1 / -1; margin-top: 10px; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; font-weight: normal;">
-        <input type="checkbox" id="equip-secondary" style="width: 18px; height: 18px; cursor: pointer;">
+    <!-- FOOTER -->
+    <footer class="app-footer">
+      <div class="footer-content">
         <div>
-            <strong style="color: #475569; font-size: 0.95rem;">Machine secondaire / Hors contrat</strong>
-            <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 2px;">Ne déclenchera plus d'alerte de maintenance sur le tableau de bord.</div>
-        </div>
-    </label>
-</div>
+          <div class="footer-logo"><i class="fas fa-stethoscope" style="color:var(--color-primary)"></i> KB Medizin</div>
+          <p class="footer-desc">Solutions médicales professionnelles pour cabinets, cliniques et hôpitaux.</p>
+          <div class="footer-socials">
+            <a href="#" class="social-link"><i class="fab fa-linkedin-in"></i></a>
+            <a href="#" class="social-link"><i class="fab fa-facebook-f"></i></a>
+            <a href="https://www.kbmed.ch" class="social-link"><i class="fas fa-globe"></i></a>
           </div>
-          <div class="modal-footer"><button class="btn btn-secondary" onclick="closeEquipModal()">Annuler</button><button class="btn btn-primary" onclick="saveEquipment()">Sauvegarder</button></div>
+        </div>
+        <div>
+          <h4>Navigation</h4>
+          <ul class="footer-nav">
+            <li><a href="/dashboard.html">Tableau de bord</a></li>
+            <li><a href="/clients.html">Clients & Planning</a></li>
+            <li><a href="/reports.html">Rapports</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Nous contacter</h4>
+          <ul class="contact-list">
+            <li><i class="fas fa-map-marker-alt"></i><span>Gewerbestrasse 6<br>4105 Biel-Benken</span></li>
+            <li><i class="fas fa-phone"></i><a href="tel:+41613316851">061 331 68 51</a></li>
+            <li><i class="fas fa-envelope"></i><a href="mailto:info@kbmed.ch">info@kbmed.ch</a></li>
+          </ul>
+        </div>
       </div>
+      <div class="footer-bottom">
+        <span>&copy; 2025 KB Medizin Technik GmbH. Tous droits réservés.</span>
+        <div class="footer-legal">
+          <a href="#">Mentions légales</a><span class="sep">•</span>
+          <a href="#">Confidentialité</a><span class="sep">•</span>
+          <span>v2.0.0</span>
+        </div>
+      </div>
+    </footer>
+
+  </main>
+</div><!-- /app-container -->
+
+<!-- ─── MODALS ────────────────────────────────────────────────────────────── -->
+
+<!-- Client Details Sheet -->
+<div class="modal" id="client-details-modal">
+  <div class="modal-content client-sheet-modal">
+    <div class="sheet-header">
+      <div class="sheet-title-box">
+        <div class="sheet-icon-box"><i class="fas fa-hospital-user"></i></div>
+        <div>
+          <h2 id="sheet-name">Nom Cabinet</h2>
+          <div class="sheet-meta-tags">
+            <span id="sheet-category" class="meta-badge">SECTEUR</span>
+            <span class="meta-sep">•</span>
+            <span id="sheet-city-header">VILLE</span>
+          </div>
+        </div>
+      </div>
+      <div class="sheet-actions-row">
+        <button class="btn btn-secondary btn-sm" onclick="openClientModal(currentClientId)">
+          <i class="fas fa-pen"></i> Modifier
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="openDeleteModal(currentClientId)">
+          <i class="fas fa-trash"></i>
+        </button>
+        <button class="modal-close" onclick="closeClientDetailsModal()">&times;</button>
+      </div>
+    </div>
+
+    <div class="sheet-layout">
+      <div class="sheet-sidebar">
+        <div class="info-group">
+          <label>Coordonnées</label>
+          <div class="info-line"><i class="fas fa-map-marker-alt"></i><span id="sheet-address">—</span></div>
+          <div class="info-line"><i class="fas fa-phone"></i><span id="sheet-phone">—</span></div>
+          <div class="info-line"><i class="fas fa-envelope"></i><span id="sheet-email">—</span></div>
+          <div class="info-line"><i class="fas fa-user-md"></i><strong id="sheet-contact">—</strong></div>
+        </div>
+        <div class="info-group">
+          <label>Géolocalisation</label>
+          <div id="sheet-coords" class="geo-box">Non défini</div>
+        </div>
+        <div class="info-group">
+          <label>Notes internes</label>
+          <div id="sheet-notes" style="background:var(--bg-secondary);border:1px solid var(--border-primary);padding:10px;border-radius:3px;font-style:italic;font-size:var(--text-sm);color:var(--text-tertiary);">Aucune note.</div>
+        </div>
+      </div>
+
+      <div class="sheet-content">
+        <div class="sheet-tabs">
+          <button class="sheet-tab active" onclick="switchSheetTab('equipment')" id="btn-tab-equipment">
+            Parc Machines <span class="badge-count" id="count-eq">0</span>
+          </button>
+          <button class="sheet-tab" onclick="switchSheetTab('history')" id="btn-tab-history">
+            Historique <span class="badge-count" id="count-hist">0</span>
+          </button>
+        </div>
+
+        <div id="tab-equipment" class="tab-pane active">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:var(--text-base);font-weight:var(--font-semibold);">Équipements installés</h3>
+            <button class="btn btn-primary btn-sm" onclick="openEquipFormModal()">
+              <i class="fas fa-plus"></i> Ajouter
+            </button>
+          </div>
+          <div id="sheet-equipment-list" class="cards-grid"></div>
+        </div>
+
+        <div id="tab-history" class="tab-pane">
+          <div id="sheet-history-list" class="history-feed"></div>
+        </div>
+      </div>
+    </div>
   </div>
+</div>
 
-  <div class="modal" id="delete-modal"><div class="modal-content" style="max-width:400px"><div class="modal-header"><h2 class="text-danger">Confirmer</h2><button class="modal-close" onclick="closeDeleteModal()">&times;</button></div><div class="modal-body"><p>Voulez-vous vraiment supprimer cet élément définitivement ?</p></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeDeleteModal()">Non</button><button class="btn btn-danger" id="confirm-delete-btn">Oui, supprimer</button></div></div></div>
-  
+<!-- Client Form Modal -->
+<div class="modal" id="client-modal">
+  <div class="modal-content" style="max-width:700px;">
+    <div class="modal-header">
+      <h2 id="modal-title"><i class="fas fa-user-edit"></i> Édition Client</h2>
+      <button class="modal-close" onclick="closeClientModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="client-form">
+        <input type="hidden" id="client-id">
+        <div class="form-row">
+          <div class="form-group" style="flex:2"><label>Nom Cabinet *</label><input type="text" id="client-name" required></div>
+          <div class="form-group"><label>Secteur</label>
+            <select id="client-activity">
+              <option value="ORL">ORL</option>
+              <option value="Gynécologie">Gynécologie</option>
+              <option value="Stérilisation">Stérilisation</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Contact</label><input type="text" id="client-contact"></div>
+          <div class="form-group"><label>Téléphone</label><input type="text" id="client-phone"></div>
+          <div class="form-group"><label>Email</label><input type="email" id="client-email"></div>
+        </div>
+        <div class="form-group"><label>Adresse</label><input type="text" id="client-address" placeholder="Rue et numéro"></div>
+        <div class="form-row">
+          <div class="form-group"><label>NPA</label><input type="text" id="client-npa"></div>
+          <div class="form-group" style="flex:2"><label>Ville</label><input type="text" id="client-city"></div>
+          <div class="form-group"><label>Canton</label><input type="text" id="client-canton" style="text-transform:uppercase" maxlength="2"></div>
+        </div>
+
+        <div class="form-group mb-4" style="background:var(--bg-secondary);padding:14px;border-radius:3px;border:1px solid var(--border-primary);margin-top:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label style="margin:0;display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:var(--font-semibold);color:var(--text-primary);text-transform:none;letter-spacing:0;">
+              <input type="checkbox" id="client-has-contract" style="width:16px;height:16px;accent-color:var(--color-primary);" onchange="toggleContractZone()">
+              Contrat de maintenance actif
+            </label>
+            <span id="contract-status-badge" class="meta-badge" style="display:none;"></span>
+          </div>
+          <div id="contract-file-zone" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-primary);">
+            <div id="contract-file-container" style="display:flex;align-items:center;gap:12px;"></div>
+            <input type="file" id="input-contract-file" style="display:none;" accept=".pdf,.jpg,.jpeg,.png" onchange="uploadContractFile(this)">
+          </div>
+        </div>
+
+        <div class="gps-container">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <label style="margin:0;font-size:11px;font-weight:var(--font-bold);color:var(--color-success);text-transform:uppercase;letter-spacing:0.05em;">Coordonnées GPS</label>
+            <button type="button" id="btn-geo-search" class="btn btn-success btn-sm" style="padding:3px 10px;font-size:11px;">Détecter</button>
+          </div>
+          <div class="form-row">
+            <div class="form-group mb-0"><input type="number" id="client-lat" step="0.0000001" placeholder="Latitude"></div>
+            <div class="form-group mb-0"><input type="number" id="client-lon" step="0.0000001" placeholder="Longitude"></div>
+          </div>
+          <div id="geo-status" style="font-size:11px;margin-top:4px;min-height:1rem;"></div>
+        </div>
+
+        <div class="form-group"><label>Notes</label><textarea id="client-notes" rows="2"></textarea></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeClientModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveClient()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Equipment Form Modal -->
+<div class="modal" id="equipment-form-modal">
+  <div class="modal-content" style="max-width:600px;">
+    <div class="modal-header">
+      <h2><i class="fas fa-server"></i> Machine</h2>
+      <button class="modal-close" onclick="closeEquipModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="equip-form">
+        <input type="hidden" id="equip-id">
+        <div class="form-group"><label>Modèle</label><select id="equip-select" required></select></div>
+        <div class="form-group"><label>Emplacement / Médecin</label><input type="text" id="equip-location" placeholder="Ex: Salle 1, Dr. Müller..."></div>
+        <div class="form-group"><label>N° Série</label><input type="text" id="equip-serial"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Installé le</label><input type="date" id="equip-install"></div>
+          <div class="form-group"><label>Dernière Maint.</label><input type="date" id="equip-last"></div>
+        </div>
+        <div class="form-group">
+          <label>Notes spécifiques (Technique, Accès...)</label>
+          <textarea id="equip-notes" class="form-input" rows="2" placeholder="Ex: Code porte 1234..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Intervalle (Années)</label>
+          <select id="equip-interval">
+            <option value="1">1 An</option>
+            <option value="2">2 Ans</option>
+            <option value="3">3 Ans</option>
+          </select>
+        </div>
+      </form>
+      <div style="background:var(--bg-secondary);padding:12px;border-radius:3px;border:1px solid var(--border-primary);margin-top:12px;">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;font-weight:normal;">
+          <input type="checkbox" id="equip-secondary" style="width:16px;height:16px;cursor:pointer;accent-color:var(--color-primary);">
+          <div>
+            <strong style="color:var(--text-primary);font-size:var(--text-sm);">Machine secondaire / Hors contrat</strong>
+            <div style="font-size:var(--text-xs);color:var(--text-tertiary);margin-top:2px;">Ne déclenchera plus d'alerte de maintenance sur le tableau de bord.</div>
+          </div>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeEquipModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEquipment()">Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal" id="delete-modal">
+  <div class="modal-content" style="max-width:400px;">
+    <div class="modal-header">
+      <h2 style="color:var(--color-danger)"><i class="fas fa-trash"></i> Confirmer</h2>
+      <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-secondary);">Voulez-vous vraiment supprimer cet élément définitivement ?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDeleteModal()">Non</button>
+      <button class="btn btn-danger" id="confirm-delete-btn">Oui, supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule RDV Modal -->
 <div class="modal" id="schedule-modal">
-    <div class="modal-content" style="max-width: 400px; overflow: visible;">
-        <div class="modal-header">
-            <h2><i class="fas fa-calendar-plus"></i> Planifier RDV</h2>
-            <button class="modal-close" onclick="closeScheduleModal()">&times;</button>
-        </div>
-        <div class="modal-body" style="overflow: visible;"> <input type="hidden" id="schedule-client-id">
-            <p id="schedule-client-name" style="margin-bottom: 1.5rem; font-weight: 600; color: var(--neutral-700); font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 10px;"></p>
-            
-            <div class="form-group">
-                <label>Date du rendez-vous</label>
-                <input type="date" id="schedule-date" class="form-control" style="width: 100%;">
-            </div>
-            
-            <div class="form-group">
-                <label>Technicien(s) assigné(s)</label>
-                <select id="schedule-tech" multiple style="width: 100%;">
-                    </select>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeScheduleModal()">Annuler</button>
-            <button class="btn btn-primary" onclick="confirmSchedule()">Valider le RDV</button>
-        </div>
+  <div class="modal-content" style="max-width:400px;overflow:visible;">
+    <div class="modal-header">
+      <h2><i class="fas fa-calendar-plus"></i> Planifier RDV</h2>
+      <button class="modal-close" onclick="closeScheduleModal()">&times;</button>
     </div>
+    <div class="modal-body" style="overflow:visible;">
+      <input type="hidden" id="schedule-client-id">
+      <p id="schedule-client-name" style="font-weight:var(--font-semibold);color:var(--text-primary);font-size:var(--text-base);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border-primary);"></p>
+      <div class="form-group">
+        <label>Date du rendez-vous</label>
+        <input type="date" id="schedule-date" style="width:100%;">
+      </div>
+      <div class="form-group">
+        <label>Technicien(s) assigné(s)</label>
+        <select id="schedule-tech" multiple style="width:100%;"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeScheduleModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmSchedule()">Valider le RDV</button>
+    </div>
+  </div>
 </div>
 
-<div class="modal" id="confirm-modal" style="z-index: 9999;">
-    <div class="modal-content" style="max-width: 400px; text-align: center; padding: 2rem;">
-        <div style="margin-bottom: 1rem;">
-            <div style="width: 50px; height: 50px; background: #fee2e2; color: #dc2626; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 1.5rem;">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
-        </div>
-        <h3 id="confirm-modal-title" style="margin-bottom: 0.5rem; color: var(--neutral-800);">Confirmer l'action</h3>
-        <p id="confirm-modal-text" style="color: var(--neutral-600); margin-bottom: 2rem;">Êtes-vous sûr ?</p>
-        
-        <div style="display: flex; justify-content: center; gap: 10px;">
-            <button class="btn btn-secondary" onclick="closeConfirmModal()">Annuler</button>
-            <button class="btn btn-primary" id="confirm-modal-btn">Confirmer</button>
-        </div>
+<!-- Confirm Modal -->
+<div class="modal" id="confirm-modal" style="z-index:9999;">
+  <div class="modal-content" style="max-width:400px;text-align:center;">
+    <div class="modal-body" style="padding:32px 24px;">
+      <div style="width:48px;height:48px;background:var(--color-danger-bg);color:var(--color-danger);border-radius:4px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:20px;">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
+      <h3 id="confirm-modal-title" style="margin-bottom:8px;color:var(--text-primary);">Confirmer l'action</h3>
+      <p id="confirm-modal-text" style="color:var(--text-secondary);margin-bottom:0;">Êtes-vous sûr ?</p>
     </div>
+    <div class="modal-footer" style="justify-content:center;">
+      <button class="btn btn-secondary" onclick="closeConfirmModal()">Annuler</button>
+      <button class="btn btn-primary" id="confirm-modal-btn">Confirmer</button>
+    </div>
+  </div>
 </div>
 
-  <div id="notification-container"></div>
-  <script src="https://unpkg.com/slim-select@2.8.2/dist/slimselect.min.js"></script>
+<!-- Notification container (used by notifications.js) -->
+<div id="notification-container"></div>
+
+<!-- ─── SCRIPTS ────────────────────────────────────────────────────────────── -->
+<script src="https://unpkg.com/slim-select@2.8.2/dist/slimselect.min.js"></script>
+<script src="/js/confirm.js"></script>
 <script type="module" src="/js/init-selects.js"></script>
 <script src="/js/loader.js"></script>
-  <script src="/js/clients.js"></script>
-  <script src="/js/notifications.js"></script>
-  <script src="/js/ticket-badge.js"></script>
+<script src="/js/clients.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/mobile-menu.js"></script>
+<script src="/js/theme-switcher.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/sidebar-init.js"></script>
+
+<script>
+  // Load user info into sidebar
+  fetch('/api/auth/me').then(r => r.json()).then(data => {
+    if (!data.user) return;
+    document.getElementById('user-avatar').textContent = data.user.name.charAt(0).toUpperCase();
+    document.getElementById('user-name-display').textContent = data.user.name;
+    document.getElementById('user-role-display').textContent = data.user.role;
+  });
+
+  function openSettings() { window.location.href = '/admin.html'; }
+</script>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 </body>
 </html>

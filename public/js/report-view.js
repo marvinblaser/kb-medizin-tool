@@ -76,6 +76,19 @@ const TRANSLATIONS = {
     }
 };
 
+const DAY_NAMES = {
+  fr: ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'],
+  de: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
+};
+ 
+function updateDayNames(lang) {
+  const days = DAY_NAMES[lang] || DAY_NAMES['fr'];
+  days.forEach((name, i) => {
+    const el = document.getElementById(`day-${i + 1}`);
+    if (el) el.textContent = name;
+  });
+}
+
 const CHECKBOX_LABELS_DE = {
     "Mise en marche": "Inbetriebsetzung",
     "Réparation": "Reparaturen",
@@ -133,6 +146,8 @@ async function loadReport(id) {
     try {
         const res = await fetch(`/api/reports/${id}`);
         const data = await res.json();
+
+        updateDayNames(data.language || 'fr');
 
         // 1. Langue
         currentLanguage = data.language || 'fr';
@@ -330,7 +345,7 @@ async function loadReport(id) {
         
         // On retrouve le prix de base théorique grâce au Canton (ex: "Biel (BE)" -> "BE")
         let baseTravelPrice = data.travel_costs || 0;
-        if (data.travel_location) {
+        if (!baseTravelPrice && data.travel_location) {
             const match = data.travel_location.match(/\(([A-Z]{2})\)$/);
             if (match) {
                 const canton = match[1];
@@ -353,7 +368,10 @@ async function loadReport(id) {
         }
         
         const travelLabel = TRANSLATIONS[currentLanguage].travel_costs;
-        const travelText = `<b>${travelLabel}</b> <span style="margin-left:10px;">${data.travel_location||''}</span>`;
+        // ✅ APRÈS — utilise la ville du client en fallback
+// ✅ APRÈS — utilise city du client si travel_location vide
+const travelLoc = data.travel_location || data.city || '';
+const travelText = `<b>${travelLabel}</b> <span style="margin-left:10px;">${travelLoc}</span>`;
         
         grid.innerHTML += `
             <tr>

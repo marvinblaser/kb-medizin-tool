@@ -1,353 +1,665 @@
 // public/js/notifications.js
+// KB Med — Système de notifications unifié (identique au dashboard)
+// Injecte automatiquement la cloche + le panel sur toutes les pages
+
+'use strict';
 
 let lastKnownNotifId = 0;
-let isFirstLoad = true;
+let isFirstLoad      = true;
+
+// ══════════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
-    injectNotificationStyles();
-    initNotificationCenter();
-    initToastContainer();
-    setInterval(loadNotifications, 10000); 
+  injectStyles();
+  injectBellButton();
+  injectPanel();
+  loadNotifications();
+  setInterval(loadNotifications, 30000); // Refresh toutes les 30s
 });
 
-// --- STYLES CSS CORRIGÉS ---
-function injectNotificationStyles() {
-    const style = document.createElement('style');
-    style.innerHTML = `
-        /* La cloche ne casse plus le layout ! */
-        .notif-wrapper { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); z-index: 1000; }
-        
-        .notif-bell-btn { background: white; border: 1px solid #e2e8f0; color: #64748b; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 1.1rem; position: relative; }
-        .notif-bell-btn:hover { background: #f8fafc; color: #3b82f6; }
-        .notif-bell-btn.active { background: #eff6ff; color: #3b82f6; border-color: #bfdbfe; }
-        .notif-badge { position: absolute; top: -2px; right: -2px; background: #ef4444; color: white; font-size: 0.7rem; font-weight: bold; min-width: 18px; height: 18px; border-radius: 9px; display: flex; align-items: center; justify-content: center; border: 2px solid white; opacity: 0; transform: scale(0); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .notif-badge.show { opacity: 1; transform: scale(1); }
-        
-        /* Dropdown */
-        .notif-dropdown { position: absolute; top: 50px; right: -10px; width: 340px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); z-index: 1000; display: none; flex-direction: column; overflow: hidden; animation: slideDown 0.2s ease-out; }
-        .notif-dropdown.show { display: flex; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Header Actions */
-        .notif-header { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
-        .notif-header h3 { margin: 0; font-size: 0.9rem; color: #334155; font-weight: 600; }
-        .notif-actions-group { display: flex; gap: 12px; }
-        .notif-action-link { font-size: 0.75rem; color: #3b82f6; cursor: pointer; text-decoration: none; transition: color 0.1s; }
-        .notif-action-link:hover { text-decoration: underline; }
-        .notif-action-link.danger { color: #ef4444; }
-        
-        /* Liste & Items */
-        .notif-list { max-height: 350px; overflow-y: auto; }
-        .notif-item { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s; display: flex; gap: 12px; align-items: flex-start; position: relative; }
-        .notif-item:hover { background: #f8fafc; }
-        .notif-item.unread { background: #f0f9ff; }
-        .notif-icon { width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
-        .type-info { background: #e0f2fe; color: #0369a1; }
-        .type-success { background: #dcfce7; color: #15803d; }
-        .type-warning { background: #fef9c3; color: #a16207; }
-        .type-error { background: #fee2e2; color: #b91c1c; }
-        .notif-content { flex: 1; padding-right: 25px; } /* Espace pour la poubelle */
-        .notif-msg { display: block; font-size: 0.85rem; color: #334155; line-height: 1.4; margin-bottom: 2px; }
-        .notif-time { display: block; font-size: 0.75rem; color: #94a3b8; }
-        
-        /* Boutons de suppression */
-        .notif-delete-btn { position: absolute; right: 10px; top: 12px; background: none; border: none; color: #cbd5e1; cursor: pointer; padding: 5px; font-size: 0.9rem; border-radius: 4px; transition: all 0.2s; opacity: 0; }
-        .notif-item:hover .notif-delete-btn { opacity: 1; }
-        .notif-delete-btn:hover { color: #ef4444; background: #fee2e2; }
+// ══════════════════════════════════════════════════════════════════
+//  INJECTION CSS
+// ══════════════════════════════════════════════════════════════════
 
-        /* --- TOASTS VOLANTS CORRIGÉS --- */
-        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
-        .toast-popup { background: white; border-left: 4px solid #3b82f6; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 8px; padding: 15px 20px; display: flex; align-items: center; gap: 12px; min-width: 250px; max-width: 350px; transform: translateX(120%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: auto; }
-        .toast-popup.show { transform: translateX(0); }
-        .toast-popup.success { border-left-color: #10b981; }
-        .toast-popup.warning { border-left-color: #f59e0b; }
-        .toast-popup.error { border-left-color: #ef4444; }
-        .toast-icon { font-size: 1.2rem; }
-        .toast-icon.success { color: #10b981; }
-        .toast-icon.warning { color: #f59e0b; }
-        .toast-icon.error { color: #ef4444; }
-        .toast-icon.info { color: #3b82f6; }
-        .toast-text-wrap { flex: 1; cursor: pointer; }
-        .toast-text { font-size: 0.9rem; color: #334155; font-weight: 500; line-height: 1.3; }
-        .toast-close-btn { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.1rem; padding: 4px; border-radius: 4px; }
-        .toast-close-btn:hover { color: #ef4444; background: #f1f5f9; }
-    `;
-    document.head.appendChild(style);
+function injectStyles() {
+  if (document.getElementById('kb-notif-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'kb-notif-styles';
+  style.innerHTML = `
+    /* ─ CLOCHE ─────────────────────────────────────── */
+    .kb-notif-bell-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .kb-notif-bell {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-secondary, #f3f4f6);
+      border: 1px solid var(--border-primary, #e5e7eb);
+      border-radius: 3px;
+      color: var(--text-secondary, #6b7280);
+      font-size: 15px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.15s;
+    }
+
+    .kb-notif-bell:hover {
+      background: var(--bg-tertiary, #e5e7eb);
+      color: var(--color-primary, #2c5aa0);
+    }
+
+    .kb-notif-dot {
+      position: absolute;
+      top: -3px; right: -3px;
+      width: 10px; height: 10px;
+      background: var(--color-danger, #ef4444);
+      border-radius: 50%;
+      border: 2px solid var(--bg-elevated, #fff);
+      display: none;
+    }
+
+    .kb-notif-dot.visible { display: block; }
+
+    /* ─ PANEL SLIDE-IN ──────────────────────────────── */
+    .kb-notif-panel {
+      position: fixed;
+      top: 0; right: -380px;
+      width: 360px;
+      height: 100vh;
+      background: var(--bg-elevated, #fff);
+      border-left: 1px solid var(--border-primary, #e5e7eb);
+      box-shadow: -4px 0 20px rgba(0,0,0,0.08);
+      z-index: 1500;
+      display: flex;
+      flex-direction: column;
+      transition: right 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .kb-notif-panel.open { right: 0; }
+
+    .kb-notif-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.2);
+      z-index: 1499;
+      backdrop-filter: blur(1px);
+    }
+
+    .kb-notif-overlay.visible { display: block; }
+
+    /* ─ PANEL HEADER ────────────────────────────────── */
+    .kb-notif-head {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border-primary, #e5e7eb);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      background: var(--bg-secondary, #f9fafb);
+    }
+
+    .kb-notif-head-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-primary, #111827);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .kb-notif-head-title i {
+      color: var(--color-primary, #2c5aa0);
+    }
+
+    .kb-notif-count {
+      background: var(--color-danger, #ef4444);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 999px;
+      display: none;
+    }
+
+    .kb-notif-count.visible { display: inline-block; }
+
+    .kb-notif-head-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .kb-notif-action-btn {
+      background: none;
+      border: 1px solid var(--border-primary, #e5e7eb);
+      border-radius: 3px;
+      color: var(--text-tertiary, #9ca3af);
+      font-size: 11px;
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .kb-notif-action-btn:hover {
+      background: var(--bg-tertiary, #e5e7eb);
+      color: var(--text-primary, #111827);
+    }
+
+    .kb-notif-action-btn.danger:hover {
+      background: var(--color-danger-bg, #fee2e2);
+      color: var(--color-danger, #ef4444);
+      border-color: var(--color-danger, #ef4444);
+    }
+
+    .kb-notif-close {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: none;
+      border: 1px solid var(--border-primary, #e5e7eb);
+      border-radius: 3px;
+      color: var(--text-tertiary, #9ca3af);
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.15s;
+    }
+
+    .kb-notif-close:hover {
+      background: var(--bg-tertiary, #e5e7eb);
+      color: var(--text-primary, #111827);
+    }
+
+    /* ─ LISTE ───────────────────────────────────────── */
+    .kb-notif-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .kb-notif-list::-webkit-scrollbar { width: 4px; }
+    .kb-notif-list::-webkit-scrollbar-thumb {
+      background: var(--border-primary, #e5e7eb);
+      border-radius: 999px;
+    }
+
+    .kb-notif-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-primary, #e5e7eb);
+      cursor: pointer;
+      transition: background 0.12s;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      position: relative;
+    }
+
+    .kb-notif-item:hover { background: var(--bg-secondary, #f9fafb); }
+    .kb-notif-item.unread { background: rgba(44,90,160,0.04); }
+
+    .kb-notif-item.unread::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--color-primary, #2c5aa0);
+    }
+
+    .kb-notif-icon {
+      width: 32px; height: 32px;
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .kb-icon-info    { background: rgba(59,130,246,0.12);  color: #3b82f6; }
+    .kb-icon-success { background: rgba(16,185,129,0.12);  color: #10b981; }
+    .kb-icon-warning { background: rgba(245,158,11,0.12);  color: #f59e0b; }
+    .kb-icon-error   { background: rgba(239,68,68,0.12);   color: #ef4444; }
+
+    .kb-notif-body { flex: 1; min-width: 0; }
+
+    .kb-notif-msg {
+      font-size: 0.82rem;
+      color: var(--text-primary, #111827);
+      line-height: 1.45;
+      margin-bottom: 3px;
+    }
+
+    .kb-notif-time {
+      font-size: 0.73rem;
+      color: var(--text-tertiary, #9ca3af);
+    }
+
+    .kb-notif-del {
+      position: absolute;
+      right: 10px; top: 10px;
+      background: none;
+      border: none;
+      color: var(--text-tertiary, #9ca3af);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 3px;
+      opacity: 0;
+      transition: all 0.12s;
+      font-size: 12px;
+    }
+
+    .kb-notif-item:hover .kb-notif-del { opacity: 1; }
+    .kb-notif-del:hover { color: var(--color-danger, #ef4444); background: var(--color-danger-bg, #fee2e2); }
+
+    .kb-notif-empty {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--text-tertiary, #9ca3af);
+    }
+
+    .kb-notif-empty i {
+      font-size: 32px;
+      display: block;
+      margin-bottom: 12px;
+      opacity: 0.2;
+    }
+
+    .kb-notif-empty p {
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    /* ─ TOASTS ──────────────────────────────────────── */
+    #kb-toast-container {
+      position: fixed;
+      top: 20px; right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .kb-toast {
+      background: var(--bg-elevated, #fff);
+      border-left: 4px solid var(--color-primary, #2c5aa0);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+      border-radius: 3px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-width: 260px;
+      max-width: 360px;
+      transform: translateX(120%);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: auto;
+    }
+
+    .kb-toast.show { transform: translateX(0); }
+    .kb-toast.success { border-left-color: #10b981; }
+    .kb-toast.warning { border-left-color: #f59e0b; }
+    .kb-toast.error   { border-left-color: #ef4444; }
+
+    .kb-toast-icon { font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+    .kb-toast-icon.info    { color: var(--color-primary, #2c5aa0); }
+    .kb-toast-icon.success { color: #10b981; }
+    .kb-toast-icon.warning { color: #f59e0b; }
+    .kb-toast-icon.error   { color: #ef4444; }
+
+    .kb-toast-body { flex: 1; min-width: 0; }
+
+    .kb-toast-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-primary, #111827);
+      margin-bottom: 2px;
+    }
+
+    .kb-toast-msg {
+      font-size: 0.78rem;
+      color: var(--text-secondary, #6b7280);
+      line-height: 1.4;
+    }
+
+    .kb-toast-close {
+      background: none;
+      border: none;
+      color: var(--text-tertiary, #9ca3af);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 2px;
+      flex-shrink: 0;
+      transition: color 0.12s;
+    }
+
+    .kb-toast-close:hover { color: var(--color-danger, #ef4444); }
+
+    @media (max-width: 768px) {
+      .kb-notif-panel { width: 100vw; right: -100vw; }
+      #kb-toast-container { top: auto; bottom: 16px; right: 12px; left: 12px; }
+      .kb-toast { max-width: 100%; }
+    }
+  `;
+  document.head.appendChild(style);
 }
 
-// --- LOGIQUE TOAST ---
-function initToastContainer() {
-    const container = document.createElement('div');
-    container.id = 'toast-container';
-    document.body.appendChild(container);
+// ══════════════════════════════════════════════════════════════════
+//  INJECTION CLOCHE dans .page-header
+// ══════════════════════════════════════════════════════════════════
+
+function injectBellButton() {
+  if (document.getElementById('kb-notif-bell')) return;
+
+  // Cherche le bon endroit dans le page-header
+  const actionsGroup = document.querySelector('.page-header .header-actions-group')
+                    || document.querySelector('.rma-topbar-actions')
+                    || document.querySelector('.page-header');
+  if (!actionsGroup) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'kb-notif-bell-wrap';
+  wrap.innerHTML = `
+    <button class="kb-notif-bell" id="kb-notif-bell"
+      onclick="window.kbToggleNotifPanel()" title="Notifications">
+      <i class="fas fa-bell"></i>
+      <span class="kb-notif-dot" id="kb-notif-dot"></span>
+    </button>
+  `;
+
+  // ✅ APRÈS — toujours à la fin (extrême droite)
+actionsGroup.appendChild(wrap);
 }
 
-function showToast(notif) {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
+// ══════════════════════════════════════════════════════════════════
+//  INJECTION PANEL (slide-in)
+// ══════════════════════════════════════════════════════════════════
 
-    let icon = 'fa-info-circle'; let colorClass = 'info';
-    if (notif.type === 'success') { icon = 'fa-check-circle'; colorClass = 'success'; }
-    if (notif.type === 'warning') { icon = 'fa-exclamation-triangle'; colorClass = 'warning'; }
-    if (notif.type === 'error') { icon = 'fa-times-circle'; colorClass = 'error'; }
+function injectPanel() {
+  if (document.getElementById('kb-notif-panel')) return;
 
-    const toast = document.createElement('div');
-    toast.className = `toast-popup ${colorClass}`;
-    toast.id = `toast-${notif.id}`;
-    
-    // Le texte cliqueble (Ouvre le lien), la croix (Supprime la notif)
-    toast.innerHTML = `
-        <i class="fas ${icon} toast-icon ${colorClass}"></i>
-        <div class="toast-text-wrap" onclick="handleNotifClick(${notif.id}, '${notif.link || ''}')">
-            <div class="toast-text">${escapeHtml(notif.message)}</div>
-        </div>
-        <button class="toast-close-btn" onclick="deleteNotif(${notif.id})" title="Fermer et supprimer">
-            <i class="fas fa-times"></i>
+  // Overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'kb-notif-overlay';
+  overlay.className = 'kb-notif-overlay';
+  overlay.onclick = () => window.kbToggleNotifPanel(false);
+  document.body.appendChild(overlay);
+
+  // Panel
+  const panel = document.createElement('div');
+  panel.id = 'kb-notif-panel';
+  panel.className = 'kb-notif-panel';
+  panel.innerHTML = `
+    <div class="kb-notif-head">
+      <div class="kb-notif-head-title">
+        <i class="fas fa-bell"></i>
+        Notifications
+        <span class="kb-notif-count" id="kb-notif-count"></span>
+      </div>
+      <div class="kb-notif-head-actions">
+        <button class="kb-notif-action-btn" onclick="kbMarkAllRead()">
+          <i class="fas fa-check-double"></i> Tout lu
         </button>
-    `;
-
-    container.appendChild(toast);
-    setTimeout(() => toast.classList.add('show'), 50);
-
-    // Disparition automatique (sans la supprimer de la BDD)
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 400); 
-    }, 5000);
-}
-
-// --- LOGIQUE CLOCHE ---
-function initNotificationCenter() {
-    const header = document.querySelector('.page-header');
-    if (!header) return;
-
-    // Prépare le header pour accueillir la cloche en absolute
-    header.style.position = 'relative';
-    // Ajoute un peu de marge à droite pour ne pas que le titre/bouton existant touche la cloche
-    header.style.paddingRight = '80px'; 
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'notif-wrapper';
-    wrapper.innerHTML = `
-        <button class="notif-bell-btn" onclick="toggleNotifDropdown()">
-            <i class="fas fa-bell"></i>
-            <span class="notif-badge" id="notif-badge">0</span>
+        <button class="kb-notif-action-btn danger" onclick="kbDeleteAllNotifs()">
+          <i class="fas fa-trash-alt"></i> Vider
         </button>
-        <div class="notif-dropdown" id="notif-dropdown">
-            <div class="notif-header">
-                <h3>Notifications</h3>
-                <div class="notif-actions-group">
-                    <span class="notif-action-link" onclick="markAllRead()"><i class="fas fa-check-double"></i> Tout lu</span>
-                    <span class="notif-action-link danger" onclick="deleteAllNotifs()"><i class="fas fa-trash-alt"></i> Vider</span>
-                </div>
-            </div>
-            <div class="notif-list" id="notif-list"></div>
-        </div>
-    `;
+        <button class="kb-notif-close" onclick="window.kbToggleNotifPanel(false)">
+          &times;
+        </button>
+      </div>
+    </div>
+    <div class="kb-notif-list" id="kb-notif-list">
+      <div class="kb-notif-empty">
+        <i class="fas fa-bell-slash"></i>
+        <p>Aucune notification</p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(panel);
 
-    header.appendChild(wrapper);
+  // Toast container
+  if (!document.getElementById('kb-toast-container')) {
+    const tc = document.createElement('div');
+    tc.id = 'kb-toast-container';
+    document.body.appendChild(tc);
+  }
 
-    document.addEventListener('click', (e) => {
-        const dropdown = document.getElementById('notif-dropdown');
-        const btn = document.querySelector('.notif-bell-btn');
-        if (dropdown && dropdown.classList.contains('show')) {
-            if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
-                dropdown.classList.remove('show');
-                btn.classList.remove('active');
-            }
-        }
-    });
-
-    loadNotifications();
+  // Escape ferme le panel
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') window.kbToggleNotifPanel(false);
+  });
 }
+
+// ══════════════════════════════════════════════════════════════════
+//  TOGGLE PANEL
+// ══════════════════════════════════════════════════════════════════
+
+window.kbToggleNotifPanel = function(forceOpen) {
+  const panel   = document.getElementById('kb-notif-panel');
+  const overlay = document.getElementById('kb-notif-overlay');
+  const bell    = document.getElementById('kb-notif-bell');
+  if (!panel) return;
+
+  const isOpen  = panel.classList.contains('open');
+  const open    = forceOpen !== undefined ? forceOpen : !isOpen;
+
+  panel.classList.toggle('open', open);
+  if (overlay) overlay.classList.toggle('visible', open);
+  if (bell)    bell.style.background = open ? 'var(--bg-tertiary)' : '';
+
+  // Compatibilité dashboard (toggleNotifications)
+};
+
+// Alias pour compatibilité dashboard.html qui appelle toggleNotifications()
+window.toggleNotifications = window.kbToggleNotifPanel;
+
+// ══════════════════════════════════════════════════════════════════
+//  CHARGEMENT ET RENDU
+// ══════════════════════════════════════════════════════════════════
 
 async function loadNotifications() {
-    try {
-        const res = await fetch('/api/notifications');
-        if (!res.ok) return;
-        const notifications = await res.json();
-        
-        if (!isFirstLoad && notifications.length > 0) {
-            const newNotifs = notifications.filter(n => n.id > lastKnownNotifId);
-            newNotifs.forEach(n => showToast(n));
-        }
+  try {
+    const res = await fetch('/api/notifications');
+    if (!res.ok) return;
+    const list = await res.json();
 
-        if (notifications.length > 0) {
-            lastKnownNotifId = Math.max(...notifications.map(n => n.id));
-        }
-        isFirstLoad = false;
+    // Toasts pour nouvelles notifs
+    if (!isFirstLoad && list.length > 0) {
+      const newNotifs = list.filter(n => n.id > lastKnownNotifId);
+      newNotifs.forEach(n => showKbToast(n));
+    }
+    if (list.length > 0) {
+      lastKnownNotifId = Math.max(...list.map(n => n.id));
+    }
+    isFirstLoad = false;
 
-        renderNotifications(notifications);
-        updateBadge(notifications);
-    } catch (e) { console.error("Erreur notifs:", e); }
+    renderNotifications(list);
+    updateDot(list);
+  } catch (e) {
+    console.error('Erreur notifs:', e);
+  }
 }
 
 function renderNotifications(list) {
-    const container = document.getElementById('notif-list');
-    if (!container) return;
-    if (list.length === 0) {
-        container.innerHTML = `<div style="padding: 30px; text-align: center; color: #94a3b8;"><i class="far fa-bell-slash" style="font-size:1.5rem; margin-bottom:10px; display:block; opacity:0.5;"></i>Boîte de réception vide</div>`;
-        return;
-    }
-    container.innerHTML = list.map(n => {
-        let icon = 'fa-info-circle'; let typeClass = 'type-info';
-        if (n.type === 'success') { icon = 'fa-check'; typeClass = 'type-success'; }
-        if (n.type === 'warning') { icon = 'fa-exclamation-triangle'; typeClass = 'type-warning'; }
-        if (n.type === 'error') { icon = 'fa-times'; typeClass = 'type-error'; }
-        
-        const time = new Date(n.created_at).toLocaleString('fr-CH', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
-        const unreadClass = n.is_read ? '' : 'unread';
-        
-        return `
-            <div class="notif-item ${unreadClass}">
-                <div class="notif-icon ${typeClass}" onclick="handleNotifClick(${n.id}, '${n.link || ''}')"><i class="fas ${icon}"></i></div>
-                <div class="notif-content" onclick="handleNotifClick(${n.id}, '${n.link || ''}')">
-                    <span class="notif-msg">${escapeHtml(n.message)}</span>
-                    <span class="notif-time">${time}</span>
-                </div>
-                ${!n.is_read ? '<i class="fas fa-circle" style="font-size:8px; color:#3b82f6; position:absolute; right:35px; top:24px;"></i>' : ''}
-                <button class="notif-delete-btn" onclick="deleteNotif(${n.id})" title="Supprimer">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            </div>`;
-    }).join('');
+  const container = document.getElementById('kb-notif-list');
+  if (!container) return;
+
+  if (!list.length) {
+    container.innerHTML = `
+      <div class="kb-notif-empty">
+        <i class="fas fa-bell-slash"></i>
+        <p>Aucune notification</p>
+      </div>`;
+    return;
+  }
+
+  const iconMap = {
+    success: { icon: 'fa-check',              cls: 'kb-icon-success' },
+    warning: { icon: 'fa-exclamation-triangle', cls: 'kb-icon-warning' },
+    error:   { icon: 'fa-times',              cls: 'kb-icon-error'   },
+    info:    { icon: 'fa-info-circle',         cls: 'kb-icon-info'    },
+  };
+
+  container.innerHTML = list.map(n => {
+    const { icon, cls } = iconMap[n.type] || iconMap.info;
+    const time = new Date(n.created_at).toLocaleString('fr-CH', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+    return `
+      <div class="kb-notif-item ${n.is_read ? '' : 'unread'}"
+        id="kb-notif-item-${n.id}"
+        onclick="kbHandleNotifClick(${n.id}, '${n.link || ''}')">
+        <div class="kb-notif-icon ${cls}"><i class="fas ${icon}"></i></div>
+        <div class="kb-notif-body">
+          <div class="kb-notif-msg">${escHtml(n.message)}</div>
+          <span class="kb-notif-time">${time}</span>
+        </div>
+        <button class="kb-notif-del" onclick="event.stopPropagation();kbDeleteNotif(${n.id})"
+          title="Supprimer"><i class="fas fa-times"></i></button>
+      </div>`;
+  }).join('');
 }
 
-function updateBadge(list) {
-    const badge = document.getElementById('notif-badge');
-    const unreadCount = list.filter(n => !n.is_read).length;
-    if (unreadCount > 0) { badge.innerText = unreadCount > 99 ? '99+' : unreadCount; badge.classList.add('show'); } 
-    else { badge.classList.remove('show'); }
+function updateDot(list) {
+  const unread = list.filter(n => !n.is_read).length;
+
+  // Point rouge sur la cloche
+  const dot = document.getElementById('kb-notif-dot');
+  if (dot) dot.classList.toggle('visible', unread > 0);
+
+  // Compteur dans le panel
+  const count = document.getElementById('kb-notif-count');
+  if (count) {
+    count.textContent = unread > 99 ? '99+' : unread;
+    count.classList.toggle('visible', unread > 0);
+  }
+
+  // Compatibilité : dashboard utilise notif-dot et notif-badge
+  const dashDot   = document.getElementById('notif-dot');
+  const dashBadge = document.getElementById('notif-badge');
+  if (dashDot)   dashDot.style.display   = unread > 0 ? 'block' : 'none';
+  if (dashBadge) {
+    dashBadge.textContent = unread > 99 ? '99+' : unread;
+    dashBadge.classList.toggle('show', unread > 0);
+  }
 }
 
-// --- ACTIONS CLINIQUES ---
-window.toggleNotifDropdown = function() {
-    const d = document.getElementById('notif-dropdown');
-    const b = document.querySelector('.notif-bell-btn');
-    d.classList.toggle('show'); b.classList.toggle('active');
-};
+// ══════════════════════════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════════════════════════
 
-window.handleNotifClick = async function(id, link) {
-    await fetch(`/api/notifications/${id}/read`, { method: 'PUT' });
-    if (link && link !== 'null' && link !== '#') window.location.href = link;
-    else loadNotifications(); 
-};
-
-window.markAllRead = async function() {
-    await fetch('/api/notifications/read-all', { method: 'PUT' });
-    loadNotifications();
-};
-
-// NOUVEAU : Supprimer une notification précise
-window.deleteNotif = async function(id) {
-    try {
-        await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
-        // Ferme le toast instantanément s'il est à l'écran
-        const toast = document.getElementById(`toast-${id}`);
-        if (toast) {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 400);
-        }
-        loadNotifications();
-    } catch (e) { console.error("Erreur suppression:", e); }
-};
-
-// NOUVEAU : Tout vider
-window.deleteAllNotifs = async function() {
-    try {
-        await fetch('/api/notifications/all', { method: 'DELETE' });
-        loadNotifications();
-    } catch (e) { console.error("Erreur vidage complet:", e); }
-};
-
-function escapeHtml(text) {
-    if (!text) return "";
-    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+async function kbHandleNotifClick(id, link) {
+  // Marque comme lu
+  await fetch(`/api/notifications/${id}/read`, { method: 'PUT' }).catch(() => {});
+  const item = document.getElementById(`kb-notif-item-${id}`);
+  if (item) item.classList.remove('unread');
+  loadNotifications();
+  if (link) window.location.href = link;
 }
 
-// --- SYSTÈME DE PRÉFÉRENCES GLOBAL (Généré en JS) ---
+window.kbMarkAllRead = async function() {
+  await fetch('/api/notifications/read-all', { method: 'PUT' }).catch(() => {});
+  document.querySelectorAll('.kb-notif-item').forEach(el => el.classList.remove('unread'));
+  loadNotifications();
+};
 
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. On crée le code HTML du modal
-    const settingsModalHTML = `
-    <div class="modal" id="settings-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
-      <div class="modal-content" style="background:white; width:100%; max-width: 450px; border-radius: 16px; padding:25px; position:relative; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
-        
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-          <h2 style="margin:0; font-size:1.4rem; color:#0f172a;"><i class="fas fa-cog" style="color:#64748b; margin-right:8px;"></i> Mes Alertes E-mail</h2>
-          <button onclick="closeSettingsModal()" style="background:none; border:none; font-size:1.8rem; color:#94a3b8; cursor:pointer; padding:0;">&times;</button>
-        </div>
-        
-        <p style="font-size: 0.95rem; color: #64748b; margin-bottom: 25px; line-height:1.5;">Personnalisez les événements pour lesquels vous souhaitez recevoir un e-mail sur votre adresse professionnelle.</p>
-        
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid #e2e8f0;">
-            <div>
-                <strong style="display:block; color:#0f172a; margin-bottom:4px;">Mentions Directes</strong>
-                <small style="color:#94a3b8; font-size:0.85rem;">Quand quelqu'un écrit @MonNom</small>
-            </div>
-            <input type="checkbox" id="pref-mention" style="transform: scale(1.5); cursor:pointer;">
-        </div>
-        
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
-            <div>
-                <strong style="display:block; color:#0f172a; margin-bottom:4px;">Assignations de groupe</strong>
-                <small style="color:#94a3b8; font-size:0.85rem;">Quand on m'ajoute à un ticket</small>
-            </div>
-            <input type="checkbox" id="pref-assign" style="transform: scale(1.5); cursor:pointer;">
-        </div>
-        
-        <button class="btn btn-primary" onclick="savePreferences()" style="width:100%; padding:12px; border-radius:8px; background:#2563eb; color:white; border:none; cursor:pointer; font-weight:bold; font-size:1rem; transition:0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">Enregistrer mes préférences</button>
-      </div>
+window.kbDeleteNotif = async function(id) {
+  await fetch(`/api/notifications/${id}`, { method: 'DELETE' }).catch(() => {});
+  document.getElementById(`kb-notif-item-${id}`)?.remove();
+  loadNotifications();
+};
+
+window.kbDeleteAllNotifs = async function() {
+  const ok = await showConfirm({
+    title: 'Vider les notifications ?',
+    message: 'Toutes les notifications seront supprimées.',
+    type: 'danger',
+    confirmText: 'Vider',
+    cancelText: 'Annuler'
+  });
+  if (!ok) return;
+  await fetch('/api/notifications/all', { method: 'DELETE' }).catch(() => {});
+  loadNotifications();
+};
+
+// Aliases pour compatibilité avec l'ancien code (dashboard.js)
+window.markAllRead     = window.kbMarkAllRead;
+window.deleteNotif     = window.kbDeleteNotif;
+window.deleteAllNotifs = window.kbDeleteAllNotifs;
+window.loadNotifications = loadNotifications;
+
+// ══════════════════════════════════════════════════════════════════
+//  TOAST SYSTEM
+// ══════════════════════════════════════════════════════════════════
+
+function showKbToast(notif) {
+  const container = document.getElementById('kb-toast-container');
+  if (!container) return;
+
+  const icons = {
+    success: 'fa-check-circle',
+    warning: 'fa-exclamation-triangle',
+    error:   'fa-times-circle',
+    info:    'fa-info-circle',
+  };
+
+  const toast = document.createElement('div');
+  toast.className = `kb-toast ${notif.type || 'info'}`;
+  toast.innerHTML = `
+    <i class="fas ${icons[notif.type] || icons.info} kb-toast-icon ${notif.type || 'info'}"></i>
+    <div class="kb-toast-body" onclick="kbHandleNotifClick(${notif.id}, '${notif.link || ''}');this.closest('.kb-toast').remove();" style="cursor:pointer">
+      <div class="kb-toast-msg">${escHtml(notif.message)}</div>
     </div>
-    `;
+    <button class="kb-toast-close" onclick="this.closest('.kb-toast').remove()">&times;</button>
+  `;
 
-    // 2. On l'injecte tout à la fin du document (Body)
-    document.body.insertAdjacentHTML('beforeend', settingsModalHTML);
-});
+  container.appendChild(toast);
+  setTimeout(() => toast.classList.add('show'), 30);
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 5000);
+}
 
-// 3. Les fonctions globales pour manipuler le modal
-window.openSettings = async function() {
-    // On affiche le modal
-    document.getElementById('settings-modal').style.display = 'flex';
-    
-    try {
-        // On va chercher les vraies préférences sur le serveur
-        const res = await fetch('/api/me/preferences');
-        if (res.ok) {
-            const prefs = await res.json();
-            // On coche ou décoche selon la base de données
-            document.getElementById('pref-assign').checked = prefs.pref_mail_assign === 1;
-            document.getElementById('pref-mention').checked = prefs.pref_mail_mention === 1;
-        }
-    } catch(e) {
-        console.error("Erreur lors du chargement des préférences", e);
-    }
+// API publique pour toasts manuels (window.toast.success etc.)
+window.toast = {
+  show: (type, title, message) => {
+    const container = document.getElementById('kb-toast-container');
+    if (!container) return;
+    const icons = { success:'fa-check-circle', warning:'fa-exclamation-triangle', error:'fa-times-circle', info:'fa-info-circle' };
+    const t = document.createElement('div');
+    t.className = `kb-toast ${type}`;
+    t.innerHTML = `
+      <i class="fas ${icons[type]||icons.info} kb-toast-icon ${type}"></i>
+      <div class="kb-toast-body">
+        ${title ? `<div class="kb-toast-title">${escHtml(title)}</div>` : ''}
+        ${message ? `<div class="kb-toast-msg">${escHtml(message)}</div>` : ''}
+      </div>
+      <button class="kb-toast-close" onclick="this.closest('.kb-toast').remove()">&times;</button>`;
+    container.appendChild(t);
+    setTimeout(() => t.classList.add('show'), 30);
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 4500);
+  },
+  success: (title, msg) => window.toast.show('success', title, msg),
+  error:   (title, msg) => window.toast.show('error',   title, msg),
+  warning: (title, msg) => window.toast.show('warning', title, msg),
+  info:    (title, msg) => window.toast.show('info',    title, msg),
 };
 
-window.closeSettingsModal = function() {
-    document.getElementById('settings-modal').style.display = 'none';
-};
+// Alias showNotification (utilisé dans checklists.js etc.)
+window.showNotification = (message, type = 'info') => window.toast.show(type, message, '');
 
-window.savePreferences = async function() {
-    const data = {
-        pref_mail_assign: document.getElementById('pref-assign').checked,
-        pref_mail_mention: document.getElementById('pref-mention').checked
-    };
-    
-    try {
-        const res = await fetch('/api/me/preferences', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        
-        if (res.ok) {
-            closeSettingsModal();
-            // Petite pop-up pour confirmer
-            alert("✅ Vos préférences ont été enregistrées avec succès !"); 
-            // Note : Si vous avez une fonction pour afficher un beau toast, remplacez alert() par cette fonction !
-        }
-    } catch(e) {
-        console.error("Erreur lors de la sauvegarde", e);
-    }
-};
+// ══════════════════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════════════════
+
+function escHtml(t) {
+  if (!t) return '';
+  const d = document.createElement('div');
+  d.textContent = String(t);
+  return d.innerHTML;
+}

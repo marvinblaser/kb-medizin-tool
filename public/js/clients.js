@@ -73,9 +73,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Filtres Avancés
     document.getElementById('adv-status')?.addEventListener('change', () => { currentPage = 1; loadData(); });
     ['adv-brand', 'adv-model', 'adv-serial'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', debounce(() => { currentPage = 1; loadData(); }, 500));
-    });
-
+    document.getElementById(id)?.addEventListener('input', debounce(() => { currentPage = 1; loadData(); }, 500));
+});
     document.getElementById('show-hidden-cb')?.addEventListener('change', e => { 
         currentFilters.showHidden = e.target.checked; 
         currentPage = 1; 
@@ -91,7 +90,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('limit-select')?.addEventListener('change', e => { itemsPerPage = parseInt(e.target.value); currentPage = 1; loadData(); });
     
     // Actions globales
-    document.getElementById('logout-btn')?.addEventListener('click', logout);
     document.getElementById('confirm-delete-btn')?.addEventListener('click', confirmDeleteClient);
     document.getElementById('btn-geo-search')?.addEventListener('click', searchCoordinates);
     
@@ -106,15 +104,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     ['#filter-canton', '#filter-sector', '#adv-status'].forEach(s => destroyPreviousSlimSelect(s));
 
-    new SlimSelect({ select: '#filter-canton', settings: { showSearch: false, placeholderText: 'Canton', allowDeselect: true } });
-    new SlimSelect({ select: '#filter-sector', settings: { showSearch: false, placeholderText: 'Secteur', allowDeselect: true } });
-    new SlimSelect({ select: '#adv-status', settings: { showSearch: false, placeholderText: 'Statut', allowDeselect: true } });
-});
+    new SlimSelect({ select: '#filter-canton', settings: { showSearch: false, allowDeselect: false } });
+    new SlimSelect({ select: '#filter-sector', settings: { showSearch: false, allowDeselect: false } });
+    new SlimSelect({ select: '#adv-status',   settings: { showSearch: false, allowDeselect: false } });
+    });
 
 async function checkAuth() {
-    try { const res = await fetch('/api/me'); if(!res.ok) window.location.href='/login.html'; const d=await res.json(); currentUser=d.user; document.getElementById('user-info').innerHTML=`<div class="user-avatar">${d.user.name[0]}</div><div class="user-details"><strong>${escapeHtml(d.user.name)}</strong><span>${d.user.role}</span></div>`; } catch { window.location.href='/login.html'; }
+    try { const res = await fetch('/api/auth/me'); if(!res.ok) window.location.href='/login.html'; const d=await res.json(); currentUser=d.user; document.getElementById('user-info').innerHTML=`<div class="user-avatar">${d.user.name[0]}</div><div class="user-details"><strong>${escapeHtml(d.user.name)}</strong><span>${d.user.role}</span></div>`; } catch { window.location.href='/login.html'; }
 }
-async function logout() { await fetch('/api/logout', {method:'POST'}); window.location.href = '/login.html'; }
 async function loadCatalog() { try { const r = await fetch('/api/admin/equipment'); catalog = await r.json(); } catch {} }
 
 function switchView(view) {
@@ -140,7 +137,6 @@ async function loadData() {
     const isShowHidden = hiddenCheckbox ? hiddenCheckbox.checked : false;
     const getVal = (id) => document.getElementById(id)?.value || '';
 
-    // SUPPRESSION de 'page' et 'limit' ici
     const params = new URLSearchParams({
         search: currentFilters.search, 
         canton: currentFilters.canton, 
@@ -160,17 +156,18 @@ async function loadData() {
         
         const data = await res.json();
         
+        // MISE À JOUR DU COMPTEUR (pour les deux vues)
+        const countEl = document.getElementById('total-clients-count');
+        
         if (currentView === 'directory') {
             renderDirectory(data.clients);
-            // MISE À JOUR DU COMPTEUR
-            const countEl = document.getElementById('total-clients-count');
             if(countEl) countEl.textContent = data.count || data.clients.length;
         } 
         else {
             renderPlanning(data);
+            // Pour le planning, data.data contient la liste des clients
+            if(countEl) countEl.textContent = (data.data || []).length;
         }
-        
-        // SUPPRESSION de updatePagination()
         
     } catch(e) { console.error("Erreur loadData:", e); }
 }
@@ -293,10 +290,13 @@ window.clearSelection = function() {
 function updateBulkToolbarUI() {
     const toolbar = document.getElementById('bulk-toolbar');
     const countSpan = document.getElementById('selected-count');
+    if (!toolbar) return;
     if (selectedClients.size > 0) {
-        toolbar.classList.add('active');
-        countSpan.textContent = selectedClients.size;
+        toolbar.classList.add('visible');   // ← était 'active'
+        toolbar.classList.remove('active'); // nettoie l'ancienne classe
+        if (countSpan) countSpan.textContent = selectedClients.size;
     } else {
+        toolbar.classList.remove('visible');
         toolbar.classList.remove('active');
     }
 }
@@ -452,132 +452,190 @@ async function toggleClientHidden(id, currentStatus) {
 }
 
 // --- LOGIQUE PLANNING (AVEC BOUTONS RDV) ---
-function renderPlanning(list) {
+let planningSort = { col: 'days', order: 'asc' };
+ 
+function renderPlanning(apiData) {
     const tbody = document.getElementById('planning-tbody');
-    tbody.innerHTML = '';
-    const data = Array.isArray(list) ? list : (list.data || []);
+    if (!tbody) return;
 
-    if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding:2rem; color:var(--neutral-400);">Aucune maintenance à prévoir.</td></tr>`;
+    const rawClients = Array.isArray(apiData) ? apiData : (apiData.data || []);
+
+    // Filtre recherche / canton
+    const search = (document.getElementById('global-search')?.value || '').toLowerCase();
+    const canton = document.getElementById('filter-canton')?.value || '';
+    const statusFilter = document.getElementById('adv-status')?.value || '';
+
+    const now = new Date(); now.setHours(0,0,0,0);
+
+    // Construit les lignes par client
+    let groups = rawClients
+        .filter(c => {
+            if (canton && c.canton !== canton) return false;
+            if (search && !c.cabinet_name?.toLowerCase().includes(search) &&
+                          !c.city?.toLowerCase().includes(search)) return false;
+            return true;
+        })
+        .map(client => {
+            let machines = (client.machines || []).map(m => {
+                const next = m.next_date || null;
+                const days = next ? Math.ceil((new Date(next) - now) / 86400000) : null;
+                return { ...m, days };
+            });
+
+            // Filtre statut sur les machines
+            if (statusFilter) {
+                machines = machines.filter(m => {
+                    if (statusFilter === 'expired') return m.days !== null && m.days < 0;
+                    if (statusFilter === 'warning') return m.days !== null && m.days >= 0 && m.days <= 60;
+                    if (statusFilter === 'ok')      return m.days !== null && m.days > 60;
+                    if (statusFilter === 'planned') return !!client.future_rdv_id;
+                    return true;
+                });
+            }
+
+            // Trie les machines par jours restants (urgences d'abord)
+            machines.sort((a, b) => {
+                if (a.days === null) return 1;
+                if (b.days === null) return -1;
+                return a.days - b.days;
+            });
+
+            return { client, machines };
+        })
+        .filter(g => g.machines.length > 0); // Cache les clients sans machines après filtre
+
+    // Tri global des groupes (par pire machine de chaque client)
+    if (planningSort.col === 'days' || planningSort.col === 'next_service') {
+        groups.sort((a, b) => {
+            const da = a.machines[0]?.days ?? Infinity;
+            const db = b.machines[0]?.days ?? Infinity;
+            return planningSort.order === 'asc' ? da - db : db - da;
+        });
+    } else if (planningSort.col === 'cabinet') {
+        groups.sort((a, b) => {
+            const na = a.client.cabinet_name || '';
+            const nb = b.client.cabinet_name || '';
+            return planningSort.order === 'asc' ? na.localeCompare(nb) : nb.localeCompare(na);
+        });
+    } else if (planningSort.col === 'canton') {
+        groups.sort((a, b) => {
+            const ca = a.client.canton || '';
+            const cb = b.client.canton || '';
+            return planningSort.order === 'asc' ? ca.localeCompare(cb) : cb.localeCompare(ca);
+        });
+    }
+
+    // Compteur
+    const totalMachines = groups.reduce((sum, g) => sum + g.machines.length, 0);
+    const countEl = document.getElementById('total-clients-count');
+    if (countEl) countEl.textContent = `${groups.length} clients · ${totalMachines} machines`;
+
+    if (!groups.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-tertiary)">Aucun résultat.</td></tr>`;
         return;
     }
 
-    data.forEach(client => {
-        // --- 1. Statut GLOBAL du client (Ligne principale) ---
-        let statusClass = 'row-ok';
-        let statusIcon = '<i class="fas fa-check-circle" style="color:var(--color-success)"></i>';
-        
-        if (!client.future_rdv_id) {
-            // Pas de RDV : on regarde l'urgence
-            if (client.worst_status_score === 2) { 
-                statusClass = 'row-expired';
-                statusIcon = '<i class="fas fa-exclamation-circle" style="color:var(--color-danger)"></i>';
-            } else if (client.worst_status_score === 1) { 
-                statusClass = 'row-warning';
-                statusIcon = '<i class="fas fa-clock" style="color:var(--color-warning)"></i>';
-            }
-        } else {
-            // RDV fixé : le client est "Vert" (Géré)
-            statusIcon = `<i class="fas fa-calendar-check" style="color:var(--color-primary)" title="RDV prévu le ${formatDate(client.future_rdv_date)}"></i>`;
-        }
+    let html = '';
 
-        const countTotal = client.machines.length;
-        // On recompte les expirés pour le résumé (basé sur la date réelle, pas le statut)
-        const countExpired = client.machines.filter(m => {
-            if(!m.next_date) return false;
-            return new Date(m.next_date) < new Date();
-        }).length;
+    groups.forEach(({ client, machines }) => {
+        // ── EN-TÊTE CLIENT ──────────────────────────────────────────
+        const rdvBadge = client.future_rdv_id
+            ? `<span style="background:var(--color-info-bg);color:var(--color-info);font-size:10px;padding:2px 8px;border-radius:2px;font-weight:700;margin-left:8px;"><i class="fas fa-calendar-check"></i> RDV ${fmtDate(client.future_rdv_date)}</span>`
+            : '';
 
-        let summaryHTML = `<strong>${countTotal} Appareils</strong>`;
-        if (countExpired > 0 && !client.future_rdv_id) summaryHTML += ` <span style="color:var(--color-danger); font-size:0.85em; font-weight:600;">• ${countExpired} à faire</span>`;
+        // Pire statut du client (pour la couleur de l'en-tête)
+        const worstDays = machines.reduce((min, m) => m.days !== null ? Math.min(min, m.days) : min, Infinity);
+        let headerBorder = 'var(--border-primary)';
+        if (worstDays < 0)   headerBorder = 'var(--color-danger)';
+        else if (worstDays <= 30) headerBorder = 'var(--color-warning)';
+        else if (worstDays !== Infinity) headerBorder = 'var(--color-success)';
 
-        // --- 2. Actions (Boutons) ---
-        let actionButtons = '';
-        if (client.future_rdv_id) {
-            actionButtons = `
-                <div style="display:flex; align-items:center; gap:6px; background:white; padding:3px 8px; border-radius:6px; border:1px solid #bae6fd; margin-right:8px;">
-                    <span style="font-size:0.8rem; color:#0284c7; font-weight:600;">${formatDate(client.future_rdv_date)}</span>
-                    <button class="btn-icon-sm" style="color:#ef4444; height:20px; width:20px;" onclick="event.stopPropagation(); deleteAppointment(${client.future_rdv_id})" title="Annuler le RDV"><i class="fas fa-times"></i></button>
-                </div>`;
-        } else {
-            actionButtons = `
-                <button class="btn btn-sm btn-primary" style="margin-right:8px;" onclick="event.stopPropagation(); openScheduleModal(${client.client_id}, '${escapeJsArg(client.cabinet_name)}')" title="Fixer un RDV">
-                    <i class="fas fa-calendar-plus"></i> Fixer
-                </button>`;
-        }
-
-        // --- 3. Construction Ligne Principale ---
-        const tr = document.createElement('tr');
-        tr.className = `planning-row ${statusClass}`;
-        tr.style.cursor = 'pointer';
-        tr.innerHTML = `
-            <td style="text-align:center; font-size:1.2rem;">${statusIcon}</td>
-            <td>
-                <div style="font-weight:700; color:var(--neutral-800);">${escapeHtml(client.cabinet_name)}</div>
-                <div style="font-size:0.85rem; color:var(--neutral-500);"><i class="fas fa-phone-alt" style="font-size:0.75rem"></i> ${client.phone || '-'}</div>
-            </td>
-            <td><span class="badge-canton">${client.canton}</span> ${escapeHtml(client.city)}</td>
-            <td>${summaryHTML}</td>
-            <td style="font-family:monospace; font-weight:600; color:var(--neutral-700);">${formatDate(client.earliest_date)}</td>
-            <td style="text-align:right;">
-                <div style="display:flex; justify-content:flex-end; gap:5px; align-items:center;">
-                    ${actionButtons}
-                    <button class="btn-icon-sm btn-icon-secondary" onclick="event.stopPropagation(); openClientDetails(${client.client_id})" title="Voir fiche"><i class="fas fa-eye"></i></button>
-                    <button class="btn-icon-sm btn-icon-secondary btn-toggle-details"><i class="fas fa-chevron-down"></i></button>
+        html += `
+        <tr style="background:var(--bg-secondary);border-left:4px solid ${headerBorder};border-top:2px solid var(--border-primary);">
+            <td colspan="5" style="padding:8px 14px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <strong style="font-size:var(--text-sm);color:var(--text-primary)">${escapeHtml(client.cabinet_name)}</strong>
+                    <span style="background:var(--neutral-800);color:#fff;padding:1px 6px;border-radius:2px;font-weight:700;font-size:10px;">${escapeHtml(client.canton || '')}</span>
+                    <span style="font-size:11px;color:var(--text-tertiary)">${escapeHtml(client.city || '')}</span>
+                    ${rdvBadge}
+                    ${client.phone ? `<a href="tel:${escapeHtml(client.phone)}" onclick="event.stopPropagation()" style="font-size:11px;color:var(--text-tertiary);margin-left:auto;text-decoration:none;"><i class="fas fa-phone" style="margin-right:3px"></i>${escapeHtml(client.phone)}</a>` : ''}
                 </div>
             </td>
-        `;
+            <td colspan="2" style="padding:8px 14px;text-align:right;">
+                <span style="font-size:11px;color:var(--text-tertiary)">${machines.length} machine${machines.length > 1 ? 's' : ''}</span>
+            </td>
+            <td style="padding:8px 14px;text-align:right;">
+                <div style="display:flex;gap:6px;justify-content:flex-end;">
+                    <button class="btn-icon-sm" title="Planifier RDV"
+                        onclick="openScheduleModal(${client.client_id}, '${escapeJsArg(client.cabinet_name)}')">
+                        <i class="fas fa-calendar-plus"></i>
+                    </button>
+                    <button class="btn-icon-sm" title="Voir fiche"
+                        onclick="openClientDetails(${client.client_id})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>`;
 
-        // --- 4. Détails (Liste des machines) ---
-        // C'est ICI que nous corrigeons la logique : on recalcule l'icône selon la date réelle
-        const trDetails = document.createElement('tr');
-        trDetails.className = 'details-row hidden';
-        
-        const machinesHTML = client.machines.map(m => {
-            let color = 'var(--color-success)';
-            let icon = 'fa-check';
-            
-            if (m.next_date) {
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                const nextDate = new Date(m.next_date);
-                
-                // Calcul différence en jours
-                const diffTime = nextDate - today;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // ── LIGNES MACHINES ─────────────────────────────────────────
+        machines.forEach(m => {
+            let rowStyle = 'background:var(--bg-elevated);';
+            let daysHtml = '—';
 
-                if (diffDays < 0) {
-                    // C'est expiré -> ROUGE !
-                    color = 'var(--color-danger)';
-                    icon = 'fa-exclamation-triangle';
-                } else if (diffDays <= 60) {
-                    // C'est pour bientôt -> ORANGE
-                    color = 'var(--color-warning)';
-                    icon = 'fa-clock';
-                }
+            if (m.days === null) {
+                daysHtml = `<span style="color:var(--text-tertiary);font-style:italic">—</span>`;
+            } else if (m.days < 0) {
+                rowStyle = 'background:rgba(239,68,68,0.05);';
+                daysHtml = `<span style="color:var(--color-danger);font-weight:700">${m.days}j</span>`;
+            } else if (m.days <= 30) {
+                rowStyle = 'background:rgba(245,158,11,0.05);';
+                daysHtml = `<span style="color:var(--color-warning);font-weight:700">${m.days}j</span>`;
+            } else {
+                daysHtml = `<span style="color:var(--color-success);font-weight:600">+${m.days}j</span>`;
             }
 
-            return `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <i class="fas ${icon}" style="color:${color}; width:20px; text-align:center;"></i>
-                    <div>
-                        <strong style="font-size:0.9rem;">${escapeHtml(m.name)}</strong> 
-                        <small style="color:#666;">(${m.serial||'?'})</small>
-                    </div>
-                </div>
-                <div style="text-align:right;">
-                    <strong style="font-size:0.85rem; color:${color}">${formatDate(m.next_date)}</strong>
-                </div>
-            </div>`;
-        }).join('');
-            
-        trDetails.innerHTML = `<td colspan="6"><div style="padding:1rem 2rem; background:#f8fafc; border-left:4px solid var(--neutral-300);">${machinesHTML}</div></td>`;
-        
-        tr.onclick = (e) => { if(!e.target.closest('button')) trDetails.classList.toggle('hidden'); };
-        tbody.appendChild(tr);
-        tbody.appendChild(trDetails);
+            html += `
+            <tr style="${rowStyle}border-left:4px solid transparent;">
+                <td style="padding:8px 14px 8px 28px;border-bottom:1px solid var(--border-primary);">
+                    <div style="font-weight:600;color:var(--text-primary);font-size:var(--text-sm)">${escapeHtml(m.name || '—')}</div>
+                    <div style="font-size:11px;color:var(--text-tertiary)">${escapeHtml(m.brand || '')}${m.serial ? ` · SN: ${escapeHtml(m.serial)}` : ''}</div>
+                </td>
+                <td colspan="2" style="padding:8px 14px;border-bottom:1px solid var(--border-primary);font-size:var(--text-sm);color:var(--text-secondary)"></td>
+                <td style="padding:8px 14px;border-bottom:1px solid var(--border-primary);font-size:var(--text-sm);color:var(--text-secondary)">${fmtDate(m.installed_at)}</td>
+                <td style="padding:8px 14px;border-bottom:1px solid var(--border-primary);font-size:var(--text-sm);color:var(--text-secondary)">${fmtDate(m.last_maintenance_date)}</td>
+                <td style="padding:8px 14px;border-bottom:1px solid var(--border-primary);font-weight:600;color:var(--text-primary)">${fmtDate(m.next_date)}</td>
+                <td style="padding:8px 14px;border-bottom:1px solid var(--border-primary);text-align:center">${daysHtml}</td>
+                <td style="padding:8px 14px;border-bottom:1px solid var(--border-primary);"></td>
+            </tr>`;
+        });
     });
+
+    tbody.innerHTML = html;
+}
+ 
+function fmtDate(d) {
+    if (!d) return '—';
+    const dt = new Date(d);
+    return new Intl.DateTimeFormat('fr-CH').format(dt);
+}
+ 
+// Tri Planning
+window.planningHandleSort = function(col) {
+    if (planningSort.col === col) {
+        planningSort.order = planningSort.order === 'asc' ? 'desc' : 'asc';
+    } else {
+        planningSort.col   = col;
+        planningSort.order = 'asc';
+    }
+    // Met à jour les icônes
+    document.querySelectorAll('.planning-th-sort').forEach(th => {
+        th.querySelector('i').className = 'fas fa-sort';
+    });
+    const active = document.querySelector(`.planning-th-sort[data-col="${col}"] i`);
+    if (active) active.className = `fas fa-sort-${planningSort.order === 'asc' ? 'up' : 'down'}`;
+ 
+    loadData();
 }
 
 // --- FONCTIONS MODALE RDV ---
@@ -772,93 +830,168 @@ async function loadClientEquipment(id) {
 }
 
 async function loadClientHistory(id) {
-    const div = document.getElementById('sheet-history-list');
-    div.innerHTML = '<p style="color:var(--neutral-500); padding-left:20px;">Chargement de l\'historique...</p>';
-    
-    // On récupère le nom du client affiché en haut de la fiche pour la modale
-    const clientName = document.getElementById('sheet-name').textContent || 'Client';
-
-    try {
-        const res = await fetch(`/api/clients/${id}/appointments`);
-        const list = await res.json();
-        document.getElementById('count-hist').textContent = list.length;
-        
-        if(list.length === 0) { 
-            div.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--neutral-400); font-style:italic;"><i class="fas fa-history fa-2x" style="opacity:0.3; margin-bottom:10px;"></i><br>Aucun historique.</div>'; 
-            return; 
-        }
-        
-        div.innerHTML = list.map(h => {
-            const isReport = h.source_type === 'report';
-            const typeClass = isReport ? 'type-report' : 'type-rdv';
-            
-            // Calculer si c'est passé ou futur
-            const rdvDate = new Date(h.appointment_date);
-            const today = new Date();
-            today.setHours(0,0,0,0); // On compare sans les heures
-            const isPast = rdvDate < today;
-
-            // Style visuel : Si passé -> Grisé / Si futur -> Coloré
-            const opacityStyle = isPast && !isReport ? 'opacity: 0.7; filter: grayscale(100%);' : '';
-            const statusBadge = isPast && !isReport ? '<span style="font-size:0.7rem; background:#eee; padding:2px 6px; border-radius:4px; color:#666;">Terminé</span>' : '';
-
-            // Icones et Titres
-            let icon = isReport ? 'fa-file-alt' : 'fa-calendar-check';
-            let title = isReport ? 'Rapport d\'Intervention' : 'Rendez-vous';
-            let tagName = isReport ? (h.report_number || 'Rapport') : 'RDV';
-            let tagClass = isReport ? 'tag-report' : 'tag-rdv';
-
-            // Gestion du nom du technicien
-            const techHtml = h.tech_name 
-                ? `<div style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--neutral-600); margin-top:4px;">
-                     <i class="fas fa-user-hard-hat" style="font-size:0.75rem; color:var(--neutral-400);"></i> 
-                     <strong>${escapeHtml(h.tech_name)}</strong>
-                   </div>`
-                : `<div style="font-size:0.8rem; color:#9ca3af; margin-top:4px; font-style:italic;">Non assigné</div>`;
-
-            const dateStr = rdvDate.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-            
-            return `
-            <div class="timeline-item ${typeClass}" style="${opacityStyle}">
-                <div class="timeline-marker"><i class="fas ${icon}"></i></div>
-                <span class="timeline-date">${dateStr} ${statusBadge}</span>
-                
-                <div class="timeline-card">
-                    <div class="timeline-header">
-                        <h4 class="timeline-title">${title}</h4>
-                        <span class="timeline-tag ${tagClass}">${tagName}</span>
-                    </div>
-                    
-                    ${techHtml} 
-                    
-                    <div class="timeline-desc" style="margin-top:8px;">
-                        ${escapeHtml(h.task_description || 'Aucune description.')}
-                    </div>
-
-                    ${h.report_id ? `
-                    <div class="timeline-action">
-                        <button class="btn-doc-action" onclick="window.open('/report-view.html?id=${h.report_id}', '_blank')">
-                            <i class="fas fa-file-pdf"></i> Voir Rapport
-                        </button>
-                    </div>` : ''}
-
-                    ${!isReport && !isPast ? `
-                    <div class="timeline-action">
-                        <button class="btn-doc-action" style="border-color:#cbd5e1; color:#475569;" 
-                                onclick="event.stopPropagation(); openScheduleModal(${id}, '${escapeJsArg(clientName)}', ${h.id_unique})">
-                            <i class="fas fa-pen"></i> Modifier
-                        </button>
-                    </div>` : ''}
-
-                </div>
-            </div>`;
-        }).join('');
-        
-    } catch(e) {
-        console.error(e);
-        div.innerHTML = '<p style="color:var(--color-danger);">Erreur de chargement.</p>';
+  const div = document.getElementById('sheet-history-list');
+  div.innerHTML = `<div style="text-align:center;padding:30px;color:var(--neutral-400);">
+    <i class="fas fa-spinner fa-spin"></i> Chargement…
+  </div>`;
+ 
+  try {
+    const res  = await fetch(`/api/clients/${id}/history`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const list = await res.json();
+ 
+    const countEl = document.getElementById('count-hist');
+    if (countEl) countEl.textContent = list.length;
+ 
+    if (!list.length) {
+      div.innerHTML = `<div style="text-align:center;padding:2rem;
+        color:var(--neutral-400);font-style:italic;">
+        <i class="fas fa-history fa-2x" style="opacity:0.3;display:block;margin-bottom:10px;"></i>
+        Aucun historique pour ce client.
+      </div>`;
+      return;
     }
+ 
+    const cfg = {
+      rdv:     { icon: 'fa-calendar-check',      label: 'Rendez-vous', color: '#3b82f6' },
+      rapport: { icon: 'fa-file-alt',             label: 'Rapport',     color: '#10b981' },
+      ticket:  { icon: 'fa-ticket-alt',           label: 'Ticket',      color: '#f59e0b' },
+      rma:     { icon: 'fa-tools',                label: 'RMA',         color: '#8b5cf6' },
+      pret:    { icon: 'fa-hand-holding-medical', label: 'Prêt',        color: '#06b6d4' },
+    };
+ 
+    const statusMap = {
+      draft:      { label: 'Brouillon',   bg: '#f1f5f9', color: '#64748b' },
+      pending:    { label: 'En attente',  bg: '#fef3c7', color: '#d97706' },
+      validated:  { label: 'Validé',      bg: '#f0fdf4', color: '#16a34a' },
+      archived:   { label: 'Archivé',     bg: '#f5f3ff', color: '#7c3aed' },
+      'Ouvert':   { label: 'Ouvert',      bg: '#fef3c7', color: '#d97706' },
+      'Clôturé':  { label: 'Clôturé',     bg: '#f0fdf4', color: '#16a34a' },
+      'En cours': { label: 'En cours',    bg: '#e0f2fe', color: '#0284c7' },
+      'Retourné': { label: 'Retourné',    bg: '#f0fdf4', color: '#16a34a' },
+      'En retard':{ label: 'En retard',   bg: '#fef2f2', color: '#dc2626' },
+    };
+ 
+    const pageUrl = (type, linkId) => {
+      if (type === 'rapport') return `/reports.html?open=${linkId}`;
+      if (type === 'ticket')  return `/tickets.html?open=${linkId}`;
+      if (type === 'rma')     return `/rmas.html?open=${linkId}`;
+      if (type === 'pret')    return `/loans.html?open=${linkId}`;
+      return null;
+    };
+ 
+    const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-CH', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    }) : '—';
+ 
+    // Groupement par mois
+    const byMonth = {};
+    list.forEach(item => {
+      const d     = new Date(item.date || Date.now());
+      const key   = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('fr-CH', { month: 'long', year: 'numeric' });
+      if (!byMonth[key]) byMonth[key] = { label, items: [] };
+      byMonth[key].items.push(item);
+    });
+ 
+    let html = '';
+ 
+    Object.values(byMonth).forEach(group => {
+      html += `
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;
+          letter-spacing:0.07em;color:var(--neutral-400);
+          padding:12px 0 6px;border-bottom:1px solid var(--border-primary);
+          margin-bottom:8px;">
+          ${group.label}
+        </div>`;
+ 
+      group.items.forEach(item => {
+        const c   = cfg[item.type] || cfg.rdv;
+        const sc  = item.status ? statusMap[item.status] : null;
+        const url = pageUrl(item.type, item.link_id);
+ 
+        html += `
+          <div style="display:flex;gap:10px;align-items:flex-start;
+            padding:10px 12px;margin-bottom:6px;border-radius:4px;
+            background:${c.color}0d;border-left:3px solid ${c.color};">
+ 
+            <!-- Icône -->
+            <div style="width:30px;height:30px;border-radius:50%;flex-shrink:0;
+              background:${c.color}20;display:flex;align-items:center;justify-content:center;">
+              <i class="fas ${c.icon}" style="color:${c.color};font-size:11px;"></i>
+            </div>
+ 
+            <!-- Contenu -->
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;flex-wrap:wrap;">
+                <span style="font-size:10px;font-weight:700;text-transform:uppercase;
+                  letter-spacing:0.05em;color:${c.color};">${c.label}</span>
+                ${item.ref ? `<span style="font-size:10px;color:var(--neutral-400);
+                  font-family:monospace;">#${item.ref}</span>` : ''}
+                ${sc ? `<span style="font-size:10px;font-weight:700;padding:1px 6px;
+                  border-radius:2px;background:${sc.bg};color:${sc.color};">
+                  ${sc.label}</span>` : ''}
+              </div>
+ 
+              <div style="font-size:13px;color:var(--text-primary);font-weight:500;
+                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                ${item.description || '—'}
+              </div>
+ 
+              ${item.machines ? `
+                <div style="font-size:11px;color:var(--neutral-500);margin-top:2px;
+                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                  🔧 ${item.machines}
+                </div>` : ''}
+ 
+              <div style="display:flex;align-items:center;gap:10px;margin-top:5px;flex-wrap:wrap;">
+                <span style="font-size:11px;color:var(--neutral-400);">
+                  <i class="far fa-calendar" style="margin-right:3px;"></i>${fmtDate(item.date)}
+                </span>
+                ${item.tech_name ? `
+                  <span style="font-size:11px;color:var(--neutral-400);">
+                    <i class="fas fa-user" style="margin-right:3px;"></i>${item.tech_name}
+                  </span>` : ''}
+                ${url ? `
+                  <button onclick="event.stopPropagation();window.location.href='${url}'"
+                    style="margin-left:auto;padding:3px 10px;font-size:11px;font-weight:600;
+                      color:${c.color};background:${c.color}15;border:1px solid ${c.color}40;
+                      border-radius:3px;cursor:pointer;font-family:inherit;
+                      display:flex;align-items:center;gap:4px;white-space:nowrap;">
+                    <i class="fas fa-arrow-right" style="font-size:9px;"></i> Voir
+                  </button>` : ''}
+              </div>
+            </div>
+          </div>`;
+      });
+    });
+ 
+    div.innerHTML = html;
+ 
+  } catch (e) {
+    console.error('loadClientHistory:', e);
+    div.innerHTML = `<p style="color:var(--color-danger);padding:20px;">
+      Erreur de chargement (${e.message}).
+    </p>`;
+  }
 }
+
+async function deleteAppointmentFromHistory(rdvId, clientId) {
+    const ok = await confirmDelete('ce rendez-vous');
+    if (!ok) return;
+    try {
+        const res = await fetch(`/api/clients/appointments/${rdvId}`, { method: 'DELETE' });
+        if (res.ok) {
+            showNotification('Rendez-vous supprimé', 'success');
+            loadClientHistory(clientId);
+            loadData();
+        } else {
+            const err = await res.json();
+            showNotification(err.error || 'Erreur suppression', 'error');
+        }
+    } catch { showNotification('Erreur réseau', 'error'); }
+}
+window.deleteAppointmentFromHistory = deleteAppointmentFromHistory;
 
 function handleSort(col) { if(currentSort.col === col) currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc'; else { currentSort.col = col; currentSort.order = 'asc'; } loadData(); }
 // 1. Fonction d'ouverture (CORRIGÉE : IDs alignés sur le HTML)
@@ -1228,13 +1361,14 @@ async function saveEquipment() {
 }
 
 async function deleteEquipment(clientId, eqId) {
-    if(!confirm("Supprimer la machine ?")) return;
-    try { 
-        const res = await fetch(`/api/clients/${clientId}/equipment/${eqId}`, { method: 'DELETE' }); 
-        if(res.ok) {
-            loadClientEquipment(clientId); 
-            loadData(); 
-            showNotification('Machine supprimée', 'success'); 
+    const ok = await confirmDelete('cet équipement');
+    if (!ok) return;
+    try {
+        const res = await fetch(`/api/clients/${clientId}/equipment/${eqId}`, { method: 'DELETE' });
+        if (res.ok) {
+            loadClientEquipment(clientId);
+            loadData();
+            showNotification('Machine supprimée', 'success');
         } else {
             const err = await res.json();
             showNotification(err.error || 'Erreur lors de la suppression', 'error');

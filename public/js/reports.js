@@ -16,6 +16,7 @@ let clients = [],
   technicians = [],
   materials = [];
   let isProgrammaticChange = false; // <--- AJOUTEZ CETTE VARIABLE
+  let currentClientHasContract = false;
 
 document.addEventListener("DOMContentLoaded", async () => {
   await checkAuth();
@@ -57,7 +58,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Event Listeners
-  document.getElementById("logout-btn").addEventListener("click", logout);
   document
     .getElementById("add-report-btn")
     .addEventListener("click", () => openReportModal());
@@ -106,15 +106,53 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Listener Client Select
- document.getElementById("client-select").addEventListener("change", function () {
-      // Si c'est le code qui change la valeur (lors de l'ouverture du rapport), on ne fait RIEN.
-      if (isProgrammaticChange) {
-          console.log("⚡ Changement client ignoré (Mode édition)");
-          return; 
-      }
-      console.log("🖱️ Changement client manuel détecté");
-      handleClientChange(this.value);
-  });
+document.getElementById('client-select').addEventListener('change', async function() {
+  if (isProgrammaticChange) return; // ← Fix bug 2 : ignore les changements programmatiques
+
+  const clientId = this.value;
+  currentClientHasContract = false;
+
+  const indicator = document.getElementById('contract-indicator');
+  if (indicator) indicator.style.display = 'none';
+
+  if (!clientId) return;
+
+  try {
+    const res  = await fetch(`/api/clients/${clientId}`);
+    const data = await res.json();
+
+    // Remplissage des champs client
+    document.getElementById('cabinet-name').value  = data.cabinet_name || '';
+    document.getElementById('address').value       = data.address      || '';
+    document.getElementById('postal-code').value   = data.postal_code  || '';
+    document.getElementById('city').value          = data.city         || '';
+    document.getElementById('interlocutor').value  = data.contact_name || '';
+
+    // ← Fix bug 1 : remplissage déplacement
+    document.getElementById('travel-city').value   = data.city         || '';
+    if (data.canton) {
+      document.getElementById('travel-canton').value = data.canton;
+      window._travelCanton = data.canton;
+      if (window.setSlimSelect) window.setSlimSelect('travel-canton', data.canton);
+    }
+    updateTravelCost();
+
+    // Indicateur contrat
+    currentClientHasContract = data.has_contract === 1 || data.has_contract === true;
+    if (indicator) {
+      indicator.style.display = 'flex';
+      indicator.innerHTML = currentClientHasContract
+        ? `<i class="fas fa-file-contract" style="color:var(--color-success)"></i>
+           <span style="color:var(--color-success);font-weight:600">Contrat de maintenance actif</span>`
+        : `<i class="fas fa-times-circle" style="color:var(--text-tertiary)"></i>
+           <span style="color:var(--text-tertiary)">Pas de contrat de maintenance</span>`;
+    }
+
+    // Charge les équipements du client
+    await loadClientEquipmentForReport(clientId);
+
+  } catch(e) { console.error('Erreur chargement client:', e); }
+});
 
   document
     .getElementById("add-technician-btn")
@@ -143,6 +181,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // --- FONCTIONS CLIENT ---
 async function handleClientChange(clientId) {
+  console.log('handleClientChange appelé avec ID:', clientId);
+  console.log('Client trouvé:', clients.find(x => x.id == clientId));
   if (!clientId) return;
   const c = clients.find((x) => x.id == clientId);
   if (c) {
@@ -151,11 +191,17 @@ async function handleClientChange(clientId) {
     );
     document.getElementById("postal-code").value = c.postal_code || "";
     document.getElementById("interlocutor").value = c.contact_name || "";
-    if (c.canton) {
-      document.getElementById("travel-canton").value = c.canton;
-      document.getElementById("travel-city").value = c.city;
-      updateTravelCost();
-    }
+    document.getElementById("travel-city").value = c.city || '';
+
+// Si le client a un canton en DB, le remplir aussi
+if (c.canton) {
+    document.getElementById("travel-canton").value = c.canton;
+    window._travelCanton = c.canton;
+}
+
+// Toujours recalculer (même si canton vide, l'utilisateur le sélectionne manuellement)
+updateTravelCost();
+if (window.setSlimSelect) window.setSlimSelect("travel-canton", c.canton);
     await loadClientEquipmentForReport(c.id);
   }
 }
@@ -584,6 +630,8 @@ window.toggleFolder = function (index) {
 
 // --- MODAL & WORKFLOW ---
 async function openReportModal(reportId = null) {
+  
+  await loadTechnicians();
   const modal = document.getElementById("report-modal");
   const form = document.getElementById("report-form");
   const pdfBtn = document.getElementById("header-pdf-btn");
@@ -701,21 +749,40 @@ function renderWorkflowButtons(r) {
 }
 
 async function changeStatus(id, newStatus) {
-  if (!confirm("Confirmer le changement de statut ?")) return;
+  const messages = {
+    pending:   'Soumettre ce rapport pour validation ?',
+    validated: 'Valider définitivement ce rapport ?',
+    archived:  'Archiver ce rapport ?',
+    draft:     'Renvoyer ce rapport en brouillon ?'
+  };
+  const types = {
+    pending: 'primary', validated: 'primary',
+    archived: 'warning', draft: 'warning'
+  };
+  const ok = await showConfirm({
+    title:       'Confirmer',
+    message:     messages[newStatus] || 'Confirmer le changement de statut ?',
+    confirmText: 'Confirmer',
+    cancelText:  'Annuler',
+    type:        types[newStatus] || 'primary'
+  });
+  if (!ok) return;
+ 
   try {
     const res = await fetch(`/api/reports/${id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ status: newStatus }),
     });
     if (res.ok) {
       closeReportModal();
       loadReports();
       updateBadges();
+    } else {
+      const err = await res.json();
+      if (window.toast) toast.error('Erreur', err.error || 'Changement de statut impossible.');
     }
-  } catch (e) {
-    console.error(e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 function openDeleteModal(id) {
@@ -940,10 +1007,25 @@ async function fillReportForm(report) {
 
   // B. On charge manuellement la liste des équipements (avec catégories)
   if (clientId) {
-      console.log("⏳ Chargement équipements pour client :", clientId);
-      await loadClientEquipmentForReport(clientId);
-  }
+      try {
+    const clientData = await fetch(`/api/clients/${report.client_id}`).then(r => r.json());
+    currentClientHasContract = clientData.has_contract === 1;
+    const indicator = document.getElementById('contract-indicator');
+    if (indicator) {
+      indicator.style.display = 'flex';
+      indicator.innerHTML = currentClientHasContract
+        ? `<i class="fas fa-file-contract" style="color:var(--color-success)"></i>
+           <span style="color:var(--color-success);font-weight:600">Contrat de maintenance actif</span>`
+        : `<i class="fas fa-times-circle" style="color:var(--text-tertiary)"></i>
+           <span style="color:var(--text-tertiary)">Pas de contrat de maintenance</span>`;
+    }
+  } catch(e) {}
+}
 
+
+if (clientId) {
+    await loadClientEquipmentForReport(clientId);
+}
   // C. On coche les cases
   if (report.equipment_ids && Array.isArray(report.equipment_ids)) {
     console.log("✅ Coche des équipements IDs :", report.equipment_ids);
@@ -1034,10 +1116,15 @@ async function loadClients() {
       )
       .join("");
 }
-function loadTechnicians() {
-  fetch("/api/admin/users")
-    .then((r) => r.json())
-    .then((d) => (technicians = d));
+async function loadTechnicians() {
+  try {
+    const res = await fetch("/api/admin/technicians");  // ← Change ici
+    if (!res.ok) throw new Error('Erreur chargement utilisateurs');
+    window.technicians = await res.json();
+  } catch (e) {
+    console.error('Erreur chargement techniciens:', e);
+    window.technicians = [];
+  }
 }
 function loadMaterials() {
   fetch("/api/admin/materials")
@@ -1047,6 +1134,14 @@ function loadMaterials() {
 
 // GENERATEURS DE LIGNES (AVEC STYLE HARMONISÉ)
 function addTechnicianRow(data = null) {
+
+const technicians = window.technicians || [];  // ← AJOUTE ÇA
+
+  if (!Array.isArray(window.technicians)) {
+        console.error('technicians is not an array:', window.technicians);
+        window.technicians = [];
+    }
+
   const container = document.getElementById("technicians-list");
   const div = document.createElement("div");
   div.className = "draggable-item grid-cols-tech";
@@ -1351,10 +1446,12 @@ async function loadClientEquipmentForReport(clientId) {
                 div.innerHTML = `
                     <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin:0; width:100%;">
                         <div style="padding-top:2px;">
-                            <input type="checkbox" class="eq-cb" value="${eq.id}" 
-                                   data-txt="${escapeHtml(txtForInput)}" 
-                                   onchange="updateInstallationText()"
-                                   style="width:16px; height:16px; cursor:pointer;">
+                            <input type="checkbox" class="eq-cb" value="${eq.id}"
+                                  data-txt="${escapeHtml(txtForInput)}"
+                                  data-brand="${escapeHtml(eq.brand || '')}"
+                                  data-model="${escapeHtml(finalEqName || '')}"
+                                  onchange="updateInstallationText(); applyContractPriceFromCheckbox(this);"
+                                  style="width:16px; height:16px; cursor:pointer;">
                         </div>
                         <div style="line-height:1.3;">
                             <div style="color:#1e293b; font-size:0.9rem;">
@@ -1424,11 +1521,6 @@ function resetDynamicLists() {
   document.getElementById("client-equipment-list").innerHTML = "";
 }
 
-function logout() {
-  fetch("/api/logout", { method: "POST" }).then(
-    () => (window.location = "/login.html")
-  );
-}
 
 function debounce(f, w) {
   let t;
@@ -1608,3 +1700,66 @@ function getWorkData() {
     
     return lines.join("\n"); 
 }
+
+// Appelle l'API de correspondance tarifaire quand on coche un équipement
+  async function applyContractPriceFromCheckbox(checkbox) {
+  if (!checkbox.checked) return;
+
+  // Condition 1 : client avec contrat actif
+  if (!currentClientHasContract) return;
+
+  // Condition 2 : type de rapport = Service d'entretien
+  const typeSelect  = document.getElementById('report-type');
+  const selectedTypes = Array.from(typeSelect?.selectedOptions || [])
+                             .map(o => o.value.toLowerCase());
+  const isEntretien = selectedTypes.some(t =>
+    t.includes("service d'entretien") ||
+    t.includes('service-wartung')     ||
+    t.includes('wartung')
+  );
+  if (!isEntretien) return;
+
+  const brand = checkbox.dataset.brand || '';
+  const model = checkbox.dataset.model || '';
+  if (!brand) return;
+
+  try {
+    const params = new URLSearchParams({ brand, model });
+    const match  = await fetch(`/api/contract-prices/match?${params}`).then(r => r.json());
+    if (!match) return;
+
+    // Évite les doublons (par code produit)
+    const container = document.getElementById('materials-list');
+    const existing  = Array.from(container.querySelectorAll('.material-code'))
+                           .map(i => i.value.toLowerCase().trim());
+    if (match.product_code && existing.includes(match.product_code.toLowerCase())) return;
+
+    // Ajoute la ligne matériel
+    addMaterialRow({
+      material_id:   match.material_id,
+      material_name: match.material_name,
+      product_code:  match.product_code || '',
+      quantity:      1,
+      unit_price:    parseFloat(match.price),
+      discount:      0,
+      total_price:   parseFloat(match.price),
+      included:      false,
+    });
+
+    if (window.toast) {
+      toast.success(
+        'Tarif contractuel appliqué',
+        `${match.product_code ? `[${match.product_code}] ` : ''}${match.material_name} — ${parseFloat(match.price).toFixed(2)} CHF`
+      );
+    }
+
+    // Scroll vers matériaux
+    const secMat = document.getElementById('sec-material');
+    if (secMat) {
+      secMat.classList.add('open');
+      setTimeout(() => secMat.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+    }
+  } catch(e) { console.error('Erreur tarif contractuel:', e); }
+}
+
+window.applyContractPriceFromCheckbox = applyContractPriceFromCheckbox;
