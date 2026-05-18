@@ -39,6 +39,8 @@ if (!process.env.SESSION_SECRET) {
   process.exit(1);
 }
 
+app.set('trust proxy', 1);
+
 app.use(
   session({
     store: new SQLiteStore({
