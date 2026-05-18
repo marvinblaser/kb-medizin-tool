@@ -689,3 +689,7 @@ tr.row-enter {
   }
   body { opacity: 1 !important; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  body { opacity: 1 !important; }
+}
