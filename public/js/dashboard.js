@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await Promise.allSettled([
     loadStats(),
+    loadAlerts(),
     loadAppointments(),
     loadContacts(),
     loadMaintenanceMonth(),
@@ -52,10 +53,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadPendingReportsWidget(),
   ]);
 
-
   // Refresh toutes les 60s
   setInterval(() => {
     loadStats();
+    loadAlerts();
     loadAppointments();
     loadContacts();
     loadTicketsWidget();
@@ -346,6 +347,169 @@ async function loadContacts() {
 //  WIDGET — MAINTENANCES DU MOIS
 // ══════════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════
+//  ALERTES CROSS-MODULES
+// ══════════════════════════════════════════════════════════════════
+
+async function loadAlerts() {
+  try {
+    const data = await fetch('/api/dashboard/alerts').then(r => r.json());
+
+    // ── KPIs ──────────────────────────────────────────────────────
+    setText('kpi-reports', data.reportsPending);
+    setText('kpi-rmas',    data.rmasActive);
+    setText('kpi-loans',   data.loansActive);
+
+    const rmaOverdueEl = document.getElementById('kpi-rmas-overdue');
+    if (rmaOverdueEl) {
+      rmaOverdueEl.textContent = data.rmasOverdue;
+      rmaOverdueEl.style.color = data.rmasOverdue > 0 ? 'var(--color-danger)' : 'var(--text-tertiary)';
+    }
+    const loanOverdueEl = document.getElementById('kpi-loans-overdue');
+    if (loanOverdueEl) {
+      loanOverdueEl.textContent = data.loansOverdue;
+      loanOverdueEl.style.color = data.loansOverdue > 0 ? 'var(--color-danger)' : 'var(--text-tertiary)';
+    }
+
+    // Colore les stat-cards si urgence
+    const rmaCard = document.getElementById('kpi-rmas')?.closest('.stat-card');
+    if (rmaCard) rmaCard.style.borderTopColor = data.rmasOverdue > 0 ? 'var(--color-danger)' : '#8b5cf6';
+
+    const loanCard = document.getElementById('kpi-loans')?.closest('.stat-card');
+    if (loanCard) loanCard.style.borderTopColor = data.loansOverdue > 0 ? 'var(--color-danger)' : '#8b5cf6';
+
+    // ── Widgets ───────────────────────────────────────────────────
+    loadRmasWidget(data.rmasUrgent, data.rmasOverdue);
+    loadLoansWidget(data.loansOverdueList, data.loansOverdue);
+
+  } catch (e) { console.error('Alerts:', e); }
+}
+
+function loadRmasWidget(rmas, overdueCount) {
+  const el = document.getElementById('rmas-list');
+  if (!el) return;
+
+  // Badge
+  const badge = document.getElementById('badge-rmas');
+  if (badge && rmas.length) {
+    badge.textContent = rmas.length;
+    badge.style.display = 'inline-block';
+  }
+
+  if (!rmas.length) {
+    el.innerHTML = emptyHtml('fa-check-circle', 'Aucun RMA urgent cette semaine');
+    return;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  el.innerHTML = rmas.map(r => {
+    const isOverdue = r.due_date < today;
+    const daysLeft  = Math.ceil((new Date(r.due_date) - new Date()) / 86400000);
+    const color     = isOverdue ? 'var(--color-danger)' : 'var(--color-warning)';
+    const label     = isOverdue
+      ? `${Math.abs(daysLeft)}j de retard`
+      : daysLeft === 0 ? "Aujourd'hui !" : `J+${daysLeft}`;
+    return `
+      <div class="w-item" onclick="window.location.href='/rmas.html?open=${r.id}'" style="cursor:pointer;border-left:3px solid ${color};">
+        <div class="w-item-icon" style="background:${isOverdue ? 'var(--color-danger-bg)' : 'var(--color-warning-bg)'};color:${color};">
+          <i class="fas fa-${isOverdue ? 'exclamation-triangle' : 'clock'}"></i>
+        </div>
+        <div class="w-item-body">
+          <div class="w-item-title">${escHtml(r.rma_number || '#' + r.id)} — ${escHtml(r.cabinet_name || '—')}</div>
+          <div class="w-item-sub">
+            ${escHtml(r.equipment_name || r.supplier_name || '—')}
+            &nbsp;·&nbsp;
+            <strong style="color:${color};">${label}</strong>
+          </div>
+        </div>
+        <i class="fas fa-arrow-right" style="color:var(--text-tertiary);font-size:11px;flex-shrink:0;"></i>
+      </div>`;
+  }).join('') +
+  `<div style="padding:8px 14px;text-align:center;border-top:1px solid var(--border-primary);">
+    <a href="/rmas.html" style="font-size:var(--text-xs);color:var(--color-primary);text-decoration:none;font-weight:600;">
+      Voir tous les RMAs →
+    </a>
+  </div>`;
+}
+
+function loadLoansWidget(loans, overdueCount) {
+  const el = document.getElementById('loans-overdue-list');
+  if (!el) return;
+
+  // Badge
+  const badge = document.getElementById('badge-loans');
+  if (badge && overdueCount > 0) {
+    badge.textContent = overdueCount;
+    badge.style.display = 'inline-block';
+  }
+
+  if (!loans.length) {
+    el.innerHTML = emptyHtml('fa-check-circle', 'Aucun prêt en retard');
+    return;
+  }
+
+  el.innerHTML = loans.map(l => {
+    const days = Math.ceil((new Date() - new Date(l.expected_return_date)) / 86400000);
+    return `
+      <div class="w-item" onclick="window.location.href='/loans.html'" style="cursor:pointer;border-left:3px solid var(--color-danger);">
+        <div class="w-item-icon" style="background:var(--color-danger-bg);color:var(--color-danger);">
+          <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="w-item-body">
+          <div class="w-item-title">${escHtml(l.device_name)}${l.device_brand ? ` — ${escHtml(l.device_brand)}` : ''}</div>
+          <div class="w-item-sub">
+            <i class="fas fa-hospital" style="font-size:10px;opacity:0.5;margin-right:3px;"></i>
+            ${escHtml(l.cabinet_name || 'Client inconnu')}
+            &nbsp;·&nbsp;
+            <strong style="color:var(--color-danger);">${days}j de retard</strong>
+          </div>
+        </div>
+        <i class="fas fa-arrow-right" style="color:var(--text-tertiary);font-size:11px;flex-shrink:0;"></i>
+      </div>`;
+  }).join('') +
+  `<div style="padding:8px 14px;text-align:center;border-top:1px solid var(--border-primary);">
+    <a href="/loans.html" style="font-size:var(--text-xs);color:var(--color-primary);text-decoration:none;font-weight:600;">
+      Voir tous les prêts →
+    </a>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  WIDGET — RAPPORTS EN ATTENTE
+// ══════════════════════════════════════════════════════════════════
+
+async function loadPendingReportsWidget() {
+  try {
+    const res = await fetch('/api/reports/stats');
+    if (!res.ok) return;
+    const stats = await res.json();
+    const pending   = stats.pending   || 0;
+    const validated = stats.validated || 0;
+
+    // Met à jour le KPI si loadAlerts n'est pas encore passé
+    if (pending > 0) setText('kpi-reports', pending);
+
+    // Widget dédié si présent
+    const el = document.getElementById('pending-reports-list');
+    if (!el) return;
+    if (!pending && !validated) {
+      el.innerHTML = emptyHtml('fa-check-circle', 'Aucun rapport en attente');
+      return;
+    }
+    el.innerHTML = `
+      <div class="w-item" onclick="window.location.href='/reports.html'" style="cursor:pointer;">
+        <div class="w-item-icon" style="background:rgba(249,115,22,0.1);color:#f97316;">
+          <i class="fas fa-file-signature"></i>
+        </div>
+        <div class="w-item-body">
+          <div class="w-item-title">${pending} rapport${pending > 1 ? 's' : ''} à valider</div>
+          <div class="w-item-sub">${validated} validé${validated > 1 ? 's' : ''} récemment</div>
+        </div>
+        <i class="fas fa-arrow-right" style="color:var(--text-tertiary);font-size:11px;"></i>
+      </div>`;
+  } catch (e) { console.error('Reports widget:', e); }
+}
+
 async function loadMaintenanceMonth() {
   const el = document.getElementById('maintenance-list');
   if (!el) return;
@@ -500,20 +664,8 @@ window.openActivityModal = async function() {
 //  WIDGET — RAPPORTS EN ATTENTE
 // ══════════════════════════════════════════════════════════════════
 
-async function loadPendingReportsWidget() {
-  try {
-    const res   = await fetch('/api/reports/stats');
-    if (!res.ok) return;
-    const stats = await res.json();
-    const role  = currentUser?.role;
+// (loadPendingReportsWidget is defined above with loadAlerts)
 
-    const canValidate = ['admin','validator','sales_director','verifier','verificateur'].includes(role);
-    const canArchive  = ['admin','secretary'].includes(role);
-    const pending     = stats.pending || 0;
-    const validated   = stats.validated || 0;
-
-  } catch {}
-}
 
 // ══════════════════════════════════════════════════════════════════
 //  MODALS POPUP STATS

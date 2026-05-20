@@ -1240,6 +1240,28 @@
         </div>
       </div>
 
+      <!-- STATS CROISÉES (RMAs / Prêts / Rapports) -->
+      <div class="stats-row" style="grid-template-columns:repeat(3,1fr);margin-top:0;padding-top:0;gap:10px;">
+        <div class="stat-card" onclick="window.location.href='/reports.html'"
+          style="border-top-color:#f97316;cursor:pointer;">
+          <div class="stat-label">Rapports à valider <i class="fas fa-file-signature"></i></div>
+          <div class="stat-value" id="kpi-reports">—</div>
+          <div class="stat-sub">En attente de signature</div>
+        </div>
+        <div class="stat-card" onclick="window.location.href='/rmas.html'"
+          style="border-top-color:var(--color-danger);cursor:pointer;">
+          <div class="stat-label">RMAs actifs <i class="fas fa-exchange-alt"></i></div>
+          <div class="stat-value" id="kpi-rmas">—</div>
+          <div class="stat-sub">Dont <span id="kpi-rmas-overdue" style="font-weight:700;color:var(--color-danger);">0</span> en retard</div>
+        </div>
+        <div class="stat-card" onclick="window.location.href='/loans.html'"
+          style="border-top-color:#8b5cf6;cursor:pointer;">
+          <div class="stat-label">Prêts en cours <i class="fas fa-handshake"></i></div>
+          <div class="stat-value" id="kpi-loans">—</div>
+          <div class="stat-sub">Dont <span id="kpi-loans-overdue" style="font-weight:700;color:var(--color-danger);">0</span> en retard</div>
+        </div>
+      </div>
+
       <!-- WIDGETS TOOLBAR -->
       <div class="widgets-toolbar">
         <span class="widgets-toolbar-title">Widgets</span>
@@ -1315,6 +1337,36 @@
             <span class="widget-badge" id="badge-tickets" style="display:none">0</span>
           </div>
           <div class="widget-body" id="tickets-list">
+            <div class="w-empty"><i class="fas fa-spinner fa-spin"></i><p>Chargement...</p></div>
+          </div>
+        </div>
+
+        <!-- RMAs URGENTS -->
+        <div class="widget" id="widget-rmas" data-key="rmas">
+          <div class="widget-head">
+            <div class="widget-head-title">
+              <i class="fas fa-exchange-alt"></i>
+              RMAs urgents
+            </div>
+            <span class="widget-badge" id="badge-rmas"
+              style="display:none;background:var(--color-danger);color:#fff;">0</span>
+          </div>
+          <div class="widget-body" id="rmas-list">
+            <div class="w-empty"><i class="fas fa-spinner fa-spin"></i><p>Chargement...</p></div>
+          </div>
+        </div>
+
+        <!-- PRÊTS EN RETARD -->
+        <div class="widget" id="widget-loans" data-key="loans">
+          <div class="widget-head">
+            <div class="widget-head-title">
+              <i class="fas fa-handshake"></i>
+              Prêts en retard
+            </div>
+            <span class="widget-badge" id="badge-loans"
+              style="display:none;background:var(--color-danger);color:#fff;">0</span>
+          </div>
+          <div class="widget-body" id="loans-overdue-list">
             <div class="w-empty"><i class="fas fa-spinner fa-spin"></i><p>Chargement...</p></div>
           </div>
         </div>

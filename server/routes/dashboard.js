@@ -220,4 +220,54 @@ router.get('/clients-map', requireAuth, (req, res) => {
     db.all(sql, [], (err, rows) => err ? res.status(500).json({error: err.message}) : res.json(rows));
 });
 
+// ── ALERTES CROSS-MODULES (RMAs, Prêts, Rapports) ─────────────────────────────
+router.get('/alerts', requireAuth, (req, res) => {
+  Promise.all([
+    // RMAs actifs (non archivés)
+    new Promise(r => db.get(
+      `SELECT COUNT(*) as count FROM rmas WHERE status != 'Archives'`,
+      [], (_, row) => r(row?.count || 0))),
+    // RMAs dépassant leur échéance
+    new Promise(r => db.get(
+      `SELECT COUNT(*) as count FROM rmas WHERE status != 'Archives' AND due_date IS NOT NULL AND due_date < date('now')`,
+      [], (_, row) => r(row?.count || 0))),
+    // Liste RMAs urgents (dépassés ou dans les 7 prochains jours)
+    new Promise(r => db.all(`
+      SELECT r.id, r.rma_number, r.due_date, r.status, r.supplier_name,
+        c.cabinet_name, ec.name as equipment_name
+      FROM rmas r
+      LEFT JOIN clients c ON r.client_id = c.id
+      LEFT JOIN equipment_catalog ec ON r.equipment_id = ec.id
+      WHERE r.status != 'Archives' AND r.due_date IS NOT NULL
+        AND r.due_date <= date('now', '+7 days')
+      ORDER BY r.due_date ASC LIMIT 6`,
+      [], (_, rows) => r(rows || []))),
+    // Prêts actifs
+    new Promise(r => db.get(
+      `SELECT COUNT(*) as count FROM loans WHERE status = 'En cours'`,
+      [], (_, row) => r(row?.count || 0))),
+    // Prêts en retard
+    new Promise(r => db.get(
+      `SELECT COUNT(*) as count FROM loans WHERE status = 'En cours' AND expected_return_date IS NOT NULL AND expected_return_date < date('now')`,
+      [], (_, row) => r(row?.count || 0))),
+    // Liste prêts en retard
+    new Promise(r => db.all(`
+      SELECT l.id, l.start_date, l.expected_return_date,
+        d.name as device_name, d.brand as device_brand, c.cabinet_name
+      FROM loans l
+      LEFT JOIN loan_devices d ON l.device_id = d.id
+      LEFT JOIN clients c ON l.client_id = c.id
+      WHERE l.status = 'En cours' AND l.expected_return_date IS NOT NULL
+        AND l.expected_return_date < date('now')
+      ORDER BY l.expected_return_date ASC LIMIT 6`,
+      [], (_, rows) => r(rows || []))),
+    // Rapports soumis en attente de validation
+    new Promise(r => db.get(
+      `SELECT COUNT(*) as count FROM reports WHERE status = 'submitted'`,
+      [], (_, row) => r(row?.count || 0))),
+  ]).then(([rmasActive, rmasOverdue, rmasUrgent, loansActive, loansOverdue, loansOverdueList, reportsPending]) => {
+    res.json({ rmasActive, rmasOverdue, rmasUrgent, loansActive, loansOverdue, loansOverdueList, reportsPending });
+  }).catch(e => res.status(500).json({ error: e.message }));
+});
+
 module.exports = router;
