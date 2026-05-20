@@ -106,11 +106,12 @@ router.post('/', requireStaff, async (req, res, next) => {
 // PUT /api/loans/:id — modifier un prêt
 router.put('/:id', requireStaff, async (req, res, next) => {
   try {
-    const { client_id, expected_return_date, reason, notes } = req.body;
+    const { client_id, start_date, expected_return_date, reason, notes } = req.body;
     await run(`
-      UPDATE loans SET client_id=?, expected_return_date=?, reason=?, notes=?,
+      UPDATE loans SET client_id=?, start_date=?, expected_return_date=?, reason=?, notes=?,
         updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-      [client_id || null, expected_return_date || null, reason || null, notes || null, req.params.id]
+      [client_id || null, start_date || null, expected_return_date || null,
+      reason || null, notes || null, req.params.id]
     );
     res.json({ success: true });
   } catch (err) { next(err); }

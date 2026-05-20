@@ -121,6 +121,7 @@ function renderLoans() {
         <td>
           <div style="font-weight:600;">${escHtml(l.device_name)}</div>
           <div style="font-size:11px;color:var(--text-tertiary);">${escHtml(l.device_brand || '')}</div>
+          ${l.serial_number ? `<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);margin-top:2px;">SN ${escHtml(l.serial_number)}</div>` : ''}
         </td>
         <td>${l.cabinet_name ? `<i class="fas fa-hospital" style="opacity:0.35;font-size:10px;margin-right:4px;"></i>${escHtml(l.cabinet_name)}` : '<span style="color:var(--text-tertiary);">—</span>'}</td>
         <td style="font-size:var(--text-xs);color:var(--text-secondary);">${fmtDate(l.start_date)}</td>
