@@ -311,8 +311,9 @@ router.get('/:id', requireStaff, (req, res, next) => {
 //                            CRUD CLIENTS (sécurisé)
 // ──────────────────────────────────────────────────────────────────────────────
 router.post('/', requireRoles(...CLIENT_EDITORS), (req, res, next) => {
-  const err = requireFields(req.body, ['cabinet_name', 'contact_name', 'activity', 'address', 'canton', 'city']);
-  if (err) return res.status(400).json({ error: err });
+  if (!isNonEmptyString(req.body.cabinet_name)) {
+  return res.status(400).json({ error: 'Le nom du cabinet est obligatoire.' });
+}
  
   const { cabinet_name, contact_name, activity, address, postal_code, city, canton,
           phone, email, notes, latitude, longitude } = req.body;
@@ -320,8 +321,8 @@ router.post('/', requireRoles(...CLIENT_EDITORS), (req, res, next) => {
   db.run(
     `INSERT INTO clients (cabinet_name, contact_name, activity, address, postal_code, city, canton, phone, email, notes, latitude, longitude)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [cabinet_name, contact_name, activity, address, postal_code, city, canton,
-     phone, email, notes, toFloat(latitude), toFloat(longitude)],
+    [cabinet_name, contact_name || '', activity || '', address || '', postal_code,
+    city || '', canton || '', phone, email, notes, toFloat(latitude), toFloat(longitude)],
     function (err) {
       if (err) return next(err);
       const newId = this.lastID;
@@ -369,8 +370,9 @@ router.put('/:id', requireRoles(...CLIENT_EDITORS), (req, res, next) => {
   db.run(
     `UPDATE clients SET cabinet_name=?, activity=?, contact_name=?, phone=?, email=?,
      address=?, postal_code=?, city=?, canton=?, latitude=?, longitude=?, notes=?, has_contract=? WHERE id=?`,
-    [cabinet_name, activity, contact_name, phone, email, address, postal_code, city, canton,
-     toFloat(latitude), toFloat(longitude), notes, toBoolInt(has_contract), id],
+    [cabinet_name, activity || '', contact_name || '', phone, email,
+    address || '', postal_code, city || '', canton || '',
+    toFloat(latitude), toFloat(longitude), notes, toBoolInt(has_contract), id],
     function (err) {
       if (err) return next(err);
       if (this.changes === 0) return res.status(404).json({ error: 'Client introuvable.' });
