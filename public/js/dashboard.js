@@ -1065,9 +1065,10 @@ const WIDGET_KEYS = {
   warranty:     'widget-warranty',
   tickets:      'widget-tickets',
   activity:     'widget-activity',
+  rmas:         'widget-rmas',     // ← ajouter
+  loans:        'widget-loans',    // ← ajouter
   map:          'widget-map',
 };
-
 function applyWidgetVisibility() {
   try {
     const saved = JSON.parse(localStorage.getItem('kbmed_hidden_widgets') || '[]');
@@ -1087,6 +1088,8 @@ window.openCustomize = function() {
     { key: 'maintenance',  icon: 'fa-wrench',         label: 'Maintenances',        desc: 'Prévues dans les 30 jours' },
     { key: 'warranty',     icon: 'fa-shield-alt',     label: 'Garanties',           desc: 'Équipements expirant bientôt' },
     { key: 'tickets',      icon: 'fa-ticket-alt',     label: 'Tickets & Urgences',  desc: 'Suivi des demandes actives' },
+    { key: 'rmas',  icon: 'fa-exchange-alt', label: 'RMAs urgents',     desc: 'RMAs dépassant leur échéance' },
+    { key: 'loans', icon: 'fa-handshake',    label: 'Prêts en retard',  desc: 'Prêts non retournés à temps' },
     { key: 'activity',     icon: 'fa-rss',            label: 'Flux d\'activité',    desc: 'Dernières actions du système' },
     { key: 'map',          icon: 'fa-map-marked-alt', label: 'Carte clients',       desc: 'Vue géographique interactive' },
   ];
