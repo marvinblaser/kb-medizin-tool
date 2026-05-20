@@ -59,14 +59,13 @@ let rmaFilters    = { search: '', supplier: '', tag: '' };
 // ══════════════════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Récupère l'utilisateur connecté (pour les droits sur les commentaires)
   fetch('/api/auth/me').then(r => r.json()).then(d => { currentUser = d.user || null; }).catch(() => {});
   initBoard();
   initTooltip();
-  loadRmas().then(() => {
-    const openId = parseInt(new URLSearchParams(window.location.search).get('open'));
-    if (openId) openRmaDetails(openId);
-  });
+  loadRmas();
 });
+
 function initTooltip() {
   const tooltip = document.getElementById('rma-tooltip');
   if (!tooltip) return;
@@ -330,7 +329,7 @@ function buildCard(rma, isDuplicate = false) {
       </div>` : ''}
  
       <!-- Description -->
-      <div class="card-desc">${escapeHtml(rma.description || 'Aucune description').replace(/\n/g, '<br>')}</div>
+      <div class="card-desc">${sanitizeHtml(rma.description || 'Aucune description')}</div>
  
       <!-- Tags -->
       ${tagsHtml ? `<div class="card-tags">${tagsHtml}</div>` : ''}
@@ -721,8 +720,10 @@ async function openNewRmaModal() {
           <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">
             Description détaillée <span style="color:var(--color-danger)">*</span>
           </label>
-          <textarea id="form-desc" required rows="4" placeholder="Symptômes observés, tests effectués, conditions d'apparition..."
-            style="width:100%;padding:10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;resize:vertical;"></textarea>
+          <div>
+            <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">Description du problème *</label>
+            ${buildFormatBar('form-desc')}
+          </div>
         </div>
       </form>
     `;
@@ -784,7 +785,7 @@ async function saveRma(e) {
     due_date: document.getElementById('form-due-date')?.value || null,
     tracking_to_supplier: document.getElementById('form-tracking-to').value,
     tracking_from_supplier: document.getElementById('form-tracking-from').value,
-    description: document.getElementById('form-desc').value,
+    description: document.getElementById('form-desc').innerHTML || '',
     contact_person: document.getElementById('form-contact-person')?.value || null
   };
 
@@ -1004,7 +1005,7 @@ async function openRmaDetails(id) {
               </div>
               ${rma.contact_person ? `<div class="rma-info-row"><span class="rma-info-label">Contact</span><span class="rma-info-value"><i class="fas fa-user" style="opacity:0.4;margin-right:4px;font-size:11px;"></i>${escapeHtml(rma.contact_person)}</span></div>` : ''}
               ${rma.due_date ? `<div class="rma-info-row"><span class="rma-info-label">Échéance</span><span class="rma-info-value">${buildDueBadge(rma.due_date)}</span></div>` : ''}
-              <div class="rma-description-block">${escapeHtml(rma.description || 'Aucune description.')}</div>
+              <div class="rma-description-block">${sanitizeHtml(rma.description) || '<em style="color:var(--text-tertiary)">Aucune description.</em>'}</div>
             </div>
           </div>
 
@@ -1229,7 +1230,10 @@ async function editRmaDetails(id) {
           </div>
         </div>
         <div style="margin-top:16px;"><label style="${lS}">Description <span style="color:var(--color-danger)">*</span></label>
-          <textarea id="edit-desc" rows="3" style="width:100%;padding:9px 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;resize:vertical;">${escapeHtml(rma.description || '')}</textarea>
+          <div style="grid-column:1/-1;">
+            <label style="${lS}">Description</label>
+            ${buildFormatBar('edit-desc')}
+          </div>
         </div>
         ${sec('fas fa-truck', 'Suivi logistique')}
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
@@ -1248,6 +1252,10 @@ async function editRmaDetails(id) {
     `;
 
     document.getElementById('edit-save-btn').onclick = (e) => { e.preventDefault(); updateRma(new Event('submit'), id); };
+
+    // Inject le contenu formaté dans le contenteditable APRÈS insertion dans le DOM
+    const descEl = document.getElementById('edit-desc');
+    if (descEl) descEl.innerHTML = sanitizeHtml(rma.description || '');
 
     setTimeout(() => {
       if (document.getElementById('edit-client')) {
@@ -1274,7 +1282,7 @@ async function updateRma(e, id) {
     due_date: document.getElementById('edit-due-date')?.value || null,
     tracking_to_supplier: document.getElementById('edit-tracking-to').value,
     tracking_from_supplier: document.getElementById('edit-tracking-from').value,
-    description: document.getElementById('edit-desc').value
+    description: document.getElementById('edit-desc').innerHTML || ''
   };
   try {
     const res = await fetch(`/api/rmas/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
@@ -1780,7 +1788,7 @@ function handleCardHover(ev, rmaId) {
           ${tagsHtml ? `<div class="tooltip-tags">${tagsHtml}</div>` : ''}
  
           <!-- Description -->
-          <div class="tooltip-desc">${escapeHtml((d.description || 'Aucune description'))}</div>
+          <div class="tooltip-desc">${sanitizeHtml(d.description || 'Aucune description')}</div>
  
           <!-- Commentaires -->
           <div class="tooltip-comments">
@@ -1967,6 +1975,76 @@ async function loadClientEquipmentForEdit(clientId) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  UTILITAIRES
 // ══════════════════════════════════════════════════════════════════════════════
+
+// ── Helpers HTML formaté ──────────────────────────────────────────────────────
+function stripHtml(html) {
+  return (html || '').replace(/<[^>]+>/g, '').trim();
+}
+function sanitizeHtml(html) {
+  return (html || '')
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/\son\w+="[^"]*"/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
+// ── Barre de formatage ────────────────────────────────────────────────────────
+function buildFormatBar(targetId) {
+  const colors = [
+    { label: 'Défaut',  value: '',        bg: 'var(--text-primary)',  },
+    { label: 'Rouge',   value: '#ef4444', bg: '#ef4444' },
+    { label: 'Orange',  value: '#f97316', bg: '#f97316' },
+    { label: 'Bleu',    value: '#3b82f6', bg: '#3b82f6' },
+    { label: 'Vert',    value: '#16a34a', bg: '#16a34a' },
+  ];
+  const btnBase = `background:none;border:1px solid var(--border-primary);border-radius:3px;cursor:pointer;
+    padding:2px 7px;font-size:11px;font-family:inherit;color:var(--text-secondary);
+    transition:all 0.1s;display:flex;align-items:center;gap:3px;`;
+  return `
+    <div style="display:flex;align-items:center;gap:5px;padding:5px 8px;
+      background:var(--bg-secondary);border:1px solid var(--border-primary);
+      border-bottom:none;border-radius:3px 3px 0 0;">
+      <button type="button" title="Surligner en jaune"
+        onclick="applyRmaFormat('hilite','${targetId}')"
+        style="${btnBase}">
+        <span style="background:#fef08a;padding:0 4px;border-radius:2px;font-weight:700;color:#92400e;">A</span>&nbsp;Surligner
+      </button>
+      <div style="width:1px;height:16px;background:var(--border-primary);margin:0 2px;"></div>
+      <span style="font-size:10px;color:var(--text-tertiary);">Couleur :</span>
+      ${colors.map(c => `
+        <button type="button" title="${c.label}"
+          onclick="applyRmaFormat('color','${targetId}','${c.value}')"
+          style="width:16px;height:16px;border-radius:50%;background:${c.bg};
+            border:2px solid ${c.bg};cursor:pointer;flex-shrink:0;padding:0;">
+        </button>`).join('')}
+      <div style="width:1px;height:16px;background:var(--border-primary);margin:0 2px;"></div>
+      <button type="button" title="Effacer le formatage"
+        onclick="applyRmaFormat('clear','${targetId}')"
+        style="${btnBase}font-size:10px;">
+        <i class="fas fa-times" style="font-size:9px;"></i>&nbsp;Effacer
+      </button>
+    </div>
+    <div id="${targetId}" contenteditable="true"
+      style="width:100%;min-height:80px;padding:9px 10px;
+        border:1px solid var(--border-primary);border-radius:0 0 3px 3px;
+        font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);
+        font-family:inherit;outline:none;line-height:1.5;word-break:break-word;">
+    </div>`;
+}
+
+window.applyRmaFormat = function(type, targetId, value) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  el.focus();
+  if (type === 'hilite') {
+    document.execCommand('hiliteColor', false, '#fef08a');
+  } else if (type === 'color') {
+    if (!value) document.execCommand('removeFormat', false, null);
+    else document.execCommand('foreColor', false, value);
+  } else if (type === 'clear') {
+    document.execCommand('removeFormat', false, null);
+    document.execCommand('hiliteColor', false, 'transparent');
+  }
+};
 
 function escapeHtml(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = String(t); return d.innerHTML; }
 function fmt(d) { if (!d) return '—'; return new Intl.DateTimeFormat('fr-CH').format(new Date(d)); }
