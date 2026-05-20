@@ -563,8 +563,6 @@ window.openLoanModal = function(id = null) {
     const rmaSelect = document.getElementById('loan-rma-link');
     if (rmaSelect) rmaSelect.value = loan.rma_id || '';
     // En mode édition, l'appareil ne peut pas changer
-    // En mode édition, l'appareil ne peut pas changer
-    document.getElementById('loan-device').disabled = true;
   } else {
     document.getElementById('loan-modal-title').innerHTML =
       `<i class="fas fa-plus-circle" style="color:var(--color-primary)"></i> Nouveau prêt`;
@@ -610,7 +608,7 @@ window.saveLoan = async function() {
   }
 
   const data = {
-    device_id:            parseInt(device),
+    device_id:            parseInt(device),   // ← déjà là pour POST, s'applique aussi au PUT
     client_id:            document.getElementById('loan-client').value || null,
     start_date:           start,
     expected_return_date: document.getElementById('loan-expected-return').value || null,
