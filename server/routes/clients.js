@@ -13,8 +13,8 @@ const log = require('../utils/logger');
 
 // ─── Groupes de rôles ─────────────────────────────────────────────────────────
 const CLIENT_EDITORS    = ['admin', 'tech', 'secretary', 'sales_tech', 'sales_director'];
-const CLIENT_DESTROYERS = ['admin', 'sales_director'];
-const PLANNERS          = ['admin', 'secretary'];
+const CLIENT_DESTROYERS = ['admin', 'sales_director', 'tech', 'secretary'];
+const PLANNERS          = ['admin', 'secretary', 'tech'];
 const TECH_EQUIPMENT    = ['admin', 'tech', 'secretary'];
 const CONTRACT_MANAGERS = ['admin', 'secretary', 'sales_director'];
 

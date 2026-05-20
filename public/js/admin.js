@@ -257,9 +257,13 @@ async function loadAllData() {
 // ========== ROLES, LOGS, USERS (inchangés) ==========
 async function loadRoles() {
   try {
-    const r = await fetch('/api/admin/roles'); const roles = await r.json();
-    document.getElementById('roles-tbody').innerHTML = roles.map(role => `<tr><td><strong>${escapeHtml(role.name)}</strong></td><td><code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.85em; color:var(--neutral-600);">${role.slug}</code></td><td><div style="font-size:0.85rem; color:#64748b; max-width:400px; white-space:normal; line-height:1.4;">${role.permissions ? role.permissions.replace(/,/g, ', ') : '-'}</div></td><td style="text-align:right;"><div class="table-actions"><button class="btn-icon-sm btn-icon-primary" onclick="openRoleModal('${role.slug}', '${escapeHtml(role.name)}', '${role.permissions}')"><i class="fas fa-pen"></i></button><button class="btn-icon-sm btn-icon-danger" onclick="deleteRole('${role.slug}')"><i class="fas fa-trash"></i></button></div></td></tr>`).join('');
-    const select = document.getElementById('user-role'); select.innerHTML = roles.map(r => `<option value="${r.slug}">${r.name}</option>`).join('');
+    const r = await fetch('/api/admin/roles');
+    if (!r.ok) return; // 403 ou autre → on sort silencieusement
+    const roles = await r.json();
+    if (!Array.isArray(roles)) return;
+    document.getElementById('roles-tbody').innerHTML = roles.map(role => `...`).join('');
+    const select = document.getElementById('user-role');
+    if (select) select.innerHTML = roles.map(r => `<option value="${r.slug}">${r.name}</option>`).join('');
   } catch(e) { console.error(e); }
 }
 
@@ -293,16 +297,27 @@ async function deleteRole(slug) {
     if (res.ok) { loadRoles(); if (window.toast) toast.success('Rôle supprimé', ''); }
 }
 
-async function loadLogs(category='all') {
-    let url = '/api/admin/logs?limit=100'; if(category!=='all') url+=`&category=${category}`;
-    const r=await fetch(url); const logs=await r.json();
-    document.getElementById('logs-tbody').innerHTML=logs.length?logs.map(l=>`<tr><td style="color:#64748b; font-size:0.85em;">${formatDateTime(l.created_at)}</td><td><div style="display:flex; align-items:center; gap:8px;"><div class="user-avatar-sm" style="width:24px; height:24px; font-size:0.7em;">${(l.user_name||'S').charAt(0)}</div><span style="font-weight:600; font-size:0.9em;">${escapeHtml(l.user_name||'Système')}</span></div></td><td><span class="badge badge-secondary" style="font-weight:500;">${l.action}</span></td><td>${l.entity}</td><td><code style="font-size:0.85em; color:var(--neutral-500);">${l.entity_id||'-'}</code></td></tr>`).join(''):'<tr><td colspan="5">Aucun log.</td></tr>';
+async function loadLogs(category = 'all') {
+  try {
+    let url = '/api/admin/logs?limit=100';
+    if (category !== 'all') url += `&category=${category}`;
+    const r = await fetch(url);
+    if (!r.ok) return;
+    const logs = await r.json();
+    if (!Array.isArray(logs)) return;
+    document.getElementById('logs-tbody').innerHTML = logs.length ? logs.map(l => `...`).join('') : '<tr><td colspan="5">Aucun log.</td></tr>';
+  } catch(e) { console.error(e); }
 }
 async function filterLogs(cat, btn) { document.querySelectorAll('.log-filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); await loadLogs(cat); }
 
 async function loadUsers() {
-    const r=await fetch('/api/admin/users'); const users=await r.json();
-    document.getElementById('users-tbody').innerHTML=users.map(u=>`<tr><td><div style="display:flex; align-items:center; gap:10px;">${u.photo_url?`<img src="${u.photo_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`:`<div class="user-avatar-sm">${u.name.charAt(0)}</div>`}<span style="font-weight:600;">${escapeHtml(u.name)}</span></div></td><td>${escapeHtml(u.email)}</td><td><span class="badge badge-info">${u.role}</span></td><td>${escapeHtml(u.phone||'-')}</td><td><span class="badge ${u.is_active?'badge-success':'badge-danger'}">${u.is_active?'Actif':'Inactif'}</span></td><td style="text-align:right;"><div class="table-actions"><button class="btn-icon-sm btn-icon-primary" onclick="openUserModal(${u.id})"><i class="fas fa-pen"></i></button><button class="btn-icon-sm btn-icon-secondary" onclick="openResetModal(${u.id})"><i class="fas fa-key"></i></button><button class="btn-icon-sm btn-icon-danger" onclick="deleteUser(${u.id})"><i class="fas fa-trash"></i></button></div></td></tr>`).join('');
+  try {
+    const r = await fetch('/api/admin/users');
+    if (!r.ok) return;
+    const users = await r.json();
+    if (!Array.isArray(users)) return;
+    document.getElementById('users-tbody').innerHTML = users.map(u => `...`).join('');
+  } catch(e) { console.error(e); }
 }
 async function openUserModal(id=null){ 
     const form=document.getElementById('user-form'); 

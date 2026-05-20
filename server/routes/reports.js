@@ -7,7 +7,7 @@ const { toInt, toBoolInt } = require('../utils/validators');
 const log = require('../utils/logger');
 
 // Rôles autorisés à créer/modifier des rapports
-const REPORT_AUTHORS = ['admin', 'tech'];
+const REPORT_AUTHORS = ['admin', 'tech', 'secretary'];
 // Rôles capables de valider/refuser un rapport
 const VALIDATORS     = ['admin', 'verifier', 'sales_director'];
 // Rôles capables d'archiver
