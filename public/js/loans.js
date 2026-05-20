@@ -142,8 +142,10 @@ function renderLoans() {
             </div>` : ''}
           <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;">
             ${l.device_owner === 'Fournisseur'
-              ? `<span style="background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);font-size:9px;font-weight:700;padding:1px 6px;border-radius:2px;">Fournisseur</span>`
-              : `<span style="background:rgba(44,90,160,0.10);color:var(--color-primary);border:1px solid rgba(44,90,160,0.25);font-size:9px;font-weight:700;padding:1px 6px;border-radius:2px;">KB Med</span>`}
+            ? `<span style="background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);font-size:9px;font-weight:700;padding:1px 6px;border-radius:2px;">Fournisseur</span>`
+            : l.device_owner === 'KB Med'
+              ? `<span style="background:rgba(44,90,160,0.10);color:var(--color-primary);border:1px solid rgba(44,90,160,0.25);font-size:9px;font-weight:700;padding:1px 6px;border-radius:2px;">KB Med</span>`
+              : ''}
             ${l.rma_id ? `<span style="background:rgba(139,92,246,0.12);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);font-size:9px;font-weight:700;padding:1px 6px;border-radius:2px;cursor:pointer;" onclick="event.stopPropagation();window.location.href='/rmas.html'" title="${escHtml(l.rma_number || '')}"><i class="fas fa-link" style="font-size:8px;margin-right:2px;"></i>${escHtml(l.rma_number || '#'+l.rma_id)}</span>` : ''}
           </div>
         </td>
