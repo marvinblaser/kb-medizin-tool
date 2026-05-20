@@ -114,14 +114,34 @@ router.post('/', requireStaff, async (req, res, next) => {
 // PUT /api/loans/:id — modifier un prêt
 router.put('/:id', requireStaff, async (req, res, next) => {
   try {
-    const { client_id, start_date, expected_return_date, reason, notes,
+    const { device_id, client_id, start_date, expected_return_date, reason, notes,
             rma_id, device_owner } = req.body;
+
+    const loan = await get('SELECT * FROM loans WHERE id = ?', [req.params.id]);
+    if (!loan) return res.status(404).json({ error: 'Prêt introuvable.' });
+
+    // ── Changement d'appareil ─────────────────────────────────────────────────
+    const newDeviceId = device_id ? parseInt(device_id) : loan.device_id;
+    if (newDeviceId !== loan.device_id && loan.status === 'En cours') {
+      // Vérifie que le nouvel appareil est disponible
+      const newDevice = await get('SELECT * FROM loan_devices WHERE id = ?', [newDeviceId]);
+      if (!newDevice) return res.status(404).json({ error: 'Nouvel appareil introuvable.' });
+      if (newDevice.status === 'En prêt') {
+        return res.status(409).json({ error: 'Cet appareil est déjà en prêt.' });
+      }
+      // Libère l'ancien, occupe le nouveau
+      await run(`UPDATE loan_devices SET status='Disponible', updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+        [loan.device_id]);
+      await run(`UPDATE loan_devices SET status='En prêt', updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+        [newDeviceId]);
+    }
+
     await run(`
-      UPDATE loans SET client_id=?, start_date=?, expected_return_date=?, reason=?, notes=?,
-        rma_id=?, device_owner=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-      [client_id || null, start_date || null, expected_return_date || null,
+      UPDATE loans SET device_id=?, client_id=?, start_date=?, expected_return_date=?,
+        reason=?, notes=?, rma_id=?, device_owner=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      [newDeviceId, client_id || null, start_date || null, expected_return_date || null,
        reason || null, notes || null, rma_id || null,
-      device_owner ?? '', req.params.id]
+       device_owner ?? '', req.params.id]
     );
     res.json({ success: true });
   } catch (err) { next(err); }
