@@ -205,14 +205,14 @@
     .kanban-col[data-step="10"] .kanban-col-header h3 { color: var(--neutral-400); }
 
     .kanban-card-list {
-      padding: 10px;
-      overflow-y: auto;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
+  padding: 10px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;        /* ← empêche le débordement flexbox */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
     .kanban-card-list::-webkit-scrollbar { width: 4px; }
     .kanban-card-list::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 999px; }
 
