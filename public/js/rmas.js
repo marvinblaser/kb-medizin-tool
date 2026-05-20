@@ -59,13 +59,14 @@ let rmaFilters    = { search: '', supplier: '', tag: '' };
 // ══════════════════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Récupère l'utilisateur connecté (pour les droits sur les commentaires)
   fetch('/api/auth/me').then(r => r.json()).then(d => { currentUser = d.user || null; }).catch(() => {});
   initBoard();
   initTooltip();
-  loadRmas();
+  loadRmas().then(() => {
+    const openId = parseInt(new URLSearchParams(window.location.search).get('open'));
+    if (openId) openRmaDetails(openId);
+  });
 });
-
 function initTooltip() {
   const tooltip = document.getElementById('rma-tooltip');
   if (!tooltip) return;
