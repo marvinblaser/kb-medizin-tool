@@ -45,6 +45,7 @@ const COMMENT_TEMPLATES = [
 
 let allRmas       = [];
 let currentRmaId  = null;
+let currentUser   = null;   // ← utilisateur connecté (id, name, role)
 let hoverTimeout  = null;
 let tooltipCache  = {};
 let tsInstances   = {};
@@ -58,6 +59,8 @@ let rmaFilters    = { search: '', supplier: '', tag: '' };
 // ══════════════════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Récupère l'utilisateur connecté (pour les droits sur les commentaires)
+  fetch('/api/auth/me').then(r => r.json()).then(d => { currentUser = d.user || null; }).catch(() => {});
   initBoard();
   initTooltip();
   loadRmas();
@@ -182,7 +185,10 @@ function getFilteredRmas() {
   return allRmas.filter(r => {
     if (search) {
       const q   = search.toLowerCase();
-      const hay = `${r.cabinet_name} ${r.equipment_name} ${r.description} ${r.rma_number}`.toLowerCase();
+      const hay = [
+        r.cabinet_name, r.equipment_name, r.brand, r.serial_number,
+        r.description, r.rma_number, r.supplier_name, r.contact_person
+      ].filter(Boolean).join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     if (supplier && r.supplier_name !== supplier) return false;
@@ -306,14 +312,26 @@ function buildCard(rma, isDuplicate = false) {
       <!-- Appareil -->
       <div class="card-equipment" title="${escapeHtml(rma.equipment_name || '')}">
         ${escapeHtml(rma.equipment_name || 'Appareil non spécifié')}
-        ${rma.serial_number ? `<span style="color:var(--text-tertiary);font-weight:400;font-size:10px;"> · SN ${escapeHtml(rma.serial_number)}</span>` : ''}
       </div>
- 
+      ${rma.serial_number ? `
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-secondary);
+        background:var(--bg-secondary);border:1px solid var(--border-primary);
+        border-radius:2px;padding:1px 7px;margin-bottom:6px;display:inline-block;letter-spacing:0.03em;">
+        SN&nbsp;<strong>${escapeHtml(rma.serial_number)}</strong>
+      </div>` : ''}
+      
       <!-- Client -->
       <div class="card-client">
         <i class="fas fa-hospital" style="opacity:0.35;font-size:10px;flex-shrink:0"></i>
         ${escapeHtml(rma.cabinet_name || 'Client inconnu')}
       </div>
+
+      <!-- Personne de contact -->
+      ${rma.contact_person ? `
+      <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:6px;display:flex;align-items:center;gap:4px;">
+        <i class="fas fa-user" style="opacity:0.35;font-size:9px;flex-shrink:0"></i>
+        ${escapeHtml(rma.contact_person)}
+      </div>` : ''}
  
       <!-- Description -->
       <div class="card-desc">${escapeHtml(rma.description || 'Aucune description').replace(/\n/g, '<br>')}</div>
@@ -672,6 +690,11 @@ async function openNewRmaModal() {
                 <option value="Autre">Autre...</option>
               </select>
             </div>
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);margin-bottom:5px;">Personne de contact</label>
+              <input type="text" id="form-contact-person" placeholder="Nom du contact chez le client"
+                style="width:100%;height:38px;padding:0 10px;border:1px solid var(--border-primary);border-radius:3px;font-size:var(--text-sm);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;outline:none;">
+            </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:14px;">
             <div>
@@ -765,7 +788,8 @@ async function saveRma(e) {
     due_date: document.getElementById('form-due-date')?.value || null,
     tracking_to_supplier: document.getElementById('form-tracking-to').value,
     tracking_from_supplier: document.getElementById('form-tracking-from').value,
-    description: document.getElementById('form-desc').value
+    description: document.getElementById('form-desc').value,
+    contact_person: document.getElementById('form-contact-person')?.value || null
   };
 
   try {
@@ -843,6 +867,10 @@ async function openRmaDetails(id) {
     // ── Commentaires : rendu différencié système/utilisateur ─────────────────
     const allComments = [...(rma.comments || [])].reverse();
 
+    // Cache global pour l'édition inline (évite les escapes complexes dans onclick)
+    window._rmaCommentCache = {};
+    allComments.forEach(c => { window._rmaCommentCache[c.id] = c.comment; });
+
     const commentsHtml = allComments.length
       ? allComments.map(c => {
           const dt = new Date(c.created_at).toLocaleString('fr-CH', {
@@ -879,13 +907,32 @@ async function openRmaDetails(id) {
               </div>`;
           } else {
             // ── Commentaire utilisateur normal ────────────────────────────────
+            const canEdit = currentUser && (currentUser.id === c.user_id || currentUser.role === 'admin');
+            const editedHint = c.updated_at && c.updated_at !== c.created_at
+              ? `<span style="font-size:10px;color:var(--text-tertiary);font-style:italic;margin-left:6px;">(modifié)</span>`
+              : '';
             return `
-              <div class="comment-item">
+              <div class="comment-item" id="comment-wrap-${c.id}">
                 <div class="comment-meta">
                   <span class="comment-author">${escapeHtml(c.user_name)}</span>
-                  <span class="comment-date">${dt}</span>
+                  <span class="comment-date">${dt}${editedHint}</span>
+                  ${canEdit ? `
+                  <div style="margin-left:auto;display:flex;gap:3px;">
+                    <button title="Modifier" onclick="startEditComment(${id}, ${c.id})"
+                      style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;padding:2px 5px;font-size:11px;border-radius:2px;transition:all 0.1s;"
+                      onmouseover="this.style.color='var(--color-primary)';this.style.background='var(--bg-secondary)'"
+                      onmouseout="this.style.color='var(--text-tertiary)';this.style.background='none'">
+                      <i class="fas fa-pen"></i>
+                    </button>
+                    <button title="Supprimer" onclick="deleteComment(${id}, ${c.id})"
+                      style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;padding:2px 5px;font-size:11px;border-radius:2px;transition:all 0.1s;"
+                      onmouseover="this.style.color='var(--color-danger)';this.style.background='var(--color-danger-bg)'"
+                      onmouseout="this.style.color='var(--text-tertiary)';this.style.background='none'">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>` : ''}
                 </div>
-                <div class="comment-text">${escapeHtml(c.comment)}</div>
+                <div class="comment-text" id="comment-text-${c.id}">${escapeHtml(c.comment)}</div>
               </div>`;
           }
         }).join('')
@@ -954,7 +1001,7 @@ async function openRmaDetails(id) {
                   ${rma.serial_number ? `<code style="background:var(--bg-secondary);padding:1px 6px;border-radius:2px;font-size:11px;margin-left:6px;border:1px solid var(--border-primary);">SN: ${escapeHtml(rma.serial_number)}</code>` : ''}
                 </span>
               </div>
-              ${rma.title ? `<div class="rma-info-row"><span class="rma-info-label">Titre</span><span class="rma-info-value">${escapeHtml(rma.title)}</span></div>` : ''}
+              ${rma.contact_person ? `<div class="rma-info-row"><span class="rma-info-label">Contact</span><span class="rma-info-value"><i class="fas fa-user" style="opacity:0.4;margin-right:4px;font-size:11px;"></i>${escapeHtml(rma.contact_person)}</span></div>` : ''}
               ${rma.due_date ? `<div class="rma-info-row"><span class="rma-info-label">Échéance</span><span class="rma-info-value">${buildDueBadge(rma.due_date)}</span></div>` : ''}
               <div class="rma-description-block">${escapeHtml(rma.description || 'Aucune description.')}</div>
             </div>
@@ -1157,7 +1204,7 @@ async function editRmaDetails(id) {
         </div>
         ${sec('fas fa-info-circle', 'Informations')}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-          <div><label style="${lS}">Titre</label><input type="text" id="edit-title" placeholder="Laissez vide pour auto." value="${escapeHtml(rma.title || '')}" style="${iS}"></div>
+          <div><label style="${lS}">Personne de contact</label><input type="text" id="edit-contact-person" placeholder="Nom du contact chez le client" value="${escapeHtml(rma.contact_person || '')}" style="${iS}"></div>
           <div><label style="${lS}">Fournisseur</label>
             <select id="edit-supplier" style="${iS}">
               <option value="Xion" ${rma.supplier_name === 'Xion' ? 'selected' : ''}>Xion</option>
@@ -1214,7 +1261,7 @@ async function editRmaDetails(id) {
 async function updateRma(e, id) {
   e.preventDefault();
   const data = {
-    title: document.getElementById('edit-title').value || null,
+    contact_person: document.getElementById('edit-contact-person').value || null,
     status: document.getElementById('edit-status').value,
     client_id: document.getElementById('edit-client').value,
     equipment_id: document.getElementById('edit-equipment').value || null,
@@ -1248,6 +1295,75 @@ async function addComment(e, id) {
   tooltipCache[id] = null;
   openRmaDetails(id);
 }
+
+// ── Édition inline d'un commentaire ─────────────────────────────────────────
+
+window.startEditComment = function(rmaId, commentId) {
+  const textEl = document.getElementById(`comment-text-${commentId}`);
+  if (!textEl) return;
+  const original = window._rmaCommentCache?.[commentId] || textEl.textContent || '';
+  textEl.innerHTML = `
+    <textarea id="edit-comment-input-${commentId}"
+      style="width:100%;padding:7px 9px;border:1px solid var(--color-primary);border-radius:3px;
+        font-size:var(--text-sm);color:var(--text-primary);background:var(--bg-elevated);
+        font-family:inherit;outline:none;resize:vertical;min-height:60px;"
+    >${escapeHtml(original)}</textarea>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      <button onclick="saveCommentEdit(${rmaId}, ${commentId})" class="btn btn-primary btn-sm">
+        <i class="fas fa-check"></i> Sauvegarder
+      </button>
+      <button onclick="cancelCommentEdit(${commentId})" class="btn btn-secondary btn-sm">Annuler</button>
+    </div>
+  `;
+  document.getElementById(`edit-comment-input-${commentId}`)?.focus();
+};
+
+window.saveCommentEdit = async function(rmaId, commentId) {
+  const input = document.getElementById(`edit-comment-input-${commentId}`);
+  if (!input) return;
+  const newText = input.value.trim();
+  if (!newText) return;
+  try {
+    const res = await fetch(`/api/rmas/comments/${commentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment: newText })
+    });
+    if (res.ok) {
+      tooltipCache[rmaId] = null;
+      openRmaDetails(rmaId);
+    } else {
+      const err = await res.json();
+      if (window.toast) toast.error('Erreur', err.error || 'Modification impossible.');
+    }
+  } catch (e) { console.error(e); if (window.toast) toast.error('Erreur réseau', ''); }
+};
+
+window.cancelCommentEdit = function(commentId) {
+  const textEl = document.getElementById(`comment-text-${commentId}`);
+  if (!textEl) return;
+  const original = window._rmaCommentCache?.[commentId] || '';
+  textEl.textContent = original;
+};
+
+window.deleteComment = async function(rmaId, commentId) {
+  const ok = await showConfirm({
+    title: 'Supprimer ce commentaire ?',
+    message: 'Cette action est irréversible.',
+    confirmText: 'Supprimer', cancelText: 'Annuler', type: 'danger'
+  });
+  if (!ok) return;
+  try {
+    const res = await fetch(`/api/rmas/comments/${commentId}`, { method: 'DELETE' });
+    if (res.ok) {
+      tooltipCache[rmaId] = null;
+      openRmaDetails(rmaId);
+    } else {
+      const err = await res.json();
+      if (window.toast) toast.error('Erreur', err.error || 'Suppression impossible.');
+    }
+  } catch (e) { console.error(e); if (window.toast) toast.error('Erreur réseau', ''); }
+};
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  SUPPRESSION
@@ -1715,6 +1831,10 @@ window.evDrag                    = evDrag;
 window.editRmaDetails            = editRmaDetails;
 window.updateRma                 = updateRma;
 window.addComment                = addComment;
+window.startEditComment          = window.startEditComment;
+window.saveCommentEdit           = window.saveCommentEdit;
+window.cancelCommentEdit         = window.cancelCommentEdit;
+window.deleteComment             = window.deleteComment;
 window.uploadAttachment          = uploadAttachment;
 window.deleteAttachment          = deleteAttachment;
 window.refuseDevis               = refuseDevis;

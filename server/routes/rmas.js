@@ -74,7 +74,8 @@ router.get('/equipment/:clientId', requireStaff, (req, res, next) => {
 
 router.post('/', requireStaff, (req, res, next) => {
   const { client_id, description, equipment_id, supplier_name, rma_number,
-          tracking_to_supplier, tracking_from_supplier, due_date } = req.body;
+          tracking_to_supplier, tracking_from_supplier, due_date,
+          contact_person } = req.body;
   if (!client_id || !description) {
     return res.status(400).json({ error: 'Client et description requis.' });
   }
@@ -82,11 +83,12 @@ router.post('/', requireStaff, (req, res, next) => {
  
   db.run(
     `INSERT INTO rmas (client_id, equipment_id, supplier_name, rma_number,
-     tracking_to_supplier, tracking_from_supplier, description, due_date, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     tracking_to_supplier, tracking_from_supplier, description, due_date,
+     contact_person, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [toInt(client_id), toInt(equipment_id) || null, supplier_name || 'Xion',
      rma_number || null, tracking_to_supplier || null, tracking_from_supplier || null,
-     description, due_date || null, userId],
+     description, due_date || null, contact_person || null, userId],
     function (err) {
       if (err) return next(err);
  
@@ -139,11 +141,11 @@ router.put('/:id', requireStaff, (req, res, next) => {
   const id = toInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID invalide.' });
  
-  const { title, status, client_id, equipment_id, supplier_name,
+  const { contact_person, status, client_id, equipment_id, supplier_name,
           rma_number, tracking_to_supplier, tracking_from_supplier,
           description, due_date } = req.body;
  
-  const safeTitle     = (title && title.trim())                                    || null;
+  const safeContactPerson = (contact_person && contact_person.trim())                    || null;
   const safeEquipment = toInt(equipment_id)                                        || null;
   const safeRmaNumber = (rma_number && rma_number.trim())                          || null;
   const safeTrackTo   = (tracking_to_supplier && tracking_to_supplier.trim())      || null;
@@ -164,12 +166,12 @@ router.put('/:id', requireStaff, (req, res, next) => {
  
       db.run(
         `UPDATE rmas
-         SET title = ?, status = ?, client_id = ?, equipment_id = ?,
+         SET contact_person = ?, status = ?, client_id = ?, equipment_id = ?,
              supplier_name = ?, rma_number = ?, tracking_to_supplier = ?,
              tracking_from_supplier = ?, description = ?, due_date = ?,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
-        [safeTitle, status, toInt(client_id), safeEquipment, supplier_name,
+        [safeContactPerson, status, toInt(client_id), safeEquipment, supplier_name,
          safeRmaNumber, safeTrackTo, safeTrackFrom, description, safeDueDate, id],
         function (err) {
           if (err) return next(err);
@@ -181,8 +183,8 @@ router.put('/:id', requireStaff, (req, res, next) => {
  
           if (old.status !== status)
             changes.push(`📋 Statut : "${old.status}" → "${status}"`);
-          if ((old.title || '') !== (safeTitle || ''))
-            changes.push(`✏️ Titre : "${old.title || '—'}" → "${safeTitle || '—'}"`);
+          if ((old.contact_person || '') !== (safeContactPerson || ''))
+            changes.push(`👤 Contact : "${old.contact_person || '—'}" → "${safeContactPerson || '—'}"`);
           if ((old.supplier_name || '') !== (supplier_name || ''))
             changes.push(`🏭 Fournisseur : "${old.supplier_name || '—'}" → "${supplier_name || '—'}"`);
           if ((old.rma_number || '') !== (safeRmaNumber || ''))
@@ -262,8 +264,8 @@ router.post('/:id/comments', requireStaff, (req, res, next) => {
       err ? next(err) : res.json({ success: true }));
 });
 
-// DELETE : admin uniquement
-router.delete('/:id', requireAdmin, (req, res, next) => {
+// DELETE : tout le staff (secrétaires incluses) peut supprimer un RMA
+router.delete('/:id', requireStaff, (req, res, next) => {
   const id = toInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID invalide.' });
  
@@ -298,8 +300,8 @@ router.post('/tags', requireStaff, (req, res, next) => {
     });
 });
 
-// Suppression globale : admin uniquement
-router.delete('/tags/:tagId/global', requireAdmin, (req, res, next) => {
+// Suppression globale : tout le staff autorisé
+router.delete('/tags/:tagId/global', requireStaff, (req, res, next) => {
   const id = toInt(req.params.tagId);
   if (!id) return res.status(400).json({ error: 'ID invalide.' });
   db.run('DELETE FROM rma_tags WHERE id = ?', [id], function (err) {
@@ -400,6 +402,50 @@ router.get('/stats/dashboard', requireStaff, (req, res, next) => {
             });
         });
     });
+});
+
+// ── Modification d'un commentaire (auteur ou admin) ──────────────────────────
+router.put('/comments/:commentId', requireStaff, (req, res, next) => {
+  const id = toInt(req.params.commentId);
+  if (!id) return res.status(400).json({ error: 'ID invalide.' });
+  const { comment } = req.body;
+  if (!isNonEmptyString(comment)) return res.status(400).json({ error: 'Commentaire requis.' });
+
+  db.get('SELECT user_id, is_system FROM rma_comments WHERE id = ?', [id], (err, row) => {
+    if (err) return next(err);
+    if (!row) return res.status(404).json({ error: 'Commentaire introuvable.' });
+    if (row.is_system) return res.status(403).json({ error: 'Impossible de modifier un commentaire système.' });
+    if (row.user_id !== req.session.userId && req.session.role !== 'admin') {
+      return res.status(403).json({ error: 'Vous ne pouvez modifier que vos propres commentaires.' });
+    }
+    db.run('UPDATE rma_comments SET comment = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [comment.trim(), id],
+      function (err) {
+        if (err) return next(err);
+        res.json({ success: true });
+      }
+    );
+  });
+});
+
+// ── Suppression d'un commentaire (auteur ou admin) ────────────────────────────
+router.delete('/comments/:commentId', requireStaff, (req, res, next) => {
+  const id = toInt(req.params.commentId);
+  if (!id) return res.status(400).json({ error: 'ID invalide.' });
+
+  db.get('SELECT user_id, is_system FROM rma_comments WHERE id = ?', [id], (err, row) => {
+    if (err) return next(err);
+    if (!row) return res.status(404).json({ error: 'Commentaire introuvable.' });
+    if (row.is_system) return res.status(403).json({ error: 'Impossible de supprimer un commentaire système.' });
+    if (row.user_id !== req.session.userId && req.session.role !== 'admin') {
+      return res.status(403).json({ error: 'Vous ne pouvez supprimer que vos propres commentaires.' });
+    }
+    db.run('DELETE FROM rma_comments WHERE id = ?', [id], function (err) {
+      if (err) return next(err);
+      if (this.changes === 0) return res.status(404).json({ error: 'Commentaire introuvable.' });
+      res.json({ success: true });
+    });
+  });
 });
 
 module.exports = router;
