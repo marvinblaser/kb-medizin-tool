@@ -12,6 +12,8 @@
   <link rel="stylesheet" href="/css/responsive-fix.css">
   <link rel="stylesheet" href="/css/global-fixes.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.default.min.css">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
   <style>
 
     /* ── LAYOUT ────────────────────────────────────────────────── */
@@ -351,6 +353,32 @@
       grid-template-columns: 1fr 1fr;
       gap: 14px;
     }
+
+    .ts-control {
+  border: 1px solid var(--border-primary) !important;
+  border-radius: 3px !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  box-shadow: none !important;
+  padding: 6px 10px !important;
+  font-size: var(--text-sm) !important;
+  font-family: inherit !important;
+  min-height: 36px !important;
+}
+.ts-wrapper.focus .ts-control {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 2px rgba(44,90,160,0.08) !important;
+}
+.ts-dropdown {
+  border: 1px solid var(--border-primary) !important;
+  background: var(--bg-elevated) !important;
+  box-shadow: var(--shadow-lg) !important;
+  font-family: inherit !important;
+  font-size: var(--text-sm) !important;
+}
+.ts-dropdown .option { color: var(--text-primary) !important; }
+.ts-dropdown .option:hover,
+.ts-dropdown .option.active { background: var(--color-primary) !important; color: #fff !important; }
 
     @media (max-width: 768px) {
     .loans-table thead { display: none !important; }

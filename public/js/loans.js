@@ -2,11 +2,12 @@
 'use strict';
 
 // ── État global ───────────────────────────────────────────────────────────────
-let allLoans   = [];
-let allDevices = [];
-let allClients = [];
-let currentTab = 'loans';
-let sortConfig = { col: 'created_at', order: 'desc' };
+let allLoans        = [];
+let allDevices      = [];
+let allClients      = [];
+let sortConfig      = { col: 'created_at', order: 'desc' };
+let currentTab      = 'loans';
+let tsLoanInstances = {};   // ← ajouter cette ligne
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -569,6 +570,21 @@ window.openLoanModal = function(id = null) {
   }
 
   document.getElementById('loan-modal').classList.add('active');
+
+   // TomSelect sur les selects recherchables
+  setTimeout(() => {
+    const cfg = { create: false, maxOptions: null, sortField: { field: 'text', direction: 'asc' } };
+    ['loan-client', 'loan-device', 'loan-rma-link'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (tsLoanInstances[id]) {
+        try { tsLoanInstances[id].destroy(); } catch {}
+      }
+      if (!el.disabled) {
+        tsLoanInstances[id] = new TomSelect(`#${id}`, cfg);
+      }
+    });
+  }, 50);
 };
 
 window.saveLoan = async function() {
