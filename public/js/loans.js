@@ -10,7 +10,7 @@ let sortConfig = { col: 'created_at', order: 'desc' };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  await Promise.all([loadLoans(), loadDevices(), loadClients()]);
+  await Promise.all([loadLoans(), loadDevices(), loadClients(), loadActiveRmas()]);
   loadStats();
 
   // Date de départ par défaut = aujourd'hui
@@ -54,13 +54,25 @@ async function loadClients() {
   } catch (e) { console.error('Clients:', e); }
 }
 
-async function loadStats() {
+async function loadActiveRmas() {
+  try {
+    const res  = await fetch('/api/rmas');
+    const data = await res.json();
+    const active = (Array.isArray(data) ? data : []).filter(r => r.status !== 'Archives');
+    const select = document.getElementById('loan-rma-link');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Aucun RMA associé --</option>' +
+      active.map(r =>
+        `<option value="${r.id}">${escHtml(r.rma_number || '#' + r.id)} — ${escHtml(r.cabinet_name || '')} — ${escHtml(r.equipment_name || 'Appareil inconnu')}</option>`
+      ).join('');
+  } catch (e) { console.error('RMAs:', e); }
   try {
     const res  = await fetch('/api/loans/stats');
     const data = await res.json();
     renderStats(data);
   } catch (e) { console.error('Stats:', e); }
 }
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  RENDU PRÊTS
@@ -121,7 +133,18 @@ function renderLoans() {
         <td>
           <div style="font-weight:600;">${escHtml(l.device_name)}</div>
           <div style="font-size:11px;color:var(--text-tertiary);">${escHtml(l.device_brand || '')}</div>
-          ${l.serial_number ? `<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);margin-top:2px;">SN ${escHtml(l.serial_number)}</div>` : ''}
+          ${l.serial_number ? `
+            <div style="display:inline-block;margin-top:3px;font-family:var(--font-mono);font-size:10px;
+              background:var(--bg-secondary);border:1px solid var(--border-primary);
+              padding:1px 6px;border-radius:2px;color:var(--text-secondary);letter-spacing:0.02em;">
+              SN&nbsp;<strong>${escHtml(l.serial_number)}</strong>
+            </div>` : ''}
+          <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;">
+            ${l.device_owner === 'Fournisseur'
+              ? `<span style="background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);font-size:9px;font-weight:700;padding:1px 6px;border-radius:2px;">Fournisseur</span>`
+              : `<span style="background:rgba(44,90,160,0.10);color:var(--color-primary);border:1px solid rgba(44,90,160,0.25);font-size:9px;font-weight:700;padding:1px 6px;border-radius:2px;">KB Med</span>`}
+            ${l.rma_id ? `<span style="background:rgba(139,92,246,0.12);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);font-size:9px;font-weight:700;padding:1px 6px;border-radius:2px;cursor:pointer;" onclick="event.stopPropagation();window.location.href='/rmas.html'" title="${escHtml(l.rma_number || '')}"><i class="fas fa-link" style="font-size:8px;margin-right:2px;"></i>${escHtml(l.rma_number || '#'+l.rma_id)}</span>` : ''}
+          </div>
         </td>
         <td>${l.cabinet_name ? `<i class="fas fa-hospital" style="opacity:0.35;font-size:10px;margin-right:4px;"></i>${escHtml(l.cabinet_name)}` : '<span style="color:var(--text-tertiary);">—</span>'}</td>
         <td style="font-size:var(--text-xs);color:var(--text-secondary);">${fmtDate(l.start_date)}</td>
@@ -234,6 +257,13 @@ function renderDevices() {
               <td style="padding:12px 14px;text-align:right;" onclick="event.stopPropagation()">
                 <button class="btn-icon-sm btn-icon-primary" onclick="openDeviceModal(${d.id})" title="Modifier">
                   <i class="fas fa-pen"></i>
+                </button>
+                <button class="btn-icon-sm btn-icon-danger"
+                  data-id="${d.id}"
+                  onclick="event.stopPropagation(); deleteDevice(this.getAttribute('data-id'))"
+                  title="Supprimer"
+                  ${d.active_loans > 0 ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : ''}>
+                  <i class="fas fa-trash"></i>
                 </button>
               </td>
             </tr>`).join('')}
@@ -470,6 +500,14 @@ function switchTab(tab) {
   if (tab === 'stats') loadStats();
 }
 
+async function loadStats() {
+  try {
+    const res  = await fetch('/api/loans/stats');
+    const data = await res.json();
+    renderStats(data);
+  } catch (e) { console.error('Stats:', e); }
+}
+
 window.filterLoans = function() {
   if (currentTab === 'loans')     renderLoans();
   if (currentTab === 'catalogue') renderDevices();
@@ -517,6 +555,11 @@ window.openLoanModal = function(id = null) {
     document.getElementById('loan-expected-return').value = loan.expected_return_date || '';
     document.getElementById('loan-reason').value       = loan.reason || '';
     document.getElementById('loan-notes').value        = loan.notes || '';
+    document.getElementById('loan-device-owner').value = loan.device_owner || 'KB Med';
+    // Prérempli le lien RMA si existant
+    const rmaSelect = document.getElementById('loan-rma-link');
+    if (rmaSelect) rmaSelect.value = loan.rma_id || '';
+    // En mode édition, l'appareil ne peut pas changer
     // En mode édition, l'appareil ne peut pas changer
     document.getElementById('loan-device').disabled = true;
   } else {
@@ -545,6 +588,8 @@ window.saveLoan = async function() {
     expected_return_date: document.getElementById('loan-expected-return').value || null,
     reason:               document.getElementById('loan-reason').value || null,
     notes:                document.getElementById('loan-notes').value || null,
+    device_owner:         document.getElementById('loan-device-owner')?.value || 'KB Med',
+    rma_id:               document.getElementById('loan-rma-link')?.value || null,
   };
 
   try {
@@ -680,9 +725,12 @@ window.saveDevice = async function() {
   } catch (e) { console.error(e); }
 };
 
-window.deleteDevice = async function() {
-  const id = document.getElementById('device-id').value;
-  const ok = await confirmDelete('cet appareil');
+window.deleteDevice = async function(id) {
+  id = id || document.getElementById('device-id').value;
+  if (!id) return;
+
+  const device = allDevices.find(d => d.id === parseInt(id));
+  const ok = await confirmDelete(device?.name || 'cet appareil');
   if (!ok) return;
 
   try {
@@ -690,7 +738,7 @@ window.deleteDevice = async function() {
     if (res.ok) {
       closeModal('device-modal');
       await loadDevices();
-      if (window.toast) toast.success('Appareil supprimé', '');
+      if (window.toast) toast.success('Appareil supprimé', device?.name || '');
     } else {
       const err = await res.json();
       if (window.toast) toast.error('Erreur', err.error);
@@ -759,6 +807,25 @@ window.openLoanDetail = function(id) {
     <div style="margin-top:14px;background:var(--bg-secondary);border:1px solid var(--border-primary);padding:12px;">
       ${loan.reason ? `<div style="margin-bottom:8px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-tertiary);">Motif</span><div style="font-size:var(--text-sm);margin-top:3px;">${escHtml(loan.reason)}</div></div>` : ''}
       ${loan.notes  ? `<div><span style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-tertiary);">Notes</span><div style="font-size:var(--text-sm);margin-top:3px;">${escHtml(loan.notes)}</div></div>` : ''}
+    </div>` : ''}
+
+    ${loan.rma_id ? `
+    <div style="margin-top:14px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.25);padding:12px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#8b5cf6;margin-bottom:8px;letter-spacing:0.06em;">
+        <i class="fas fa-link" style="margin-right:5px;"></i> RMA associé
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-weight:700;font-size:var(--text-sm);">${escHtml(loan.rma_number || '#' + loan.rma_id)}</div>
+          ${loan.rma_client_name ? `<div style="font-size:var(--text-xs);color:var(--text-secondary);margin-top:2px;">${escHtml(loan.rma_client_name)}</div>` : ''}
+          <div style="margin-top:4px;">
+            <span style="font-size:10px;padding:1px 7px;border-radius:2px;background:rgba(139,92,246,0.12);color:#8b5cf6;font-weight:700;">${escHtml(loan.rma_status || '')}</span>
+          </div>
+        </div>
+        <a href="/rmas.html" style="font-size:var(--text-xs);color:#8b5cf6;text-decoration:none;display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid rgba(139,92,246,0.3);border-radius:3px;">
+          <i class="fas fa-external-link-alt" style="font-size:10px;"></i> Voir le RMA
+        </a>
+      </div>
     </div>` : ''}
 
     ${loan.return_condition ? `

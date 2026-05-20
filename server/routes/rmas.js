@@ -247,7 +247,18 @@ router.get('/:id', requireStaff, (req, res, next) => {
             db.all('SELECT * FROM rma_attachments WHERE rma_id = ? ORDER BY created_at DESC',
               [id], (err, attachments) => {
                 rma.attachments = attachments || [];
-                res.json(rma);
+                // ── Prêt lié ──────────────────────────────────────────────
+                db.get(`
+                  SELECT l.*, d.name as device_name, d.brand as device_brand,
+                    d.serial_number as device_serial
+                  FROM loans l
+                  LEFT JOIN loan_devices d ON l.device_id = d.id
+                  WHERE l.rma_id = ?
+                  ORDER BY l.created_at DESC LIMIT 1`,
+                  [id], (err, linked_loan) => {
+                    rma.linked_loan = linked_loan || null;
+                    res.json(rma);
+                  });
               });
           });
       });

@@ -28,11 +28,16 @@ router.get('/', requireStaff, async (req, res, next) => {
         d.brand       as device_brand,
         d.serial_number,
         c.cabinet_name,
-        u.name        as created_by_name
+        u.name        as created_by_name,
+        r.rma_number,
+        r.status      as rma_status,
+        rc.cabinet_name as rma_client_name
       FROM loans l
       LEFT JOIN loan_devices d ON l.device_id = d.id
       LEFT JOIN clients      c ON l.client_id = c.id
       LEFT JOIN users        u ON l.created_by = u.id
+      LEFT JOIN rmas         r ON l.rma_id = r.id
+      LEFT JOIN clients     rc ON r.client_id = rc.id
       ORDER BY l.created_at DESC
     `);
     res.json(loans);
@@ -76,7 +81,8 @@ router.get('/stats', requireStaff, async (req, res, next) => {
 // POST /api/loans — créer un prêt
 router.post('/', requireStaff, async (req, res, next) => {
   try {
-    const { device_id, client_id, start_date, expected_return_date, reason, notes } = req.body;
+    const { device_id, client_id, start_date, expected_return_date, reason, notes,
+            rma_id, device_owner } = req.body;
     if (!device_id || !start_date) {
       return res.status(400).json({ error: 'Appareil et date de départ requis.' });
     }
@@ -89,10 +95,12 @@ router.post('/', requireStaff, async (req, res, next) => {
     }
 
     const result = await run(`
-      INSERT INTO loans (device_id, client_id, start_date, expected_return_date, reason, notes, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      INSERT INTO loans (device_id, client_id, start_date, expected_return_date, reason, notes,
+                         rma_id, device_owner, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [device_id, client_id || null, start_date,
-       expected_return_date || null, reason || null, notes || null, req.session.userId]
+       expected_return_date || null, reason || null, notes || null,
+       rma_id || null, device_owner || 'KB Med', req.session.userId]
     );
 
     // Met à jour le statut de l'appareil
@@ -106,12 +114,14 @@ router.post('/', requireStaff, async (req, res, next) => {
 // PUT /api/loans/:id — modifier un prêt
 router.put('/:id', requireStaff, async (req, res, next) => {
   try {
-    const { client_id, start_date, expected_return_date, reason, notes } = req.body;
+    const { client_id, start_date, expected_return_date, reason, notes,
+            rma_id, device_owner } = req.body;
     await run(`
       UPDATE loans SET client_id=?, start_date=?, expected_return_date=?, reason=?, notes=?,
-        updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+        rma_id=?, device_owner=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
       [client_id || null, start_date || null, expected_return_date || null,
-      reason || null, notes || null, req.params.id]
+       reason || null, notes || null, rma_id || null,
+       device_owner || 'KB Med', req.params.id]
     );
     res.json({ success: true });
   } catch (err) { next(err); }
@@ -140,7 +150,7 @@ router.put('/:id/return', requireStaff, async (req, res, next) => {
 });
 
 // DELETE /api/loans/:id
-router.delete('/:id', requireAdmin, async (req, res, next) => {
+router.delete('/:id', requireStaff, async (req, res, next) => {
   try {
     const loan = await get('SELECT * FROM loans WHERE id = ?', [req.params.id]);
     if (!loan) return res.status(404).json({ error: 'Prêt introuvable.' });
@@ -213,7 +223,7 @@ router.put('/devices/:id', requireStaff, async (req, res, next) => {
 });
 
 // DELETE /api/loans/devices/:id
-router.delete('/devices/:id', requireAdmin, async (req, res, next) => {
+router.delete('/devices/:id', requireStaff, async (req, res, next) => {
   try {
     const active = await get(
       `SELECT COUNT(*) as count FROM loans WHERE device_id = ? AND status = 'En cours'`,
@@ -223,6 +233,19 @@ router.delete('/devices/:id', requireAdmin, async (req, res, next) => {
       return res.status(409).json({ error: 'Impossible de supprimer un appareil actuellement en prêt.' });
     }
     await run('DELETE FROM loan_devices WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// ── Lier un prêt existant à un RMA (depuis la page RMA) ──────────────────────
+// PUT /api/loans/:id/link-rma  { rma_id }
+router.put('/:id/link-rma', requireStaff, async (req, res, next) => {
+  try {
+    const { rma_id } = req.body;
+    await run(
+      `UPDATE loans SET rma_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [rma_id || null, req.params.id]
+    );
     res.json({ success: true });
   } catch (err) { next(err); }
 });

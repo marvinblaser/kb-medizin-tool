@@ -312,14 +312,9 @@ function buildCard(rma, isDuplicate = false) {
       <!-- Appareil -->
       <div class="card-equipment" title="${escapeHtml(rma.equipment_name || '')}">
         ${escapeHtml(rma.equipment_name || 'Appareil non spécifié')}
+        ${rma.serial_number ? `<span style="color:var(--text-tertiary);font-weight:400;font-size:10px;"> · SN ${escapeHtml(rma.serial_number)}</span>` : ''}
       </div>
-      ${rma.serial_number ? `
-      <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-secondary);
-        background:var(--bg-secondary);border:1px solid var(--border-primary);
-        border-radius:2px;padding:1px 7px;margin-bottom:6px;display:inline-block;letter-spacing:0.03em;">
-        SN&nbsp;<strong>${escapeHtml(rma.serial_number)}</strong>
-      </div>` : ''}
-      
+ 
       <!-- Client -->
       <div class="card-client">
         <i class="fas fa-hospital" style="opacity:0.35;font-size:10px;flex-shrink:0"></i>
@@ -832,12 +827,17 @@ async function openRmaDetails(id) {
   body.innerHTML = loadingHtml();
 
   try {
-    const [rmaRes, tagsRes] = await Promise.all([
+    const [rmaRes, tagsRes, loansRes] = await Promise.all([
       fetch(`/api/rmas/${id}`),
-      fetch('/api/rmas/tags/all')
+      fetch('/api/rmas/tags/all'),
+      fetch('/api/loans')
     ]);
     const rma     = await rmaRes.json();
     const allTags = await tagsRes.json();
+    const loansData = await loansRes.json();
+    // Prêts actifs non liés à un autre RMA (ou déjà liés à ce RMA)
+    window.allLoansForRma = (Array.isArray(loansData) ? loansData : [])
+      .filter(l => l.status === 'En cours' && (!l.rma_id || l.rma_id === id));
 
     const stageIndex = RMA_STAGES.indexOf(rma.status);
     const stageColor = STAGE_COLORS[stageIndex] || '#94a3b8';
@@ -1073,6 +1073,9 @@ async function openRmaDetails(id) {
 
           <!-- Tags -->
           ${renderTagsSection(rma, allTags, id)}
+
+          <!-- Appareil de remplacement (prêt lié) -->
+          ${buildLinkedLoanBlock(rma, id)}
 
           <!-- Pièces jointes -->
           ${getAttachmentsHtml(rma, id)}
@@ -1385,6 +1388,157 @@ async function deleteRma() {
 // ══════════════════════════════════════════════════════════════════════════════
 //  TAGS
 // ══════════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  PRÊT LIÉ AU RMA
+// ══════════════════════════════════════════════════════════════════════════════
+
+function buildLinkedLoanBlock(rma, rmaId) {
+  const loan = rma.linked_loan;
+
+  const ownerBadge = (owner) => {
+    const isSupplier = owner === 'Fournisseur';
+    const color = isSupplier ? '#f59e0b' : 'var(--color-primary)';
+    return `<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
+      padding:1px 6px;border-radius:2px;background:${color}15;color:${color};border:1px solid ${color}30;">
+      ${isSupplier ? 'Fournisseur' : 'KB Med'}
+    </span>`;
+  };
+
+  const statusBadge = (status) => {
+    const color = status === 'Retourné' ? 'var(--color-success)' : status === 'En retard' ? 'var(--color-danger)' : 'var(--color-info)';
+    return `<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:2px;background:${color}15;color:${color};border:1px solid ${color}30;">${escapeHtml(status || '')}</span>`;
+  };
+
+  if (loan) {
+    // ── Prêt existant ────────────────────────────────────────────────────────
+    const fmtD = d => d ? new Intl.DateTimeFormat('fr-CH').format(new Date(d)) : '—';
+    return `
+      <div class="rma-info-card" style="margin-top:0;">
+        <div class="rma-info-card-header">
+          <i class="fas fa-exchange-alt" style="color:var(--color-primary)"></i>
+          Appareil de remplacement
+          <span style="margin-left:auto;">${ownerBadge(loan.device_owner)}</span>
+        </div>
+        <div class="rma-info-card-body" style="padding:12px 14px;">
+          <div style="font-weight:700;font-size:var(--text-sm);margin-bottom:2px;">${escapeHtml(loan.device_name || '—')}</div>
+          ${loan.device_brand ? `<div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px;">${escapeHtml(loan.device_brand)}</div>` : ''}
+          ${loan.device_serial ? `<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-bottom:8px;">SN ${escapeHtml(loan.device_serial)}</div>` : ''}
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+            ${statusBadge(loan.status)}
+            <span style="font-size:10px;color:var(--text-tertiary);">
+              ${fmtD(loan.start_date)} ${loan.expected_return_date ? `→ ${fmtD(loan.expected_return_date)}` : ''}
+            </span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-primary);">
+            <a href="/loans.html" style="flex:1;text-align:center;font-size:var(--text-xs);color:var(--color-primary);
+              text-decoration:none;padding:5px;border:1px solid var(--border-primary);border-radius:3px;
+              display:flex;align-items:center;justify-content:center;gap:4px;">
+              <i class="fas fa-external-link-alt" style="font-size:10px;"></i> Voir le prêt
+            </a>
+            <button onclick="unlinkLoanFromRma(${rmaId}, ${loan.id})"
+              style="flex:1;background:none;border:1px solid rgba(239,68,68,0.3);color:var(--color-danger);
+                font-size:var(--text-xs);padding:5px;border-radius:3px;cursor:pointer;font-family:inherit;
+                display:flex;align-items:center;justify-content:center;gap:4px;"
+              onmouseover="this.style.background='var(--color-danger-bg)'"
+              onmouseout="this.style.background='none'">
+              <i class="fas fa-unlink" style="font-size:10px;"></i> Dissocier
+            </button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── Aucun prêt lié — formulaire d'association ────────────────────────────
+  // On filtre les prêts actifs disponibles (non liés ou liés à ce RMA)
+  const availableLoans = (window.allLoansForRma || []);
+  const optionsHtml = availableLoans.length
+    ? availableLoans.map(l =>
+        `<option value="${l.id}">${escapeHtml(l.device_name || '—')}${l.device_brand ? ` — ${escapeHtml(l.device_brand)}` : ''} · ${escapeHtml(l.cabinet_name || 'Sans client')}</option>`
+      ).join('')
+    : '<option value="">Aucun prêt actif disponible</option>';
+
+  return `
+    <div class="rma-info-card" style="margin-top:0;">
+      <div class="rma-info-card-header">
+        <i class="fas fa-exchange-alt" style="color:var(--color-primary)"></i>
+        Appareil de remplacement
+      </div>
+      <div class="rma-info-card-body" style="padding:12px 14px;">
+        <div style="font-size:var(--text-xs);color:var(--text-tertiary);font-style:italic;margin-bottom:10px;">
+          Aucun prêt associé à ce RMA.
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <select id="rma-loan-select-${rmaId}"
+            style="width:100%;height:32px;padding:0 8px;border:1px solid var(--border-primary);
+              border-radius:3px;font-size:var(--text-xs);background:var(--bg-primary);
+              color:var(--text-primary);font-family:inherit;outline:none;">
+            <option value="">-- Sélectionner un prêt existant --</option>
+            ${optionsHtml}
+          </select>
+          <button onclick="linkLoanToRma(${rmaId})"
+            style="width:100%;padding:5px;background:var(--color-primary);color:#fff;
+              border:none;border-radius:3px;font-size:var(--text-xs);cursor:pointer;
+              font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;">
+            <i class="fas fa-link"></i> Associer ce prêt
+          </button>
+          <a href="/loans.html" style="width:100%;text-align:center;padding:5px;
+            background:var(--bg-secondary);border:1px solid var(--border-primary);
+            border-radius:3px;font-size:var(--text-xs);color:var(--text-secondary);
+            text-decoration:none;display:flex;align-items:center;justify-content:center;gap:5px;">
+            <i class="fas fa-plus" style="font-size:10px;"></i> Créer un nouveau prêt
+          </a>
+        </div>
+      </div>
+    </div>`;
+}
+
+window.linkLoanToRma = async function(rmaId) {
+  const select = document.getElementById(`rma-loan-select-${rmaId}`);
+  const loanId = select?.value;
+  if (!loanId) {
+    if (window.toast) toast.error('Sélection requise', 'Choisissez un prêt dans la liste.');
+    return;
+  }
+  try {
+    const res = await fetch(`/api/loans/${loanId}/link-rma`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rma_id: rmaId })
+    });
+    if (res.ok) {
+      tooltipCache[rmaId] = null;
+      await loadRmas();
+      openRmaDetails(rmaId);
+      if (window.toast) toast.success('Prêt associé', 'Le lien RMA ↔ Prêt a été créé.');
+    } else {
+      const err = await res.json();
+      if (window.toast) toast.error('Erreur', err.error || 'Impossible d\'associer.');
+    }
+  } catch (e) { console.error(e); if (window.toast) toast.error('Erreur réseau', ''); }
+};
+
+window.unlinkLoanFromRma = async function(rmaId, loanId) {
+  const ok = await showConfirm({
+    title: 'Dissocier le prêt ?',
+    message: 'Le prêt restera dans le système mais ne sera plus lié à ce RMA.',
+    confirmText: 'Dissocier', cancelText: 'Annuler', type: 'warning'
+  });
+  if (!ok) return;
+  try {
+    const res = await fetch(`/api/loans/${loanId}/link-rma`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rma_id: null })
+    });
+    if (res.ok) {
+      tooltipCache[rmaId] = null;
+      await loadRmas();
+      openRmaDetails(rmaId);
+      if (window.toast) toast.success('Prêt dissocié', '');
+    }
+  } catch (e) { console.error(e); }
+};
 
 window.renderTagsSection = function(rma, allTags, rmaId) {
   const assignedIds = rma.tags ? rma.tags.map(t => t.id) : [];

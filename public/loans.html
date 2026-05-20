@@ -576,6 +576,20 @@
             <textarea id="loan-notes" rows="3" class="form-control"
               placeholder="Accessoires inclus, conditions particulières..."></textarea>
           </div>
+          <!-- Propriétaire + RMA -->
+          <div class="form-group">
+            <label>Propriétaire de l'appareil</label>
+            <select id="loan-device-owner" class="form-control">
+              <option value="KB Med">KB Med (notre appareil)</option>
+              <option value="Fournisseur">Fournisseur (appareil prêté par le SAV)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Lié à un RMA <span style="font-weight:400;color:var(--text-tertiary);">(optionnel)</span></label>
+            <select id="loan-rma-link" class="form-control">
+              <option value="">-- Aucun RMA associé --</option>
+            </select>
+          </div>
         </div>
       </form>
     </div>
