@@ -100,7 +100,7 @@ router.post('/', requireStaff, async (req, res, next) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [device_id, client_id || null, start_date,
        expected_return_date || null, reason || null, notes || null,
-       rma_id || null, device_owner || 'KB Med', req.session.userId]
+       rma_id || null, device_owner ?? '', req.session.userId]
     );
 
     // Met à jour le statut de l'appareil
@@ -121,7 +121,7 @@ router.put('/:id', requireStaff, async (req, res, next) => {
         rma_id=?, device_owner=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
       [client_id || null, start_date || null, expected_return_date || null,
        reason || null, notes || null, rma_id || null,
-       device_owner || 'KB Med', req.params.id]
+      device_owner ?? '', req.params.id]
     );
     res.json({ success: true });
   } catch (err) { next(err); }

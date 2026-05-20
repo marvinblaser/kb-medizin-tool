@@ -558,7 +558,7 @@ window.openLoanModal = function(id = null) {
     document.getElementById('loan-expected-return').value = loan.expected_return_date || '';
     document.getElementById('loan-reason').value       = loan.reason || '';
     document.getElementById('loan-notes').value        = loan.notes || '';
-    document.getElementById('loan-device-owner').value = loan.device_owner || 'KB Med';
+    document.getElementById('loan-device-owner').value = loan.device_owner || '';
     // Prérempli le lien RMA si existant
     const rmaSelect = document.getElementById('loan-rma-link');
     if (rmaSelect) rmaSelect.value = loan.rma_id || '';
@@ -575,18 +575,28 @@ window.openLoanModal = function(id = null) {
 
    // TomSelect sur les selects recherchables
   setTimeout(() => {
-    const cfg = { create: false, maxOptions: null, sortField: { field: 'text', direction: 'asc' } };
-    ['loan-client', 'loan-device', 'loan-rma-link'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (tsLoanInstances[id]) {
-        try { tsLoanInstances[id].destroy(); } catch {}
+  const cfg = { create: false, maxOptions: null, sortField: { field: 'text', direction: 'asc' } };
+
+  ['loan-client', 'loan-device', 'loan-rma-link'].forEach(selId => {
+    const el = document.getElementById(selId);
+    if (!el) return;
+
+    // ← Capture la valeur AVANT de détruire l'instance
+    const savedValue = el.value;
+
+    if (tsLoanInstances[selId]) {
+      try { tsLoanInstances[selId].destroy(); } catch {}
+    }
+
+    if (!el.disabled) {
+      tsLoanInstances[selId] = new TomSelect(`#${selId}`, cfg);
+      // ← Restaure la valeur APRÈS l'init (silent = pas de callback onChange)
+      if (savedValue) {
+        tsLoanInstances[selId].setValue(savedValue, true);
       }
-      if (!el.disabled) {
-        tsLoanInstances[id] = new TomSelect(`#${id}`, cfg);
-      }
-    });
-  }, 50);
+    }
+  });
+}, 50);
 };
 
 window.saveLoan = async function() {
@@ -606,7 +616,7 @@ window.saveLoan = async function() {
     expected_return_date: document.getElementById('loan-expected-return').value || null,
     reason:               document.getElementById('loan-reason').value || null,
     notes:                document.getElementById('loan-notes').value || null,
-    device_owner:         document.getElementById('loan-device-owner')?.value || 'KB Med',
+    device_owner: document.getElementById('loan-device-owner')?.value ?? '',
     rma_id:               document.getElementById('loan-rma-link')?.value || null,
   };
 
