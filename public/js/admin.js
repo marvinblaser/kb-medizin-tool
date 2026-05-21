@@ -261,7 +261,21 @@ async function loadRoles() {
     if (!r.ok) return; // 403 ou autre → on sort silencieusement
     const roles = await r.json();
     if (!Array.isArray(roles)) return;
-    document.getElementById('roles-tbody').innerHTML = roles.map(role => `...`).join('');
+    document.getElementById('roles-tbody').innerHTML = roles.map(role => `
+  <tr>
+    <td><strong>${escapeHtml(role.name)}</strong></td>
+    <td><code style="font-size:12px;color:var(--text-tertiary);">${role.slug}</code></td>
+    <td style="font-size:12px;color:var(--text-secondary);">${role.permissions || '—'}</td>
+    <td style="text-align:right;">
+      <button class="btn-icon-sm btn-icon-primary"
+        onclick="openRoleModal('${role.slug}','${escapeHtml(role.name)}','${role.permissions||''}')"
+        title="Modifier"><i class="fas fa-pen"></i></button>
+      ${role.is_removable ? `
+        <button class="btn-icon-sm btn-icon-danger"
+          onclick="deleteRole('${role.slug}')"
+          title="Supprimer"><i class="fas fa-trash"></i></button>` : ''}
+    </td>
+  </tr>`).join('');
     const select = document.getElementById('user-role');
     if (select) select.innerHTML = roles.map(r => `<option value="${r.slug}">${r.name}</option>`).join('');
   } catch(e) { console.error(e); }
@@ -296,7 +310,20 @@ async function deleteRole(slug) {
     const res = await fetch(`/api/admin/roles/${slug}`, { method: 'DELETE' });
     if (res.ok) { loadRoles(); if (window.toast) toast.success('Rôle supprimé', ''); }
 }
-
+async function deleteUser(id) {
+  const ok = await confirmDelete('cet utilisateur');
+  if (!ok) return;
+  try {
+    const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      loadUsers();
+      if (window.toast) toast.success('Utilisateur supprimé', '');
+    } else {
+      const err = await res.json();
+      if (window.toast) toast.error('Erreur', err.error || 'Suppression impossible.');
+    }
+  } catch (e) { console.error(e); }
+}
 async function loadLogs(category = 'all') {
   try {
     let url = '/api/admin/logs?limit=100';
@@ -305,7 +332,27 @@ async function loadLogs(category = 'all') {
     if (!r.ok) return;
     const logs = await r.json();
     if (!Array.isArray(logs)) return;
-    document.getElementById('logs-tbody').innerHTML = logs.length ? logs.map(l => `...`).join('') : '<tr><td colspan="5">Aucun log.</td></tr>';
+    document.getElementById('logs-tbody').innerHTML = logs.length
+  ? logs.map(l => {
+      const date = new Date(l.created_at).toLocaleString('fr-CH', {
+        day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
+      });
+      return `
+      <tr>
+        <td style="font-size:var(--text-xs);color:var(--text-tertiary);white-space:nowrap;">${date}</td>
+        <td><strong style="font-size:var(--text-sm);">${escapeHtml(l.user_name || 'Système')}</strong>
+          ${l.user_role ? `<span style="font-size:10px;color:var(--text-tertiary);margin-left:4px;">${l.user_role}</span>` : ''}
+        </td>
+        <td><code style="font-size:11px;background:var(--bg-secondary);padding:1px 5px;border-radius:2px;">${escapeHtml(l.action || '—')}</code></td>
+        <td style="font-size:var(--text-sm);color:var(--text-secondary);">
+          ${escapeHtml(l.entity || '—')}${l.entity_id ? `<span style="color:var(--text-tertiary);"> #${l.entity_id}</span>` : ''}
+        </td>
+        <td style="font-size:var(--text-xs);color:var(--text-secondary);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          ${escapeHtml(l.details || '—')}
+        </td>
+      </tr>`;
+    }).join('')
+  : '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-tertiary);">Aucun log.</td></tr>';
   } catch(e) { console.error(e); }
 }
 async function filterLogs(cat, btn) { document.querySelectorAll('.log-filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); await loadLogs(cat); }
@@ -316,8 +363,35 @@ async function loadUsers() {
     if (!r.ok) return;
     const users = await r.json();
     if (!Array.isArray(users)) return;
-    document.getElementById('users-tbody').innerHTML = users.map(u => `...`).join('');
-  } catch(e) { console.error(e); }
+    document.getElementById('users-tbody').innerHTML = users.map(u => {
+      const lastLogin = u.last_login_at
+        ? new Date(u.last_login_at).toLocaleString('fr-CH', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+        : '—';
+      return `
+      <tr>
+        <td><strong>${escapeHtml(u.name)}</strong></td>
+        <td style="color:var(--text-secondary);font-size:var(--text-sm);">${escapeHtml(u.email)}</td>
+        <td><span class="badge badge-secondary">${escapeHtml(u.role)}</span></td>
+        <td style="font-size:var(--text-sm);color:var(--text-secondary);">${escapeHtml(u.phone || '—')}</td>
+        <td>
+          <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:2px;
+            background:${u.is_active ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'};
+            color:${u.is_active ? '#10b981' : 'var(--color-danger)'};">
+            ${u.is_active ? 'Actif' : 'Inactif'}
+          </span>
+        </td>
+        <td style="font-size:var(--text-xs);color:var(--text-tertiary);">${lastLogin}</td>
+        <td style="text-align:right;">
+          <button class="btn-icon-sm btn-icon-primary" onclick="openUserModal(${u.id})" title="Modifier">
+            <i class="fas fa-pen"></i></button>
+          <button class="btn-icon-sm btn-icon-warning" onclick="openResetModal(${u.id})" title="Réinitialiser MDP">
+            <i class="fas fa-key"></i></button>
+          <button class="btn-icon-sm btn-icon-danger" onclick="deleteUser(${u.id})" title="Supprimer l'utilisateur">
+            <i class="fas fa-trash"></i></button>
+        </td>
+      </tr>`;
+    }).join('');
+      } catch(e) { console.error(e); }
 }
 async function openUserModal(id=null){ 
     const form=document.getElementById('user-form'); 
