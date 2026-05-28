@@ -944,23 +944,40 @@ async function loadClientHistory(id) {
                   🔧 ${item.machines}
                 </div>` : ''}
  
-              <div style="display:flex;align-items:center;gap:10px;margin-top:5px;flex-wrap:wrap;">
-                <span style="font-size:11px;color:var(--neutral-400);">
-                  <i class="far fa-calendar" style="margin-right:3px;"></i>${fmtDate(item.date)}
-                </span>
-                ${item.tech_name ? `
-                  <span style="font-size:11px;color:var(--neutral-400);">
-                    <i class="fas fa-user" style="margin-right:3px;"></i>${item.tech_name}
-                  </span>` : ''}
-                ${url ? `
-                  <button onclick="event.stopPropagation();window.location.href='${url}'"
-                    style="margin-left:auto;padding:3px 10px;font-size:11px;font-weight:600;
-                      color:${c.color};background:${c.color}15;border:1px solid ${c.color}40;
-                      border-radius:3px;cursor:pointer;font-family:inherit;
-                      display:flex;align-items:center;gap:4px;white-space:nowrap;">
-                    <i class="fas fa-arrow-right" style="font-size:9px;"></i> Voir
-                  </button>` : ''}
-              </div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;">
+  <span style="font-size:11px;color:var(--neutral-400);">
+    <i class="far fa-calendar" style="margin-right:3px;"></i>${fmtDate(item.date)}
+  </span>
+  ${item.tech_name ? `
+    <span style="font-size:11px;color:var(--neutral-400);">
+      <i class="fas fa-user" style="margin-right:3px;"></i>${item.tech_name}
+    </span>` : ''}
+
+  <!-- Actions -->
+  <div style="margin-left:auto;display:flex;gap:4px;">
+    ${item.type === 'rdv' ? `
+      <button onclick="event.stopPropagation();openScheduleModal(${id},'',${item.id})"
+        style="padding:3px 8px;font-size:11px;font-weight:600;color:#3b82f6;
+          background:#3b82f615;border:1px solid #3b82f640;border-radius:3px;
+          cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:3px;">
+        <i class="fas fa-pen" style="font-size:9px;"></i> Modifier
+      </button>
+      <button onclick="event.stopPropagation();deleteAppointmentFromHistory(${item.id},${id})"
+        style="padding:3px 8px;font-size:11px;font-weight:600;color:#ef4444;
+          background:#ef444415;border:1px solid #ef444440;border-radius:3px;
+          cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:3px;">
+        <i class="fas fa-trash" style="font-size:9px;"></i> Supprimer
+      </button>` : ''}
+    ${url ? `
+      <button onclick="event.stopPropagation();window.location.href='${url}'"
+        style="padding:3px 10px;font-size:11px;font-weight:600;
+          color:${c.color};background:${c.color}15;border:1px solid ${c.color}40;
+          border-radius:3px;cursor:pointer;font-family:inherit;
+          display:flex;align-items:center;gap:4px;white-space:nowrap;">
+        <i class="fas fa-arrow-right" style="font-size:9px;"></i> Voir
+      </button>` : ''}
+  </div>
+</div>
             </div>
           </div>`;
       });

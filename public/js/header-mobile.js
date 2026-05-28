@@ -65,80 +65,80 @@
   document.head.appendChild(style);
 
   function init() {
-    const groups = document.querySelectorAll(
-      '.header-actions-group, .rma-topbar-actions, .topbar-right'
+  // Sélecteurs explicites existants
+  const explicit = Array.from(document.querySelectorAll(
+    '.header-actions-group, .rma-topbar-actions, .topbar-right'
+  ));
+
+  // Auto-détection : dernier enfant d'un .page-header contenant ≥2 boutons
+  const auto = [];
+  document.querySelectorAll('.page-header').forEach(header => {
+    const children = Array.from(header.children);
+    for (let i = children.length - 1; i >= 0; i--) {
+      const el = children[i];
+      if (!explicit.includes(el) &&
+          el.querySelectorAll('button, a.btn').length >= 2) {
+        auto.push(el);
+        break;
+      }
+    }
+  });
+
+  const groups = [...explicit, ...auto];
+
+  groups.forEach(group => {
+    const btns = Array.from(group.children).filter(el =>
+      !el.classList.contains('kb-notif-bell-wrap') &&
+      !el.classList.contains('kb-more-btn') &&
+      el.id !== 'notif-btn' &&
+      el.id !== 'theme-toggle' &&
+      el.id !== 'kb-notif-bell'
     );
 
-    groups.forEach(group => {
-      // Récupère tous les boutons sauf la cloche et le thème
-      const btns = Array.from(group.children).filter(el =>
-        !el.classList.contains('kb-notif-bell-wrap') &&
-        !el.classList.contains('kb-more-btn') &&
-        el.id !== 'notif-btn' &&
-        el.id !== 'theme-toggle' &&
-        el.id !== 'kb-notif-bell'
-      );
+    if (!btns.length) return;
 
-      if (!btns.length) return;
+    btns.forEach(btn => btn.classList.add('kb-collapsible'));
 
-      // Sur mobile, cache tous ces boutons (ils seront dans le dropdown)
-      btns.forEach(btn => btn.classList.add('kb-collapsible'));
+    const moreBtn = document.createElement('button');
+    moreBtn.className = 'kb-more-btn';
+    moreBtn.title = 'Plus d\'options';
+    moreBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
+    group.style.position = 'relative';
 
-      // Crée le bouton "..."
-      const moreBtn = document.createElement('button');
-      moreBtn.className = 'kb-more-btn';
-      moreBtn.title = 'Plus d\'options';
-      moreBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
-      group.style.position = 'relative';
+    const dropdown = document.createElement('div');
+    dropdown.className = 'kb-more-dropdown';
 
-      // Crée le dropdown
-      const dropdown = document.createElement('div');
-      dropdown.className = 'kb-more-dropdown';
-
-      // Remplit le dropdown
-      btns.forEach(btn => {
-        const item = document.createElement('button');
-        item.className = 'kb-more-item';
-
-        const icon = btn.querySelector('i');
-        const iconHtml = icon ? `<i class="${icon.className}"></i>` : '<i class="fas fa-circle"></i>';
-
-        // Récupère le label
-        const labelEl = btn.querySelector('.btn-label');
-        let label = labelEl
-          ? labelEl.textContent.trim()
-          : btn.textContent.trim().replace(/\s+/g, ' ');
-        if (!label) label = btn.title || btn.getAttribute('aria-label') || 'Action';
-
-        item.innerHTML = `${iconHtml} ${label}`;
-
-        item.addEventListener('click', () => {
-          dropdown.classList.remove('open');
-          btn.click(); // Déclenche l'action originale
-        });
-
-        dropdown.appendChild(item);
-      });
-
-      moreBtn.appendChild(dropdown);
-      group.appendChild(moreBtn);
-
-      // Toggle au clic sur "..."
-      moreBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        dropdown.classList.toggle('open');
-      });
-
-      // Ferme en cliquant ailleurs
-      document.addEventListener('click', () => {
+    btns.forEach(btn => {
+      const item = document.createElement('button');
+      item.className = 'kb-more-item';
+      const icon = btn.querySelector('i');
+      const iconHtml = icon ? `<i class="${icon.className}"></i>` : '<i class="fas fa-circle"></i>';
+      const labelEl = btn.querySelector('.btn-label');
+      let label = labelEl
+        ? labelEl.textContent.trim()
+        : btn.textContent.trim().replace(/\s+/g, ' ');
+      if (!label) label = btn.title || btn.getAttribute('aria-label') || 'Action';
+      item.innerHTML = `${iconHtml} ${label}`;
+      item.addEventListener('click', () => {
         dropdown.classList.remove('open');
+        btn.click();
       });
-
-      document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') dropdown.classList.remove('open');
-      });
+      dropdown.appendChild(item);
     });
-  }
+
+    moreBtn.appendChild(dropdown);
+    group.appendChild(moreBtn);
+
+    moreBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      dropdown.classList.toggle('open');
+    });
+    document.addEventListener('click', () => dropdown.classList.remove('open'));
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') dropdown.classList.remove('open');
+    });
+  });
+}
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
