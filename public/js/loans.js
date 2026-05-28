@@ -154,7 +154,10 @@ function renderLoans() {
   const today  = new Date().toISOString().split('T')[0];
 
   let filtered = allLoans.filter(l => {
-    const text = `${l.device_name} ${l.device_brand} ${l.cabinet_name} ${l.reason}`.toLowerCase();
+    const text = [
+    l.device_name, l.device_brand, l.serial_number,
+    l.cabinet_name, l.reason, l.rma_number, l.notes
+    ].filter(Boolean).join(' ').toLowerCase();
     if (search && !text.includes(search)) return false;
     if (filter === 'En cours')  return l.status === 'En cours' && (!l.expected_return_date || l.expected_return_date >= today);
     if (filter === 'En retard') return l.status === 'En cours' && l.expected_return_date && l.expected_return_date < today;
