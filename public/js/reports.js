@@ -49,13 +49,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     window.history.replaceState({}, document.title, "/reports.html");
     switchTab("draft", true);
-  } else if (urlParams.get("status")) {
-    currentStatusFilter = urlParams.get("status");
-    window.history.replaceState({}, document.title, "/reports.html");
-    switchTab(currentStatusFilter, false);
-  } else {
-    switchTab(currentStatusFilter, false);
-  }
+} else if (urlParams.get('open')) {
+  const openId = parseInt(urlParams.get('open'));
+  window.history.replaceState({}, document.title, '/reports.html');
+  switchTab(currentStatusFilter, false);
+  if (openId) setTimeout(() => window.open(`/report-view.html?id=${openId}`, '_blank'), 300);
+} else {
+  switchTab(currentStatusFilter, false);
+}
 
   // Event Listeners
   document
