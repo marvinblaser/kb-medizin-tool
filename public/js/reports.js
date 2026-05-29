@@ -1187,61 +1187,80 @@ function addStkTestRow(data = null) {
   const container = document.getElementById("stk-tests-list");
   const div = document.createElement("div");
   div.className = "draggable-item stk-item";
-  div.style.display = "flex";
-  div.style.alignItems = "center";
-  div.style.gap = "10px";
+  div.style.cssText = "display:flex;align-items:center;gap:10px;";
 
   const isChecked = data && (data.included === 1 || data.included === true) ? "checked" : "";
-  
-  // FIX PRIX : 75 par défaut, sinon le prix enregistré
-  const price = data ? data.price : 75; 
-  
-  // Gestion du préfixe texte
-  let name = data ? (data.device_name || data.test_name) : "";
+  const price     = data ? (data.price ?? 75) : 75;
+  const discount  = data ? (data.discount || 0) : 0;
+  const net       = price * (1 - discount / 100);
+
+  let name = data ? (data.device_name || data.test_name || "") : "";
   const prefix = "Test de sécurité électrique obligatoire i.O - ";
-  if (name && name.startsWith(prefix)) {
-      name = name.substring(prefix.length);
-  }
+  if (name.startsWith(prefix)) name = name.substring(prefix.length);
 
   div.innerHTML = `
     <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
-    <div style="flex:1; display:flex; align-items:center;">
-        <span style="background:#e9ecef; padding:6px 10px; border:1px solid #ddd; border-right:none; border-radius:4px 0 0 4px; font-size:0.85em; color:#555; height:34px; line-height:20px; white-space:nowrap;">
-            Test sécu. élec. i.O - 
-        </span>
-        <input type="text" class="stk-name" value="${escapeHtml(name)}" placeholder="Nom de l'appareil..." 
-               style="flex:1; border:1px solid #ddd; padding:5px; border-radius:0 4px 4px 0; height:34px;">
+    <div style="flex:1;display:flex;align-items:center;">
+      <span style="background:#e9ecef;padding:6px 10px;border:1px solid #ddd;border-right:none;
+        border-radius:4px 0 0 4px;font-size:0.85em;color:#555;height:34px;line-height:20px;white-space:nowrap;">
+        Test sécu. élec. i.O -
+      </span>
+      <input type="text" class="stk-name" value="${escapeHtml(name)}" placeholder="Nom de l'appareil..."
+        style="flex:1;border:1px solid #ddd;padding:5px;border-radius:0 4px 4px 0;height:34px;">
     </div>
-    <div style="width:100px">
-        <input type="number" class="stk-price text-right" step="0.01" value="${price}" 
-               readonly style="width:100%; background-color:#e9ecef; color:#555; cursor:not-allowed;">
+    <div style="width:90px;">
+      <input type="number" class="stk-price text-right" step="0.01" value="${price}" readonly
+        style="width:100%;background:#e9ecef;color:#555;cursor:not-allowed;border:1px solid #ddd;padding:5px;border-radius:4px;height:34px;">
     </div>
-    <div class="text-center" style="width:50px">
-        <input type="checkbox" class="stk-incl" ${isChecked} title="Inclus" style="width:18px; height:18px;">
+    <div style="width:80px;position:relative;">
+      <input type="number" class="stk-discount text-right" min="0" max="100" step="1" value="${discount}"
+        placeholder="0"
+        style="width:100%;border:1px solid #ddd;padding:5px 20px 5px 5px;border-radius:4px;height:34px;"
+        oninput="updateStkTotal(this)">
+      <span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:11px;color:#888;pointer-events:none;">%</span>
     </div>
-    <div style="width:30px; text-align:right;">
-        <button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.parentElement.remove()"><i class="fas fa-times"></i></button>
+    <div style="width:90px;">
+      <input type="number" class="stk-net text-right" step="0.01" value="${net.toFixed(2)}" readonly
+        style="width:100%;background:#e9ecef;color:#555;cursor:not-allowed;border:1px solid #ddd;padding:5px;border-radius:4px;height:34px;"
+        title="Prix après rabais">
+    </div>
+    <div class="text-center" style="width:50px;">
+      <input type="checkbox" class="stk-incl" ${isChecked} title="Inclus" style="width:18px;height:18px;">
+    </div>
+    <div style="width:30px;text-align:right;">
+      <button type="button" class="btn-icon-sm btn-icon-danger"
+        onclick="this.parentElement.parentElement.remove()">
+        <i class="fas fa-times"></i>
+      </button>
     </div>
   `;
   container.appendChild(div);
 }
 
-function getStkTestsData() {
-    const rows = document.querySelectorAll('.stk-item'); 
-    return Array.from(rows).map(row => {
-        const userInput = row.querySelector('.stk-name').value.trim();
-        // On reconstruit le nom complet pour la BDD
-        const fullName = userInput ? `Test de sécurité électrique obligatoire i.O - ${userInput}` : "";
-
-        return {
-            test_name: fullName, 
-            device_name: userInput,
-            price: parseFloat(row.querySelector('.stk-price').value) || 0,
-            included: row.querySelector('.stk-incl').checked
-        };
-    }).filter(t => t.device_name !== ""); 
+function updateStkTotal(discountInput) {
+  const row     = discountInput.closest('.stk-item');
+  const price   = parseFloat(row.querySelector('.stk-price').value) || 0;
+  const discount = parseFloat(discountInput.value) || 0;
+  const net     = price * (1 - discount / 100);
+  row.querySelector('.stk-net').value = net.toFixed(2);
 }
 
+function getStkTestsData() {
+  const rows = document.querySelectorAll('.stk-item');
+  return Array.from(rows).map(row => {
+    const userInput = row.querySelector('.stk-name').value.trim();
+    const fullName  = userInput
+      ? `Test de sécurité électrique obligatoire i.O - ${userInput}`
+      : "";
+    return {
+      test_name:   fullName,
+      device_name: userInput,
+      price:       parseFloat(row.querySelector('.stk-price').value)    || 0,
+      discount:    parseFloat(row.querySelector('.stk-discount')?.value) || 0,
+      included:    row.querySelector('.stk-incl').checked,
+    };
+  }).filter(t => t.device_name !== "");
+}
 
 // public/js/reports.js
 
@@ -1600,11 +1619,12 @@ function calculateTotal() {
     });
 
     // 2. Tests STK (Si non inclus)
-    document.querySelectorAll('#stk-tests-list .form-row').forEach(row => {
-        const price = parseFloat(row.querySelector('.stk-price').value) || 0;
-        const included = row.querySelector('.stk-incl').checked;
-        if (!included) total += price;
-    });
+    document.querySelectorAll('#stk-tests-list .stk-item').forEach(row => {
+      const price    = parseFloat(row.querySelector('.stk-price').value)    || 0;
+      const discount = parseFloat(row.querySelector('.stk-discount')?.value) || 0;
+      const included = row.querySelector('.stk-incl').checked;
+      if (!included) total += price * (1 - discount / 100);
+  });
     
     // 3. Main d'œuvre (Si non inclus)
     let laborCost = 0;

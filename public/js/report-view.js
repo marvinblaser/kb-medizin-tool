@@ -291,17 +291,22 @@ async function loadReport(id) {
             const stkPrefixDe = "Obligatorische elektrische Sicherheitsprüfung i.O - ";
 
             data.stk_tests.forEach(t => {
-                const isInc = (t.included === 1 || t.included === true || t.included === "true");
-                const showTotal = isInc ? TRANSLATIONS[currentLanguage].travel_included : fmt(t.price);
-                
+                const isInc     = (t.included === 1 || t.included === true || t.included === "true");
+                const discount  = t.discount || 0;
+                const netPrice  = t.price * (1 - discount / 100);
+                const showTotal = isInc ? TRANSLATIONS[currentLanguage].travel_included : fmt(netPrice);
+
                 let testName = t.test_name || "";
-                
-                // Si la langue est l'allemand, on remplace la phrase d'introduction
                 if (currentLanguage === 'de' && testName.includes(stkPrefixFr)) {
                     testName = testName.replace(stkPrefixFr, stkPrefixDe);
                 }
-                
-                grid.innerHTML += mergedDataRow(testName, fmt(t.price), showTotal);
+
+                // Affiche le rabais dans la colonne prix si applicable
+                const priceDisplay = discount > 0
+                    ? `${fmt(t.price)} <span style="font-size:10px;color:#666;">(-${discount}%)</span>`
+                    : fmt(t.price);
+
+                grid.innerHTML += mergedDataRow(testName, priceDisplay, showTotal);
             });
         }
 
@@ -385,9 +390,11 @@ const travelText = `<b>${travelLabel}</b> <span style="margin-left:10px;">${trav
         grandTotal += totalLaborCost; // On ajoute seulement ce qui est facturé
         grandTotal += travelInc ? 0 : (data.travel_costs||0);
         
-        (data.stk_tests||[]).forEach(t => { 
-            const isInc = (t.included === 1 || t.included === true || t.included === "true");
-            if(!isInc) grandTotal += t.price; 
+        (data.stk_tests||[]).forEach(t => {
+            const isInc    = (t.included === 1 || t.included === true || t.included === "true");
+            const discount = t.discount || 0;
+            const netPrice = t.price * (1 - discount / 100);
+            if (!isInc) grandTotal += netPrice;
         });
         
         (data.materials||[]).forEach(m => { grandTotal += m.total_price; });

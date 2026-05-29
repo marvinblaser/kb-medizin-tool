@@ -108,7 +108,7 @@ router.get('/:id', requireStaff, async (req, res, next) => {
       all('SELECT * FROM report_technicians WHERE report_id = ?', [id]),
       all('SELECT * FROM report_materials WHERE report_id = ?', [id]),
       all('SELECT equipment_id FROM report_equipment WHERE report_id = ?', [id]),
-      all('SELECT device_name, price, is_included FROM report_stk_tests WHERE report_id = ?', [id]),
+      all('SELECT device_name, price, is_included, discount FROM report_stk_tests WHERE report_id = ?', [id]),
     ]);
 
     report.technicians = techs;
@@ -116,8 +116,9 @@ router.get('/:id', requireStaff, async (req, res, next) => {
     report.equipment_ids = eqs.map((e) => e.equipment_id).filter((id) => id != null);
     report.stk_tests = stk_rows.map((row) => ({
       test_name: 'Test de sécurité électrique obligatoire i.O - ' + row.device_name,
-      price: row.price,
-      included: row.is_included === 1,
+      price:     row.price,
+      discount:  row.discount || 0,
+      included:  row.is_included === 1,
     }));
     res.json(report);
   } catch (e) { next(e); }
@@ -308,8 +309,8 @@ const saveReportData = async (req, res, reportId, isUpdate) => {
     if (Array.isArray(req.body.stk_tests)) {
       for (const stk of req.body.stk_tests) {
         const deviceName = String(stk.test_name || '').replace('Test de sécurité électrique obligatoire i.O - ', '');
-        await run('INSERT INTO report_stk_tests (report_id, device_name, price, is_included) VALUES (?, ?, ?, ?)',
-          [finalId, deviceName, stk.price, toBoolInt(stk.included)]);
+        await run('INSERT INTO report_stk_tests (report_id, device_name, price, is_included, discount) VALUES (?, ?, ?, ?, ?)',
+          [finalId, deviceName, stk.price, toBoolInt(stk.included), stk.discount || 0]);
       }
     }
 
