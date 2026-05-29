@@ -488,6 +488,12 @@
             <option value="En retard">En retard</option>
             <option value="Retourné">Retournés</option>     <!-- ← accessible si besoin -->
         </select>
+        <select id="filter-owner" class="form-control" onchange="filterLoans()">
+          <option value="all">Tous les appareils</option>
+          <option value="KB Med">Nos appareils (KB Med)</option>
+          <option value="Fournisseur">Appareils fournisseurs</option>
+          <option value="Non défini">Non définis</option>
+        </select>
         <div style="margin-left:auto;">
           <button class="btn btn-secondary" id="btn-new-device" onclick="openDeviceModal()"
             style="display:none;">
@@ -603,15 +609,6 @@
             <label>Notes</label>
             <div id="loan-notes-wrapper"></div>
           </div>
-          <!-- Propriétaire + RMA -->
-          <div class="form-group">
-            <label>Propriétaire de l'appareil</label>
-            <select id="loan-device-owner" class="form-control">
-              <option value="">— Non défini —</option>
-              <option value="KB Med">KB Med (notre appareil)</option>
-              <option value="Fournisseur">Fournisseur (appareil prêté par le SAV)</option>
-            </select>
-          </div>
           <div class="form-group">
             <label>Lié à un RMA <span style="font-weight:400;color:var(--text-tertiary);">(optionnel)</span></label>
             <select id="loan-rma-link" class="form-control">
@@ -694,6 +691,14 @@
           <select id="device-status" class="form-control">
             <option value="Disponible">✅ Disponible</option>
             <option value="En maintenance">🔧 En maintenance</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Appartient à</label>
+          <select id="device-owner" class="form-control">
+            <option value="Non défini">— Non défini —</option>
+            <option value="KB Med">KB Med (notre appareil)</option>
+            <option value="Fournisseur">Fournisseur</option>
           </select>
         </div>
         <div class="form-group" style="grid-column:1/-1;">

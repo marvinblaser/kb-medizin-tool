@@ -283,11 +283,14 @@ function updateTabCounts() {
 function renderDevices() {
   const container = document.getElementById('devices-grid');
   const search    = document.getElementById('loans-search').value.toLowerCase();
+  const ownerFilter = document.getElementById('filter-owner')?.value || 'all';
 
   let devices = allDevices.filter(d => {
-    const text = `${d.name} ${d.brand} ${d.serial_number}`.toLowerCase();
-    return !search || text.includes(search);
-  });
+  const text = `${d.name} ${d.brand} ${d.serial_number}`.toLowerCase();
+  if (search && !text.includes(search)) return false;
+  if (ownerFilter !== 'all' && d.owner !== ownerFilter) return false;
+  return true;
+});
 
   if (!devices.length) {
     container.innerHTML = `<div class="loans-empty" style="grid-column:1/-1;">
@@ -313,6 +316,7 @@ function renderDevices() {
             <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);border-bottom:1px solid var(--border-primary);">N° Série</th>
             <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);border-bottom:1px solid var(--border-primary);">Statut</th>
             <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);border-bottom:1px solid var(--border-primary);">Prêts</th>
+            <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);border-bottom:1px solid var(--border-primary);">Propriétaire</th>
             <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-tertiary);border-bottom:1px solid var(--border-primary);"></th>
           </tr>
         </thead>
@@ -333,6 +337,13 @@ function renderDevices() {
               <td style="padding:12px 14px;font-size:var(--text-sm);color:var(--text-secondary);">${escHtml(d.brand || '—')}</td>
               <td style="padding:12px 14px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);">${escHtml(d.serial_number || '—')}</td>
               <td style="padding:12px 14px;">${statusBadge[effectiveStatus] || ''}</td>
+              <td style="padding:12px 14px;">
+                ${d.owner === 'KB Med'
+                  ? `<span style="background:rgba(44,90,160,0.10);color:var(--color-primary);border:1px solid rgba(44,90,160,0.25);font-size:9px;font-weight:700;padding:1px 6px;border-radius:2px;">KB Med</span>`
+                  : d.owner === 'Fournisseur'
+                    ? `<span style="background:rgba(245,158,11,0.12);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);font-size:9px;font-weight:700;padding:1px 6px;border-radius:2px;">Fournisseur</span>`
+                    : ''}
+              </td>
               <td style="padding:12px 14px;font-size:var(--text-xs);color:var(--text-tertiary);">
                 ${d.active_loans > 0 ? `<span style="color:#3b82f6;font-weight:700;">${d.active_loans} actif(s)</span>` : ''}
                 ${d.total_loans > 0 ? `<span style="margin-left:6px;">${d.total_loans} total</span>` : 'Aucun prêt'}
@@ -594,7 +605,6 @@ window.openLoanModal = function(id = null) {
   document.getElementById('loan-id').value    = '';
   document.getElementById('loan-start').value = new Date().toISOString().split('T')[0];
 
-  // Injecte la barre de formatage dans le wrapper des notes
   const notesWrapper = document.getElementById('loan-notes-wrapper');
   if (notesWrapper) notesWrapper.innerHTML = buildLoansFormatBar('loan-notes-content');
 
@@ -602,7 +612,6 @@ window.openLoanModal = function(id = null) {
     const loan = allLoans.find(l => l.id === id);
     if (!loan) return;
 
-    // Repeuple le select appareils en incluant l'appareil actuel
     const currentDevice = allDevices.find(d => d.id === loan.device_id);
     const available     = allDevices.filter(d => d.status === 'Disponible');
     const options       = currentDevice && !available.find(d => d.id === currentDevice.id)
@@ -617,19 +626,16 @@ window.openLoanModal = function(id = null) {
 
     document.getElementById('loan-modal-title').innerHTML =
       `<i class="fas fa-pen" style="color:var(--color-primary)"></i> Modifier le prêt`;
-    document.getElementById('loan-id').value               = loan.id;
-    document.getElementById('loan-device').value           = loan.device_id;
-    document.getElementById('loan-client').value           = loan.client_id || '';
-    document.getElementById('loan-start').value            = loan.start_date;
-    document.getElementById('loan-expected-return').value  = loan.expected_return_date || '';
-    document.getElementById('loan-reason').value           = loan.reason || '';
-    document.getElementById('loan-device-owner').value     = loan.device_owner || '';
+    document.getElementById('loan-id').value              = loan.id;
+    document.getElementById('loan-device').value          = loan.device_id;
+    document.getElementById('loan-client').value          = loan.client_id || '';
+    document.getElementById('loan-start').value           = loan.start_date;
+    document.getElementById('loan-expected-return').value = loan.expected_return_date || '';
+    document.getElementById('loan-reason').value          = loan.reason || '';
 
-    // Notes avec formatage
     const notesEl = document.getElementById('loan-notes-content');
     if (notesEl) notesEl.innerHTML = sanitizeHtml(loan.notes || '');
 
-    // RMA lié
     const rmaSelect = document.getElementById('loan-rma-link');
     if (rmaSelect) rmaSelect.value = loan.rma_id || '';
 
@@ -641,7 +647,6 @@ window.openLoanModal = function(id = null) {
 
   document.getElementById('loan-modal').classList.add('active');
 
-  // TomSelect sur les selects recherchables
   setTimeout(() => {
     const cfg = { create: false, maxOptions: null, sortField: { field: 'text', direction: 'asc' } };
     ['loan-client', 'loan-device', 'loan-rma-link'].forEach(selId => {
@@ -674,7 +679,6 @@ window.saveLoan = async function() {
     expected_return_date: document.getElementById('loan-expected-return').value || null,
     reason:               document.getElementById('loan-reason').value || null,
     notes:                document.getElementById('loan-notes-content')?.innerHTML || null,
-    device_owner:         document.getElementById('loan-device-owner')?.value ?? '',
     rma_id:               document.getElementById('loan-rma-link')?.value || null,
   };
 
@@ -748,6 +752,7 @@ window.openDeviceModal = function(id = null) {
   document.getElementById('device-serial').value = '';
   document.getElementById('device-status').value = 'Disponible';
   document.getElementById('device-notes').value  = '';
+  document.getElementById('device-owner').value  = 'Non défini';
   document.getElementById('btn-delete-device').style.display = 'none';
 
   if (id) {
@@ -761,6 +766,7 @@ window.openDeviceModal = function(id = null) {
     document.getElementById('device-serial').value = device.serial_number || '';
     document.getElementById('device-status').value = device.status;
     document.getElementById('device-notes').value  = device.notes || '';
+    document.getElementById('device-owner').value  = device.owner || 'Non défini'; // ← corrigé
     if (device.active_loans === 0) {
       document.getElementById('btn-delete-device').style.display = '';
     }
@@ -780,10 +786,11 @@ window.saveDevice = async function() {
   }
   const data = {
     name,
-    brand:         document.getElementById('device-brand').value || null,
+    brand:         document.getElementById('device-brand').value  || null,
     serial_number: document.getElementById('device-serial').value || null,
     status:        document.getElementById('device-status').value,
-    notes:         document.getElementById('device-notes').value || null,
+    notes:         document.getElementById('device-notes').value  || null,
+    owner:         document.getElementById('device-owner').value,
   };
   try {
     const res = await fetch(id ? `/api/loans/devices/${id}` : '/api/loans/devices', {

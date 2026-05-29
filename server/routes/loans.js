@@ -24,13 +24,14 @@ router.get('/', requireStaff, async (req, res, next) => {
   try {
     const loans = await all(`
       SELECT l.*,
-        d.name        as device_name,
-        d.brand       as device_brand,
+        d.name          as device_name,
+        d.brand         as device_brand,
         d.serial_number,
+        d.owner         as device_owner,
         c.cabinet_name,
-        u.name        as created_by_name,
+        u.name          as created_by_name,
         r.rma_number,
-        r.status      as rma_status,
+        r.status        as rma_status,
         rc.cabinet_name as rma_client_name
       FROM loans l
       LEFT JOIN loan_devices d ON l.device_id = d.id
@@ -218,12 +219,13 @@ router.get('/devices', requireStaff, async (req, res, next) => {
 // POST /api/loans/devices
 router.post('/devices', requireStaff, async (req, res, next) => {
   try {
-    const { name, brand, serial_number, status, notes } = req.body;
+    const { name, brand, serial_number, status, notes, owner } = req.body;
     if (!name) return res.status(400).json({ error: 'Nom requis.' });
     const result = await run(`
-      INSERT INTO loan_devices (name, brand, serial_number, status, notes)
-      VALUES (?, ?, ?, ?, ?)`,
-      [name, brand || null, serial_number || null, status || 'Disponible', notes || null]
+      INSERT INTO loan_devices (name, brand, serial_number, status, notes, owner)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [name, brand || null, serial_number || null,
+       status || 'Disponible', notes || null, owner || 'Non défini']
     );
     res.json({ success: true, id: result.lastID });
   } catch (err) { next(err); }
@@ -232,11 +234,12 @@ router.post('/devices', requireStaff, async (req, res, next) => {
 // PUT /api/loans/devices/:id
 router.put('/devices/:id', requireStaff, async (req, res, next) => {
   try {
-    const { name, brand, serial_number, status, notes } = req.body;
+    const { name, brand, serial_number, status, notes, owner } = req.body;
     await run(`
-      UPDATE loan_devices SET name=?, brand=?, serial_number=?, status=?, notes=?,
+      UPDATE loan_devices SET name=?, brand=?, serial_number=?, status=?, notes=?, owner=?,
         updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-      [name, brand || null, serial_number || null, status, notes || null, req.params.id]
+      [name, brand || null, serial_number || null,
+       status, notes || null, owner || 'Non défini', req.params.id]
     );
     res.json({ success: true });
   } catch (err) { next(err); }
