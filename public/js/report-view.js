@@ -324,11 +324,10 @@ async function loadReport(id) {
              let displayUnit = fmt(m.unit_price);
 
              if (isInc) {
-                 displayTotal = TRANSLATIONS[currentLanguage].travel_included; // Affiche "Incl."
-                 displayUnit = ""; // <--- FIX: On force le vide pour le prix unitaire
-             } else {
-                 totalMat += m.total_price;
-             }
+                displayTotal = TRANSLATIONS[currentLanguage].travel_included;
+            } else {
+                totalMat += m.total_price;
+            }
              
              // On ajoute le 'x' à côté de la quantité
             const qtyDisplay = m.quantity ? `${m.quantity}x` : '';
