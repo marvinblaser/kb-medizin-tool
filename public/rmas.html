@@ -1508,6 +1508,9 @@
         </div>
       </div>
       <div class="rma-topbar-actions">
+        <button class="btn btn-secondary" onclick="openColumnsModal()">
+          <i class="fas fa-columns"></i> <span class="btn-label">Colonnes</span>
+        </button>
         <button class="btn btn-secondary" onclick="openTagManager()">
           <i class="fas fa-tags"></i> <span class="btn-label">Étiquettes</span>
         </button>
@@ -1862,5 +1865,39 @@
     } catch (err) { console.error(err); }
   };
 </script>
+<!-- MODAL GESTION DES COLONNES -->
+<div class="modal" id="columns-modal">
+  <div class="modal-content" style="max-width:520px;width:95vw;">
+    <div class="modal-header">
+      <h2 style="display:flex;align-items:center;gap:8px;font-size:1rem;">
+        <i class="fas fa-columns" style="color:var(--color-primary);"></i>
+        Gérer les colonnes
+      </h2>
+      <button class="modal-close" onclick="closeColumnsModal()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body" style="max-height:400px;overflow-y:auto;">
+      <p style="font-size:11px;color:var(--text-tertiary);margin:0 0 12px;">
+        Les colonnes protégées ne peuvent pas être renommées ni supprimées.
+        La suppression est bloquée si des RMAs sont dans la colonne.
+      </p>
+      <div id="columns-list"></div>
+    </div>
+    <div class="modal-footer">
+      <div style="display:flex;gap:8px;align-items:center;width:100%;">
+        <input type="text" id="new-col-name" placeholder="Nom de la nouvelle colonne..."
+          onkeydown="if(event.key==='Enter') addColumn()"
+          class="form-control" style="flex:1;height:34px;">
+        <input type="color" id="new-col-color" value="#6366f1"
+          title="Couleur" style="width:34px;height:34px;border:none;border-radius:3px;cursor:pointer;padding:0;">
+        <button class="btn btn-primary btn-sm" onclick="addColumn()">
+          <i class="fas fa-plus"></i> Ajouter
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

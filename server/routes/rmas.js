@@ -223,6 +223,102 @@ router.put('/:id', requireStaff, (req, res, next) => {
   );
 });
 
+// ── Colonnes Kanban ───────────────────────────────────────────────────────────
+
+// GET /api/rmas/columns
+router.get('/columns', requireStaff, (req, res, next) => {
+  db.all('SELECT * FROM rma_columns ORDER BY position ASC', [], (err, rows) => {
+    if (err) return next(err);
+    res.json(rows || []);
+  });
+});
+
+// POST /api/rmas/columns
+router.post('/columns', requireStaff, (req, res, next) => {
+  const { name, color } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Nom requis.' });
+  db.get('SELECT MAX(position) as maxPos FROM rma_columns', [], (err, row) => {
+    if (err) return next(err);
+    const pos = (row?.maxPos ?? -1) + 1;
+    db.run(
+      'INSERT INTO rma_columns (name, color, position) VALUES (?, ?, ?)',
+      [name.trim(), color || '#6366f1', pos],
+      function(err) {
+        if (err) {
+          if (err.message.includes('UNIQUE')) return res.status(409).json({ error: 'Ce nom existe déjà.' });
+          return next(err);
+        }
+        res.json({ success: true, id: this.lastID, name: name.trim(), color: color || '#6366f1', position: pos, is_protected: 0 });
+      }
+    );
+  });
+});
+
+// PUT /api/rmas/columns/:id — renommer, recolorer, réordonner
+// PUT /api/rmas/columns/reorder — réordonnement en masse (AVANT /:id)
+router.put('/columns/reorder', requireStaff, (req, res, next) => {
+  const { order } = req.body; // [{ id, position }]
+  if (!Array.isArray(order)) return res.status(400).json({ error: 'Format invalide.' });
+  db.serialize(() => {
+    const stmt = db.prepare('UPDATE rma_columns SET position=? WHERE id=?');
+    order.forEach(({ id, position }) => stmt.run(position, id));
+    stmt.finalize((err) => {
+      if (err) return next(err);
+      res.json({ success: true });
+    });
+  });
+});
+
+router.put('/columns/:id', requireStaff, (req, res, next) => {
+  const id = parseInt(req.params.id);
+  const { name, color, position } = req.body;
+
+  db.get('SELECT * FROM rma_columns WHERE id = ?', [id], (err, col) => {
+    if (err) return next(err);
+    if (!col) return res.status(404).json({ error: 'Colonne introuvable.' });
+    if (col.is_protected && name && name !== col.name)
+      return res.status(403).json({ error: 'Impossible de renommer une colonne protégée.' });
+
+    const newName  = (name ?? col.name).trim();
+    const newColor = color ?? col.color;
+    const newPos   = position ?? col.position;
+
+    db.serialize(() => {
+      if (newName !== col.name) {
+        db.run('UPDATE rmas SET status = ? WHERE status = ?', [newName, col.name]);
+      }
+      db.run(
+        'UPDATE rma_columns SET name=?, color=?, position=? WHERE id=?',
+        [newName, newColor, newPos, id],
+        function(err) {
+          if (err) return next(err);
+          res.json({ success: true });
+        }
+      );
+    });
+  });
+});
+
+// DELETE /api/rmas/columns/:id
+router.delete('/columns/:id', requireStaff, (req, res, next) => {
+  const id = parseInt(req.params.id);
+  db.get('SELECT * FROM rma_columns WHERE id = ?', [id], (err, col) => {
+    if (err) return next(err);
+    if (!col) return res.status(404).json({ error: 'Colonne introuvable.' });
+    if (col.is_protected) return res.status(403).json({ error: 'Cette colonne est protégée.' });
+
+    db.get('SELECT COUNT(*) as count FROM rmas WHERE status = ?', [col.name], (err, row) => {
+      if (err) return next(err);
+      if (row?.count > 0)
+        return res.status(409).json({ error: `Impossible : ${row.count} RMA(s) dans cette colonne.` });
+      db.run('DELETE FROM rma_columns WHERE id = ?', [id], function(err) {
+        if (err) return next(err);
+        res.json({ success: true });
+      });
+    });
+  });
+});
+
 router.get('/:id', requireStaff, (req, res, next) => {
   const id = toInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID invalide.' });

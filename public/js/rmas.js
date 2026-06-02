@@ -8,25 +8,12 @@
 // ══════════════════════════════════════════════════════════════════════════════
 'use strict';
 
-const RMA_STAGES = [
-  "Déclaration du problème",
-  "Transit vers Xion",
-  "Réception Xion",
-  "RMA Offre Reçu ?",
-  "Devis au client",
-  "Validation KB Med + Xion",
-  "En réparation",
-  "Transit vers KB",
-  "Attente d'installation",
-  "Livraison + Facturation",
-  "Archives"
-];
+// ── Colonnes dynamiques (chargées depuis /api/rmas/columns) ─────────────────
+let allColumns   = [];  // { id, name, color, position, is_protected }
 
-const STAGE_COLORS = [
-  '#6366f1', '#8b5cf6', '#3b82f6', '#f59e0b',
-  '#f97316', '#10b981', '#ef4444', '#06b6d4',
-  '#84cc16', '#10b981', '#94a3b8'
-];
+// Helpers pour compatibilité
+const getRmaStages = () => allColumns.map(c => c.name);
+const getStageColor = (name) => allColumns.find(c => c.name === name)?.color || '#94a3b8';
 
 const COMMENT_TEMPLATES = [
   { icon: '📦', label: 'Appareil reçu',       text: 'Appareil reçu en bon état.' },
@@ -58,30 +45,11 @@ let rmaFilters    = { search: '', supplier: '', tag: '' };
 //  INIT
 // ══════════════════════════════════════════════════════════════════════════════
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Récupère l'utilisateur connecté (pour les droits sur les commentaires)
-  fetch('/api/auth/me').then(r => r.json()).then(d => { currentUser = d.user || null; }).catch(() => {});
-  initBoard();
-  initTooltip();
-  loadRmas();
-});
-
-function initTooltip() {
-  const tooltip = document.getElementById('rma-tooltip');
-  if (!tooltip) return;
-  tooltip.style.display = 'none';
-  tooltip.style.opacity = '0';
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-//  KANBAN BOARD
-// ══════════════════════════════════════════════════════════════════════════════
-
 function initBoard() {
   const board = document.getElementById('kanban-board');
   if (!board) return;
 
-  board.innerHTML = RMA_STAGES.map((stage, i) => {
+  board.innerHTML = getRmaStages().map((stage, i) => {
     const safeId = stageToId(stage);
     return `
       <div class="kanban-col" data-status="${stage}" data-step="${i}">
@@ -98,6 +66,35 @@ function initBoard() {
     `;
   }).join('');
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  fetch('/api/auth/me').then(r => r.json()).then(d => { currentUser = d.user || null; }).catch(() => {});
+  initTooltip();
+  fetch('/api/rmas/columns')
+    .then(r => r.json())
+    .then(cols => {
+      allColumns = Array.isArray(cols) ? cols : [];
+      initBoard();
+    })
+    .catch(() => { initBoard(); })
+    .finally(() => {
+      loadRmas().then(() => {
+        const openId = parseInt(new URLSearchParams(window.location.search).get('open'));
+        if (openId) openRmaDetails(openId);
+      });
+    });
+});
+
+function initTooltip() {
+  const tooltip = document.getElementById('rma-tooltip');
+  if (!tooltip) return;
+  tooltip.style.display = 'none';
+  tooltip.style.opacity = '0';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  KANBAN BOARD
+// ══════════════════════════════════════════════════════════════════════════════
 
 function stageToId(stage) {
   return stage.replace(/[^a-zA-Z0-9]/g, '');
@@ -241,7 +238,7 @@ function renderCurrent() {
 function renderRmas() {
   const duplicates = detectDuplicates();
 
-  RMA_STAGES.forEach(s => {
+  getRmaStages().forEach(s => {
     const id  = stageToId(s);
     const col = document.getElementById(`col-${id}`);
     if (col) col.innerHTML = '';
@@ -273,8 +270,8 @@ function buildCard(rma, isDuplicate = false) {
   card.draggable  = true;
   card.dataset.id = rma.id;
  
-  const stageIndex = RMA_STAGES.indexOf(rma.status);
-  if (stageIndex >= 0) card.style.borderLeftColor = STAGE_COLORS[stageIndex];
+  const stageIndex = getRmaStages().indexOf(rma.status);
+  if (stageIndex >= 0) card.style.borderLeftColor = getStageColor(rma.status);
  
   card.onclick      = () => openRmaDetails(rma.id);
   card.ondragstart  = evDrag;
@@ -291,7 +288,7 @@ function buildCard(rma, isDuplicate = false) {
   const dueBadge   = buildDueBadge(rma.due_date);
   const displayNum = rma.rma_number || `#${rma.id}`;
   const canPrev    = stageIndex > 0;
-  const canNext    = stageIndex < RMA_STAGES.length - 1;
+  const canNext    = stageIndex < getRmaStages().length - 1;
  
   card.innerHTML = `
     ${isDuplicate ? `
@@ -329,7 +326,7 @@ function buildCard(rma, isDuplicate = false) {
       </div>` : ''}
  
       <!-- Description -->
-      <div class="card-desc">${sanitizeHtml(rma.description || 'Aucune description')}</div>
+      <div class="card-desc">${sanitizeHtml(rma.description) || '<em style="color:var(--text-tertiary);font-size:10px;">Aucune description</em>'}</div>
  
       <!-- Tags -->
       ${tagsHtml ? `<div class="card-tags">${tagsHtml}</div>` : ''}
@@ -341,10 +338,10 @@ function buildCard(rma, isDuplicate = false) {
         ${dueBadge}
       </div>
       <div class="card-nav-btns">
-        <button class="card-nav-btn" title="Étape précédente (${stageIndex > 0 ? RMA_STAGES[stageIndex - 1] : '—'})"
+        <button class="card-nav-btn" title="Étape précédente (${stageIndex > 0 ? getRmaStages()[stageIndex - 1] : '—'})"
           onclick="event.stopPropagation(); moveRmaStage(${rma.id}, -1)"
           ${canPrev ? '' : 'disabled'}>‹</button>
-        <button class="card-nav-btn forward" title="Étape suivante (${stageIndex < RMA_STAGES.length - 1 ? RMA_STAGES[stageIndex + 1] : '—'})"
+        <button class="card-nav-btn forward" title="Étape suivante (${stageIndex < getRmaStages().length - 1 ? getRmaStages()[stageIndex + 1] : '—'})"
           onclick="event.stopPropagation(); moveRmaStage(${rma.id}, 1)"
           ${canNext ? '' : 'disabled'}>›</button>
       </div>
@@ -358,10 +355,10 @@ function buildCard(rma, isDuplicate = false) {
 window.moveRmaStage = async function(rmaId, direction) {
   const rma = allRmas.find(r => r.id === rmaId);
   if (!rma) return;
-  const idx    = RMA_STAGES.indexOf(rma.status);
+  const idx    = getRmaStages().indexOf(rma.status);
   const newIdx = idx + direction;
-  if (newIdx < 0 || newIdx >= RMA_STAGES.length) return;
-  const newStatus = RMA_STAGES[newIdx];
+  if (newIdx < 0 || newIdx >= getRmaStages().length) return;
+  const newStatus = getRmaStages()[newIdx];
 
   try {
     const res = await fetch(`/api/rmas/${rmaId}/status`, {
@@ -440,11 +437,11 @@ function renderListView() {
       </tr>`;
 
     group.rmas.forEach(r => {
-      const stageIdx   = RMA_STAGES.indexOf(r.status);
-      const color      = STAGE_COLORS[stageIdx] || '#94a3b8';
+      const stageIdx   = getRmaStages().indexOf(r.status);
+      const color      = getStageColor(r.status) || '#94a3b8';
       const dueBadge   = buildDueBadge(r.due_date);
       const canPrev    = stageIdx > 0;
-      const canNext    = stageIdx < RMA_STAGES.length - 1;
+      const canNext    = stageIdx < getRmaStages().length - 1;
       const displayNum = r.rma_number || `#${r.id}`;
 
       const tagsHtml = (r.tags || []).map(t =>
@@ -841,11 +838,11 @@ async function openRmaDetails(id) {
     window.allLoansForRma = (Array.isArray(loansData) ? loansData : [])
       .filter(l => l.status === 'En cours' && (!l.rma_id || l.rma_id === id));
 
-    const stageIndex = RMA_STAGES.indexOf(rma.status);
-    const stageColor = STAGE_COLORS[stageIndex] || '#94a3b8';
+    const stageIndex = getRmaStages().indexOf(rma.status);
+    const stageColor = getStageColor(rma.status) || '#94a3b8';
     const displayNum = rma.rma_number || `#${id}`;
     const canPrev    = stageIndex > 0;
-    const canNext    = stageIndex < RMA_STAGES.length - 1;
+    const canNext    = stageIndex < getRmaStages().length - 1;
 
     // ── Titre modal ──────────────────────────────────────────────────────────
     document.getElementById('rma-modal-title').innerHTML = `
@@ -956,11 +953,11 @@ async function openRmaDetails(id) {
           onmouseover="if(!this.disabled)this.style.borderColor='var(--color-primary)'"
           onmouseout="this.style.borderColor='var(--border-primary)'">
           <i class="fas fa-chevron-left" style="font-size:10px;margin-right:3px;"></i>
-          ${canPrev ? escapeHtml(RMA_STAGES[stageIndex - 1]) : '—'}
+          ${canPrev ? escapeHtml(getRmaStages()[stageIndex - 1]) : '—'}
         </button>
         <div style="flex:1;text-align:center;">
           <span style="font-weight:700;color:${stageColor};font-size:var(--text-sm);">${escapeHtml(rma.status)}</span>
-          <div style="font-size:10px;color:var(--text-tertiary);margin-top:1px;">Étape ${stageIndex + 1} / ${RMA_STAGES.length}</div>
+          <div style="font-size:10px;color:var(--text-tertiary);margin-top:1px;">Étape ${stageIndex + 1} / ${getRmaStages().length}</div>
         </div>
         <button onclick="moveRmaStage(${id}, 1); closeRmaModal();"
           style="background:none;border:1px solid var(--border-primary);border-radius:3px;
@@ -969,7 +966,7 @@ async function openRmaDetails(id) {
           ${canNext ? '' : 'disabled style="opacity:0.3;cursor:not-allowed;"'}
           onmouseover="if(!this.disabled)this.style.borderColor='var(--color-success)'"
           onmouseout="this.style.borderColor='var(--border-primary)'">
-          ${canNext ? escapeHtml(RMA_STAGES[stageIndex + 1]) : '—'}
+          ${canNext ? escapeHtml(getRmaStages()[stageIndex + 1]) : '—'}
           <i class="fas fa-chevron-right" style="font-size:10px;margin-left:3px;"></i>
         </button>
       </div>
@@ -1204,7 +1201,7 @@ async function editRmaDetails(id) {
         <div style="margin-bottom:18px;">
           <label style="${lS}">Étape / Statut actuel</label>
           <select id="edit-status" style="${iS}height:42px;font-weight:700;color:var(--color-primary);border-left:3px solid var(--color-primary);">
-            ${RMA_STAGES.map(s => `<option value="${s}" ${rma.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+            ${getRmaStages().map(s => `<option value="${s}" ${rma.status === s ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
         </div>
         ${sec('fas fa-info-circle', 'Informations')}
@@ -1399,7 +1396,189 @@ async function deleteRma() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  PRÊT LIÉ AU RMA
+//  GESTION DES COLONNES KANBAN
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function reloadColumns() {
+  const r = await fetch('/api/rmas/columns');
+  allColumns = await r.json();
+}
+
+window.openColumnsModal = async function() {
+  await reloadColumns();
+  renderColumnsModal();
+  document.getElementById('columns-modal').classList.add('active');
+};
+
+window.closeColumnsModal = function() {
+  document.getElementById('columns-modal').classList.remove('active');
+};
+
+function renderColumnsModal() {
+  const list = document.getElementById('columns-list');
+  if (!list) return;
+
+  list.innerHTML = allColumns.map(col => `
+    <div class="col-manage-item" data-id="${col.id}" draggable="${col.is_protected ? 'false' : 'true'}"
+      style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+        background:var(--bg-elevated);border:1px solid var(--border-primary);
+        border-left:4px solid ${col.color};margin-bottom:6px;
+        cursor:${col.is_protected ? 'default' : 'grab'};user-select:none;
+        transition:opacity .15s;">
+      <i class="fas fa-grip-vertical" style="color:var(--text-tertiary);font-size:12px;
+        opacity:${col.is_protected ? '0.2' : '1'};flex-shrink:0;"></i>
+      <span style="flex:1;font-size:var(--text-sm);font-weight:${col.is_protected ? '700' : '500'};
+        color:var(--text-primary);">
+        ${escapeHtml(col.name)}
+        ${col.is_protected ? '<span style="font-size:10px;color:var(--text-tertiary);margin-left:4px;"><i class="fas fa-lock"></i></span>' : ''}
+      </span>
+      <input type="color" value="${col.color}" ${col.is_protected ? 'disabled' : ''}
+        onchange="updateColumnColor(${col.id}, this.value)"
+        style="width:28px;height:28px;border:none;cursor:pointer;border-radius:3px;padding:0;
+          opacity:${col.is_protected ? '0.4' : '1'}">
+      ${!col.is_protected ? `
+        <button onclick="startRenameColumn(${col.id})"
+          style="background:none;border:1px solid var(--border-primary);border-radius:3px;
+            padding:4px 8px;cursor:pointer;font-size:11px;color:var(--text-secondary);font-family:inherit;">
+          <i class="fas fa-pen"></i>
+        </button>
+        <button onclick="deleteColumn(${col.id}, '${escapeHtml(col.name).replace(/'/g, "\\'")}')"
+          style="background:none;border:1px solid rgba(239,68,68,0.3);border-radius:3px;
+            padding:4px 8px;cursor:pointer;font-size:11px;color:var(--color-danger);font-family:inherit;">
+          <i class="fas fa-trash"></i>
+        </button>` : ''}
+    </div>`).join('');
+
+  // Drag-and-drop pour réordonner
+  let dragSrc = null;
+
+  list.querySelectorAll('.col-manage-item[draggable="true"]').forEach(item => {
+    item.addEventListener('dragstart', e => {
+      dragSrc = item;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => item.style.opacity = '0.4', 0);
+    });
+    item.addEventListener('dragend', () => {
+      item.style.opacity = '1';
+      list.querySelectorAll('.col-manage-item').forEach(i => i.style.borderTop = '');
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (item !== dragSrc) item.style.borderTop = '2px solid var(--color-primary)';
+    });
+    item.addEventListener('dragleave', () => item.style.borderTop = '');
+    item.addEventListener('drop', async e => {
+      e.preventDefault();
+      item.style.borderTop = '';
+      if (!dragSrc || dragSrc === item) return;
+
+      // Réinsère dans le DOM
+      const items   = [...list.querySelectorAll('.col-manage-item')];
+      const fromIdx = items.indexOf(dragSrc);
+      const toIdx   = items.indexOf(item);
+      if (fromIdx < toIdx) item.after(dragSrc);
+      else item.before(dragSrc);
+
+      // Calcule le nouvel ordre et envoie au serveur
+      const newOrder = [...list.querySelectorAll('.col-manage-item')].map((el, i) => ({
+        id:       parseInt(el.dataset.id),
+        position: i,
+      }));
+
+      await fetch('/api/rmas/columns/reorder', {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ order: newOrder }),
+      });
+
+      await reloadColumns();
+      renderColumnsModal();
+      initBoard();
+      loadRmas();
+    });
+  });
+}
+
+window.startRenameColumn = function(id) {
+  const col = allColumns.find(c => c.id === id);
+  if (!col) return;
+  const newName = prompt('Nouveau nom de la colonne :', col.name);
+  if (!newName || newName.trim() === col.name) return;
+  fetch(`/api/rmas/columns/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: newName.trim() })
+  }).then(async r => {
+    if (r.ok) {
+      await reloadColumns();
+      renderColumnsModal();
+      tooltipCache = {};
+      loadRmas();
+      if (window.toast) toast.success('Colonne renommée', newName.trim());
+    } else {
+      const e = await r.json();
+      if (window.toast) toast.error('Erreur', e.error);
+    }
+  });
+};
+
+window.updateColumnColor = function(id, color) {
+  fetch(`/api/rmas/columns/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ color })
+  }).then(async r => {
+    if (r.ok) {
+      await reloadColumns();
+      renderColumnsModal();
+      loadRmas();
+    }
+  });
+};
+
+window.deleteColumn = async function(id, name) {
+  const ok = await showConfirm({
+    title: `Supprimer "${name}" ?`,
+    message: 'Impossible si des RMAs sont dans cette colonne.',
+    confirmText: 'Supprimer', cancelText: 'Annuler', type: 'danger'
+  });
+  if (!ok) return;
+  const r = await fetch(`/api/rmas/columns/${id}`, { method: 'DELETE' });
+  if (r.ok) {
+    await reloadColumns();
+    renderColumnsModal();
+    tooltipCache = {};
+    loadRmas();
+    if (window.toast) toast.success('Colonne supprimée', '');
+  } else {
+    const e = await r.json();
+    if (window.toast) toast.error('Erreur', e.error);
+  }
+};
+
+window.addColumn = async function() {
+  const name = document.getElementById('new-col-name').value.trim();
+  const color = document.getElementById('new-col-color').value || '#6366f1';
+  if (!name) return;
+  const r = await fetch('/api/rmas/columns', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, color })
+  });
+  if (r.ok) {
+    document.getElementById('new-col-name').value = '';
+    await reloadColumns();
+    renderColumnsModal();
+    tooltipCache = {};
+    loadRmas();
+    if (window.toast) toast.success('Colonne ajoutée', name);
+  } else {
+    const e = await r.json();
+    if (window.toast) toast.error('Erreur', e.error);
+  }
+};
+
+
 // ══════════════════════════════════════════════════════════════════════════════
 
 function buildLinkedLoanBlock(rma, rmaId) {
@@ -1729,8 +1908,8 @@ function handleCardHover(ev, rmaId) {
       }
       const d = tooltipCache[rmaId];
  
-      const stageIndex = RMA_STAGES.indexOf(d.status);
-      const stageColor = STAGE_COLORS[stageIndex] || '#94a3b8';
+      const stageIndex = getRmaStages().indexOf(d.status);
+      const stageColor = getStageColor(d.status) || '#94a3b8';
       const displayNum = d.rma_number || `#${d.id}`;
  
       // Tags
@@ -1788,7 +1967,7 @@ function handleCardHover(ev, rmaId) {
           ${tagsHtml ? `<div class="tooltip-tags">${tagsHtml}</div>` : ''}
  
           <!-- Description -->
-          <div class="tooltip-desc">${sanitizeHtml(d.description || 'Aucune description')}</div>
+          <div class="tooltip-desc">${escapeHtml((d.description || 'Aucune description'))}</div>
  
           <!-- Commentaires -->
           <div class="tooltip-comments">
@@ -1910,7 +2089,7 @@ async function loadDashboardStats() {
 function renderPipeline(statusDist, total) {
   const container = document.getElementById('pipeline-stages');
   if (!container) return;
-  const stagesData = RMA_STAGES.filter(s => s !== 'Archives').map((stage, i) => ({ stage, color: STAGE_COLORS[i], count: statusDist.find(d => d.status === stage)?.count || 0 })).filter(d => d.count > 0).sort((a, b) => b.count - a.count);
+  const stagesData = getRmaStages().filter(s => s !== 'Archives').map(stage => ({ stage, color: getStageColor(stage), count: statusDist.find(d => d.status === stage)?.count || 0 })).filter(d => d.count > 0).sort((a, b) => b.count - a.count);
   if (!stagesData.length) { container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);font-size:var(--text-sm);padding:20px;">Aucun RMA actif.</div>'; return; }
   const max = Math.max(...stagesData.map(d => d.count));
   container.innerHTML = stagesData.map(d => {
