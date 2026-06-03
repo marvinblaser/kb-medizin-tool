@@ -1585,13 +1585,14 @@ function buildLinkedLoanBlock(rma, rmaId) {
   const loan = rma.linked_loan;
 
   const ownerBadge = (owner) => {
-    const isSupplier = owner === 'Fournisseur';
-    const color = isSupplier ? '#f59e0b' : 'var(--color-primary)';
-    return `<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
-      padding:1px 6px;border-radius:2px;background:${color}15;color:${color};border:1px solid ${color}30;">
-      ${isSupplier ? 'Fournisseur' : 'KB Med'}
-    </span>`;
-  };
+  if (!owner || owner === 'Non défini') return '';
+  const isSupplier = owner === 'Fournisseur';
+  const color = isSupplier ? '#f59e0b' : 'var(--color-primary)';
+  return `<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
+    padding:1px 6px;border-radius:2px;background:${color}15;color:${color};border:1px solid ${color}30;">
+    ${escapeHtml(owner)}
+  </span>`;
+};
 
   const statusBadge = (status) => {
     const color = status === 'Retourné' ? 'var(--color-success)' : status === 'En retard' ? 'var(--color-danger)' : 'var(--color-info)';
@@ -1619,7 +1620,7 @@ function buildLinkedLoanBlock(rma, rmaId) {
             </span>
           </div>
           <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-primary);">
-            <a href="/loans.html" style="flex:1;text-align:center;font-size:var(--text-xs);color:var(--color-primary);
+            <a href="/loans.html?open=${loan.id}" style="flex:1;text-align:center;font-size:var(--text-xs);color:var(--color-primary);
               text-decoration:none;padding:5px;border:1px solid var(--border-primary);border-radius:3px;
               display:flex;align-items:center;justify-content:center;gap:4px;">
               <i class="fas fa-external-link-alt" style="font-size:10px;"></i> Voir le prêt

@@ -17,6 +17,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('loan-start').value  = today;
   document.getElementById('return-date').value = today;
+
+  // Ouvre le prêt si passé en paramètre URL
+  const openId = parseInt(new URLSearchParams(window.location.search).get('open'));
+  if (openId) {
+    window.history.replaceState({}, document.title, '/loans.html');
+    openLoanDetail(openId);
+  }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
