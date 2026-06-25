@@ -108,9 +108,10 @@ async function loadLoans() {
   } catch (e) { console.error('Loans:', e); }
 }
 
-async function loadDevices() {
+async function loadDevices(includeArchived = false) {
   try {
-    const res  = await fetch('/api/loans/devices');
+    const url  = '/api/loans/devices' + (includeArchived ? '?archived=1' : '');
+    const res  = await fetch(url);
     const data = await res.json();
     allDevices = Array.isArray(data) ? data : [];
     renderDevices();
@@ -189,11 +190,14 @@ function renderLoans() {
 
   tbody.innerHTML = filtered.map(l => {
     const isOverdue = l.status === 'En cours' && l.expected_return_date && l.expected_return_date < today;
-    const badge = l.status === 'Retourné'
+// Remplace loan.status par l.status partout dans ce bloc
+const badge = l.status === 'Renvoyé fournisseur'
+  ? `<span class="loan-badge" style="background:rgba(148,163,184,0.15);color:#64748b;border:1px solid rgba(148,163,184,0.4);"><i class="fas fa-shipping-fast"></i> Renvoyé fournisseur</span>`
+  : isOverdue
+    ? `<span class="loan-badge badge-overdue"><i class="fas fa-exclamation-triangle"></i> En retard</span>`
+    : l.status === 'Retourné'
       ? `<span class="loan-badge badge-returned"><i class="fas fa-check"></i> Retourné</span>`
-      : isOverdue
-        ? `<span class="loan-badge badge-overdue"><i class="fas fa-exclamation-triangle"></i> En retard</span>`
-        : `<span class="loan-badge badge-active"><i class="fas fa-clock"></i> En cours</span>`;
+      : `<span class="loan-badge badge-active"><i class="fas fa-clock"></i> En cours</span>`;
 
     const daysInfo = l.status === 'En cours' && l.expected_return_date
       ? (() => {
@@ -311,6 +315,7 @@ function renderDevices() {
     'Disponible':     `<span class="loan-badge badge-available">● Disponible</span>`,
     'En prêt':        `<span class="loan-badge badge-loaned">● En prêt</span>`,
     'En maintenance': `<span class="loan-badge badge-maintenance">● Maintenance</span>`,
+    'Archivé':        `<span class="loan-badge badge-archived">● Renvoyé chez le fournisseur</span>`,
   };
 
   container.innerHTML = `
@@ -330,8 +335,12 @@ function renderDevices() {
         <tbody>
           ${devices.map(d => {
             const effectiveStatus = d.active_loans > 0
-              ? 'En prêt'
-              : (d.status === 'En maintenance' ? 'En maintenance' : 'Disponible');
+            ? 'En prêt'
+            : d.status === 'Archivé'
+              ? 'Archivé'
+              : d.status === 'En maintenance'
+                ? 'En maintenance'
+                : 'Disponible';
             return `
             <tr onclick="openDeviceDetail(${d.id})"
               style="cursor:pointer;border-bottom:1px solid var(--border-primary);transition:background 0.1s;"
@@ -379,13 +388,18 @@ window.openDeviceDetail = function(id) {
   if (!device) return;
 
   const effectiveStatus = device.active_loans > 0
-    ? 'En prêt'
-    : (device.status === 'En maintenance' ? 'En maintenance' : 'Disponible');
+  ? 'En prêt'
+  : device.status === 'Archivé'
+    ? 'Archivé'
+    : device.status === 'En maintenance'
+      ? 'En maintenance'
+      : 'Disponible';
 
   const statusBadge = {
     'Disponible':     `<span class="loan-badge badge-available">● Disponible</span>`,
     'En prêt':        `<span class="loan-badge badge-loaned">● En prêt</span>`,
     'En maintenance': `<span class="loan-badge badge-maintenance">● Maintenance</span>`,
+    'Archivé': `<span class="loan-badge" style="background:rgba(148,163,184,0.15);color:#64748b;border:1px solid rgba(148,163,184,0.4);">● Renvoyé chez le fournisseur</span>`,
   };
 
   const history = device.history || [];
@@ -469,9 +483,19 @@ window.openDeviceDetail = function(id) {
 
   document.getElementById('detail-footer').innerHTML = `
     <button class="btn btn-secondary" onclick="closeModal('loan-detail-modal')">Fermer</button>
-    <button class="btn btn-primary" onclick="closeModal('loan-detail-modal'); openDeviceModal(${device.id})">
-      <i class="fas fa-pen"></i> Modifier l'appareil
-    </button>
+    ${!device.is_archived ? `
+      <button class="btn btn-primary" onclick="closeModal('loan-detail-modal'); openDeviceModal(${device.id})">
+        <i class="fas fa-pen"></i> Modifier l'appareil
+      </button>
+      ${device.active_loans === 0 && device.owner === 'Fournisseur' ? `
+        <button class="btn" style="background:#94a3b8;color:#fff;" onclick="archiveDevice(${device.id})">
+          <i class="fas fa-archive"></i> Archiver
+        </button>` : ''}
+    ` : `
+      <button class="btn" style="background:#10b981;color:#fff;" onclick="unarchiveDevice(${device.id})">
+        <i class="fas fa-box-open"></i> Remettre en service
+      </button>
+    `}
   `;
 
   document.getElementById('loan-detail-modal').classList.add('active');
@@ -943,15 +967,20 @@ window.openLoanDetail = function(id) {
   `;
 
   document.getElementById('detail-footer').innerHTML = `
-    <button class="btn btn-secondary" onclick="closeModal('loan-detail-modal')">Fermer</button>
-    ${loan.status === 'En cours' ? `
-      <button class="btn btn-primary" onclick="closeModal('loan-detail-modal'); openLoanModal(${loan.id})">
-        <i class="fas fa-pen"></i> Modifier
-      </button>
-      <button class="btn" style="background:var(--color-success);color:#fff;"
-        onclick="closeModal('loan-detail-modal'); openReturnModal(${loan.id})">
-        <i class="fas fa-undo"></i> Enregistrer le retour
-      </button>` : ''}
+  <button class="btn btn-secondary" onclick="closeModal('loan-detail-modal')">Fermer</button>
+  ${loan.status === 'En cours' ? `
+    <button class="btn btn-primary" onclick="closeModal('loan-detail-modal'); openLoanModal(${loan.id})">
+      <i class="fas fa-pen"></i> Modifier
+    </button>
+    <button class="btn" style="background:var(--color-success);color:#fff;"
+      onclick="closeModal('loan-detail-modal'); openReturnModal(${loan.id})">
+      <i class="fas fa-undo"></i> Enregistrer le retour
+    </button>` : ''}
+  ${loan.status === 'Retourné' ? `
+    <button class="btn" style="background:#64748b;color:#fff;"
+      onclick="sendBackToSupplier(${loan.id})">
+      <i class="fas fa-shipping-fast"></i> Renvoyé chez le fournisseur
+    </button>` : ''}
   `;
 
   document.getElementById('loan-detail-modal').classList.add('active');
@@ -1032,3 +1061,47 @@ function escHtml(t) {
   el.textContent = String(t);
   return el.innerHTML;
 }
+
+window.sendBackToSupplier = async function(id) {
+  const ok = await confirmAction('Confirmer que cet appareil a bien été renvoyé chez le fournisseur ?');
+  if (!ok) return;
+  const res = await fetch(`/api/loans/${id}/sendback`, { method: 'PUT' });
+  if (res.ok) {
+    closeModal('loan-detail-modal');
+    await loadLoans();
+    if (window.toast) toast.success('Renvoyé chez le fournisseur', '');
+  } else {
+    const err = await res.json();
+    if (window.toast) toast.error('Erreur', err.error);
+  }
+};
+
+window.archiveDevice = async function(id) {
+  const ok = await confirmAction(
+    'Archiver cet appareil ? Il n\'apparaîtra plus dans le catalogue actif mais son historique est conservé.'
+  );
+  if (!ok) return;
+  const res = await fetch(`/api/loans/devices/${id}/archive`, { method: 'PUT' });
+  if (res.ok) {
+    closeModal('loan-detail-modal');
+    await loadDevices();
+    if (window.toast) toast.success('Appareil archivé', '');
+  } else {
+    const err = await res.json();
+    if (window.toast) toast.error('Erreur', err.error);
+  }
+};
+
+window.unarchiveDevice = async function(id) {
+  const ok = await confirmAction('Remettre cet appareil en service ? Il repassera en "Disponible".');
+  if (!ok) return;
+  const res = await fetch(`/api/loans/devices/${id}/unarchive`, { method: 'PUT' });
+  if (res.ok) {
+    closeModal('loan-detail-modal');
+    await loadDevices(true); // reste sur la vue archivés
+    if (window.toast) toast.success('Appareil remis en service', '');
+  } else {
+    const err = await res.json();
+    if (window.toast) toast.error('Erreur', err.error);
+  }
+};

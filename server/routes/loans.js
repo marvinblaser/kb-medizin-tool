@@ -194,16 +194,16 @@ router.delete('/:id', requireStaff, async (req, res, next) => {
 // GET /api/loans/devices
 router.get('/devices', requireStaff, async (req, res, next) => {
   try {
+    const archived = req.query.archived === '1' ? 1 : 0;
     const devices = await all(`
       SELECT d.*,
-        COUNT(CASE WHEN l.status = 'En cours' THEN 1 END)  as active_loans,
-        COUNT(l.id)                                          as total_loans
+        COUNT(CASE WHEN l.status = 'En cours' THEN 1 END) as active_loans,
+        COUNT(l.id) as total_loans
       FROM loan_devices d
       LEFT JOIN loans l ON l.device_id = d.id
+      WHERE d.is_archived = ?
       GROUP BY d.id ORDER BY d.name ASC
-    `);
-
-    // Ajoute l'historique des prêts pour chaque appareil
+    `, [archived]);
     for (const d of devices) {
       d.history = await all(`
         SELECT l.*, c.cabinet_name
@@ -211,7 +211,6 @@ router.get('/devices', requireStaff, async (req, res, next) => {
         WHERE l.device_id = ? ORDER BY l.created_at DESC LIMIT 10
       `, [d.id]);
     }
-
     res.json(devices);
   } catch (err) { next(err); }
 });
@@ -252,9 +251,14 @@ router.delete('/devices/:id', requireStaff, async (req, res, next) => {
       `SELECT COUNT(*) as count FROM loans WHERE device_id = ? AND status = 'En cours'`,
       [req.params.id]
     );
-    if (active?.count > 0) {
+    if (active?.count > 0)
       return res.status(409).json({ error: 'Impossible de supprimer un appareil actuellement en prêt.' });
-    }
+    const history = await get(
+      `SELECT COUNT(*) as count FROM loans WHERE device_id = ?`,
+      [req.params.id]
+    );
+    if (history?.count > 0)
+      return res.status(409).json({ error: 'Cet appareil a un historique de prêts. Utilisez l\'archivage.' });
     await run('DELETE FROM loan_devices WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) { next(err); }
@@ -268,6 +272,51 @@ router.put('/:id/link-rma', requireStaff, async (req, res, next) => {
     await run(
       `UPDATE loans SET rma_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       [rma_id || null, req.params.id]
+    );
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// PUT /api/loans/devices/:id/archive
+router.put('/devices/:id/archive', requireStaff, async (req, res, next) => {
+  try {
+    await run(`
+      UPDATE loans SET status='Renvoyé fournisseur', updated_at=CURRENT_TIMESTAMP
+      WHERE id = (
+        SELECT id FROM loans
+        WHERE device_id = ? AND status = 'Retourné'
+        ORDER BY created_at DESC LIMIT 1
+      )`,
+      [req.params.id]
+    );
+    await run(
+      `UPDATE loan_devices SET is_archived=1, status='Archivé', updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      [req.params.id]
+    );
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+router.put('/devices/:id/unarchive', requireStaff, async (req, res, next) => {
+  try {
+    await run(
+      `UPDATE loan_devices SET is_archived=0, status='Disponible', updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      [req.params.id]
+    );
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
+// PUT /api/loans/:id/sendback
+router.put('/:id/sendback', requireStaff, async (req, res, next) => {
+  try {
+    const loan = await get('SELECT * FROM loans WHERE id = ?', [req.params.id]);
+    if (!loan) return res.status(404).json({ error: 'Prêt introuvable.' });
+    if (loan.status !== 'Retourné')
+      return res.status(400).json({ error: 'Le prêt doit être retourné avant d\'être renvoyé.' });
+    await run(
+      `UPDATE loans SET status='Renvoyé fournisseur', updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      [req.params.id]
     );
     res.json({ success: true });
   } catch (err) { next(err); }

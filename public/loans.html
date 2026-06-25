@@ -494,6 +494,10 @@
           <option value="Fournisseur">Appareils fournisseurs</option>
           <option value="Non défini">Non définis</option>
         </select>
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="show-archived" onchange="loadDevices(this.checked)">
+          Voir les archivés
+        </label>
         <div style="margin-left:auto;">
           <button class="btn btn-secondary" id="btn-new-device" onclick="openDeviceModal()"
             style="display:none;">
