@@ -873,11 +873,10 @@ async function loadClientHistory(id) {
     };
  
     const pageUrl = (type, linkId) => {
-      if (type === 'rapport') return `/reports.html?open=${linkId}`;
-      if (type === 'ticket')  return `/tickets.html?open=${linkId}`;
-      if (type === 'rma')     return `/rmas.html?open=${linkId}`;
-      if (type === 'pret')    return `/loans.html?open=${linkId}`;
-      return null;
+        if (type === 'rapport') return `/report-view.html?id=${linkId}`; // direct, pas via reports.html
+        if (type === 'ticket')  return `/tickets.html?open=${linkId}`;
+        if (type === 'rma')     return `/rmas.html?open=${linkId}`;
+        if (type === 'pret')    return `/loans.html?open=${linkId}`;
     };
  
     const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-CH', {
@@ -969,7 +968,8 @@ async function loadClientHistory(id) {
         <i class="fas fa-trash" style="font-size:9px;"></i> Supprimer
       </button>` : ''}
     ${url ? `
-      <button onclick="event.stopPropagation();window.location.href='${url}'"
+      <button onclick="event.stopPropagation();
+  ${item.type === 'rapport' ? `window.open('${url}', '_blank')` : `window.location.href='${url}'`}"
         style="padding:3px 10px;font-size:11px;font-weight:600;
           color:${c.color};background:${c.color}15;border:1px solid ${c.color}40;
           border-radius:3px;cursor:pointer;font-family:inherit;
