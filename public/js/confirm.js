@@ -261,28 +261,10 @@
     });
   };
 
-  // ── REMPLACE window.confirm() GLOBALEMENT ──────────────────────────
-  // ATTENTION : window.confirm() est synchrone, showConfirm() est async.
-  // Cette surcharge intercepte les appels existants.
-  const originalConfirm = window.confirm.bind(window);
-
-  window.confirm = function (message) {
-    // Si on est dans un contexte async (via showConfirm), on l'utilise
-    // Sinon on retourne une Promise (les appelants async la gèrent)
-    // Pour les appelants synchrones legacy (if(!confirm(...))), on affiche le popup
-    // et on retourne false (bloque l'action) jusqu'à ce que l'utilisateur réponde.
-    // En pratique, on redirige tout vers showConfirm.
-
-    // Vérifie si l'appelant peut gérer une Promise
-    const stack = new Error().stack || '';
-    const isAsync = stack.includes('async') || stack.includes('await');
-
-    // Affiche le popup et retourne false immédiatement pour les appels sync.
-    // L'action ne s'exécutera pas — c'est intentionnel.
-    // Les fonctions async devront utiliser showConfirm() directement.
-    window.showConfirm({ message: message || 'Êtes-vous sûr ?' });
-    return false;
-  };
+  // NOTE : window.confirm() natif reste synchrone et n'est PAS remplacé ici.
+  // Un remplacement par showConfirm() (async) ne peut pas renvoyer sa réponse
+  // à un appelant synchrone (if(!confirm(...))) sans bloquer — d'où les helpers
+  // ci-dessous pour le code qui peut être async.
 
   // ── HELPERS PRATIQUES ───────────────────────────────────────────────
   /** Confirmation de suppression */

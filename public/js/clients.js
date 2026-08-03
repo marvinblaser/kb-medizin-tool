@@ -426,31 +426,6 @@ window.toggleClientHidden = function(id, currentStatus) {
     );
 }
 
-// --- NOUVELLE FONCTION (Ajoutez-la à la fin du fichier ou exposez-la) ---
-async function toggleClientHidden(id, currentStatus) {
-    // Si c'est 1 (masqué), on veut passer à 0. Si c'est 0, on veut passer à 1.
-    const newStatus = currentStatus ? 0 : 1;
-    const actionWord = newStatus ? "masquer" : "réafficher";
-    
-    if(!confirm(`Voulez-vous vraiment ${actionWord} ce client ?`)) return;
-
-    try {
-        const res = await fetch(`/api/clients/${id}/toggle-hidden`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_hidden: newStatus })
-        });
-        
-        if (res.ok) {
-            // On recharge les données pour mettre à jour la liste
-            loadData();
-            showNotification(`Client ${newStatus ? 'masqué' : 'réaffiché'} avec succès.`, 'success');
-        } else {
-            showNotification("Erreur lors de la mise à jour.", "error");
-        }
-    } catch(e) { console.error(e); }
-}
-
 // --- LOGIQUE PLANNING (AVEC BOUTONS RDV) ---
 let planningSort = { col: 'days', order: 'asc' };
  
@@ -1212,8 +1187,14 @@ async function openScheduleModal(clientId, clientName, rdvId = null) {
 }
 
 async function deleteAppointment(rdvId) {
-    if (!confirm("Voulez-vous vraiment supprimer ce rendez-vous ?")) return;
-    
+    const ok = await window.showConfirm({
+        title: 'Supprimer le rendez-vous',
+        message: 'Voulez-vous vraiment supprimer ce rendez-vous ?',
+        confirmText: 'Oui, supprimer',
+        type: 'danger'
+    });
+    if (!ok) return;
+
     try {
         const res = await fetch(`/api/clients/appointments/${rdvId}`, { method: 'DELETE' });
         
@@ -1555,7 +1536,13 @@ window.uploadContractFile = async function(input) {
 };
 
 window.deleteContractFile = async function() {
-    if (!confirm("Retirer le document de ce contrat ?")) return;
+    const ok = await window.showConfirm({
+        title: 'Retirer le contrat',
+        message: 'Retirer le document de ce contrat ?',
+        confirmText: 'Oui, retirer',
+        type: 'danger'
+    });
+    if (!ok) return;
     try {
         await fetch(`/api/clients/${currentClientId}/contract`, { method: 'DELETE' });
         window.currentContractPath = null;
