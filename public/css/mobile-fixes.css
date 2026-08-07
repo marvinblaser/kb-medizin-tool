@@ -128,8 +128,8 @@
     max-width: 100% !important;
     margin: 0 !important;
     border-radius: 0 !important;
-    max-height: 100vh !important;
-    height: 100vh !important;
+    max-height: 100dvh !important;
+    height: 100dvh !important;
   }
 
   .modal-backdrop {

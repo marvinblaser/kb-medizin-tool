@@ -25,7 +25,7 @@ input, select, textarea { font-family: inherit; }
 .app-container,
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -172,7 +172,7 @@ input, select, textarea { font-family: inherit; }
   margin-left: 240px;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -506,7 +506,10 @@ input, select, textarea { font-family: inherit; }
 .form-group textarea,
 .form-input,
 .form-select,
-.form-control {
+.form-control,
+.draggable-item input,
+.draggable-item select,
+.draggable-item textarea {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border-primary);
@@ -517,6 +520,16 @@ input, select, textarea { font-family: inherit; }
   font-family: inherit;
   outline: none;
   transition: border-color var(--transition-fast);
+}
+
+/* La ligne "Matériel" garde volontairement un fond clair (carte blanche
+   posée sur le thème sombre) — ses champs doivent rester clairs eux
+   aussi plutôt que d'hériter du style sombre de .draggable-item. */
+.grid-cols-material input,
+.grid-cols-material select {
+  background: #fff;
+  color: #111827;
+  border-color: #e5e7eb;
 }
 
 .form-group input:focus,
@@ -802,7 +815,10 @@ input, select, textarea { font-family: inherit; }
 }
 
 @media (max-width: 480px) {
-  .page-header { flex-wrap: wrap; gap: 8px; }
+  /* height:53px (règle de base) + flex-wrap:wrap sans hauteur automatique
+     faisait déborder la 2e ligne du header par-dessus le contenu suivant
+     dès qu'il n'y avait plus la place pour tout sur une seule ligne. */
+  .page-header { flex-wrap: wrap; gap: 8px; height: auto; min-height: 53px; }
   .header-actions-group,
   .page-actions { width: 100%; justify-content: flex-end; }
 }

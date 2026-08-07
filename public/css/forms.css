@@ -27,7 +27,7 @@ textarea {
   width: 100%;
   padding: 0.75rem 1rem;
   font-family: var(--font-family);
-  font-size: 0.9rem;
+  font-size: 1rem;
   line-height: 1.5;
   color: var(--neutral-900);
   background: var(--neutral-white);

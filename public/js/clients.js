@@ -191,46 +191,63 @@ function renderDirectory(list) {
         const isHidden = c.is_hidden === 1;
         const rowStyle = isHidden ? 'background-color:#f3f4f6; opacity:0.75;' : '';
         const badgeHidden = isHidden ? '<span class="badge" style="background:#e5e7eb; color:#6b7280; font-size:0.7em; margin-left:5px;">Masqué</span>' : '';
-        
+
         // On vérifie si ce client est déjà coché
         const isChecked = selectedClients.has(c.id) ? 'checked' : '';
 
+        // Ligne secondaire mobile (ville + interlocuteur combinés) et badge
+        // contrat texte — visibles uniquement sous 768px (voir CSS), le
+        // reste du balisage (colonnes desktop) ne change pas.
+        const mobileMeta = `${escapeHtml(c.city)}${c.contact_name ? ' · ' + escapeHtml(c.contact_name) : ''}`;
+        const mobileContractBadge = c.has_contract === 1
+            ? '<span class="card-contract-badge"><i class="fas fa-check-circle"></i> Sous contrat</span>'
+            : '';
+
         return `
-        <tr style="${rowStyle}" class="${isChecked ? 'row-selected' : ''}">
-            <td style="text-align:center; padding-left:10px;">
+        <tr style="${rowStyle}cursor:pointer" class="${isChecked ? 'row-selected' : ''}" onclick="openClientDetails(${c.id})">
+            <td style="text-align:center; padding-left:10px;" onclick="event.stopPropagation()">
                 <input type="checkbox" class="row-checkbox client-cb" value="${c.id}" ${isChecked} onchange="toggleClientSelection(${c.id}, this)">
             </td>
-            <td onclick="openClientDetails(${c.id})" style="cursor:pointer">
+            <td>
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div style="flex-shrink: 0; min-width: 24px; display: flex; justify-content: center;">
                         ${window.getContractBadgeHtml ? window.getContractBadgeHtml(c) : ''}
                     </div>
-                    
+
                     <div style="display: flex; flex-direction: column; justify-content: center;">
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <strong style="color:var(--color-primary); font-size:0.95rem; line-height: 1.2;">
                                 ${escapeHtml(c.cabinet_name)}
-                            </strong> 
+                            </strong>
                             ${badgeHidden}
                         </div>
                         <span style="font-size:0.8rem; color:var(--neutral-500); line-height: 1.2; margin-top: 2px;">
                             ${escapeHtml(c.activity)}
                         </span>
+                        <span class="card-meta-line">${mobileMeta}</span>
+                        ${mobileContractBadge}
                     </div>
                 </div>
             </td>
-            <td onclick="openClientDetails(${c.id})" style="cursor:pointer">${escapeHtml(c.city)} <span style="font-size:0.75rem; color:var(--neutral-400);">(${c.canton||''})</span></td>
-            <td onclick="openClientDetails(${c.id})" style="cursor:pointer">${escapeHtml(c.contact_name)}<br><span style="font-size:0.75rem; color:var(--neutral-500);">${escapeHtml(c.phone||'-')}</span></td>
-            <td onclick="openClientDetails(${c.id})" style="cursor:pointer"><small style="color:var(--neutral-500);">${c.equipment_summary ? c.equipment_summary.split(';;').length + ' machines' : 'Aucune machine'}</small></td>
-            <td onclick="openClientDetails(${c.id})" style="cursor:pointer">${c.appointment_at ? formatDate(c.appointment_at) : '-'}</td>
-            <td style="text-align:right;">
-                <div style="display:flex; justify-content:flex-end; gap:5px;">
-                    <button class="btn-icon-sm btn-icon-secondary" onclick="event.stopPropagation(); toggleClientHidden(${c.id}, ${c.is_hidden || 0})">
+            <td>${escapeHtml(c.city)} <span style="font-size:0.75rem; color:var(--neutral-400);">(${c.canton||''})</span></td>
+            <td>${escapeHtml(c.contact_name)}<br><span style="font-size:0.75rem; color:var(--neutral-500);">${escapeHtml(c.phone||'-')}</span></td>
+            <td><small style="color:var(--neutral-500);">${c.equipment_summary ? c.equipment_summary.split(';;').length + ' machines' : 'Aucune machine'}</small></td>
+            <td>${c.appointment_at ? formatDate(c.appointment_at) : '-'}</td>
+            <td style="text-align:right;" onclick="event.stopPropagation()">
+                <div class="row-actions-desktop">
+                    <button class="btn-icon-sm btn-icon-secondary" onclick="toggleClientHidden(${c.id}, ${c.is_hidden || 0})">
                         <i class="fas ${isHidden ? 'fa-eye' : 'fa-eye-slash'}"></i>
                     </button>
-                    <button class="btn-icon-sm btn-icon-primary" onclick="event.stopPropagation(); openClientModal(${c.id})">
+                    <button class="btn-icon-sm btn-icon-primary" onclick="openClientModal(${c.id})">
                         <i class="fas fa-pen"></i>
                     </button>
+                </div>
+                <button class="row-menu-btn" onclick="toggleRowMenu(this)" aria-label="Actions">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <div class="row-menu-dropdown">
+                    <button onclick="closeAllRowMenus(); openClientModal(${c.id})"><i class="fas fa-pen"></i> Modifier</button>
+                    <button onclick="closeAllRowMenus(); toggleClientHidden(${c.id}, ${c.is_hidden || 0})"><i class="fas ${isHidden ? 'fa-eye' : 'fa-eye-slash'}"></i> ${isHidden ? 'Réafficher' : 'Masquer'}</button>
                 </div>
             </td>
         </tr>`;
@@ -398,6 +415,18 @@ window.closeConfirmModal = function() {
     const modal = document.getElementById('confirm-modal');
     if (modal) modal.classList.remove('active');
 }
+
+// LOT 3B — Menu d'actions (⋮) des cartes clients sur mobile
+window.closeAllRowMenus = function() {
+    document.querySelectorAll('.row-menu-dropdown.open').forEach(d => d.classList.remove('open'));
+};
+window.toggleRowMenu = function(btn) {
+    const dropdown = btn.nextElementSibling;
+    const wasOpen = dropdown.classList.contains('open');
+    window.closeAllRowMenus();
+    if (!wasOpen) dropdown.classList.add('open');
+};
+document.addEventListener('click', () => window.closeAllRowMenus());
 
 // E. MODIFIER VOTRE FONCTION 'toggleClientHidden' EXISTANTE
 // Pour qu'elle utilise aussi la modale au lieu de confirm()

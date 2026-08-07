@@ -3,6 +3,14 @@
 
 :root {
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     SAFE AREA (encoche / home-indicator iPhone, 0 partout ailleurs)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      COULEURS LIGHT MODE (par défaut)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   
@@ -210,6 +218,13 @@ body {
   color: var(--text-primary);
   background: var(--bg-primary);
   transition: background-color var(--transition-base), color var(--transition-base);
+  /* iPhone notch / home-indicator clearance (viewport-fit=cover).
+     Resolves to 0 on every non-notch device/desktop, so this is safe globally.
+     Fine per-page tuning for fixed headers/bottom bars comes with the nav lot. */
+  padding-top: var(--safe-top);
+  padding-right: var(--safe-right);
+  padding-bottom: var(--safe-bottom);
+  padding-left: var(--safe-left);
 }
 
 /* Smooth scroll */
@@ -263,4 +278,14 @@ html {
 
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: var(--neutral-500);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MOBILE — iOS Safari zoom-on-focus fix (applies everywhere, not just
+   mobile: any input under 16px makes Safari zoom in when focused).
+   !important is intentional here: it needs to win over every page-
+   specific/inline font-size on inputs across the app.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+input, select, textarea {
+  font-size: var(--text-base) !important;
 }

@@ -69,7 +69,7 @@ function injectStyles() {
       position: fixed;
       top: 0; right: -380px;
       width: 360px;
-      height: 100vh;
+      height: 100dvh;
       background: var(--bg-elevated, #fff);
       border-left: 1px solid var(--border-primary, #e5e7eb);
       box-shadow: -4px 0 20px rgba(0,0,0,0.08);

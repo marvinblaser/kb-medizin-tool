@@ -129,6 +129,12 @@
     moreBtn.appendChild(dropdown);
     group.appendChild(moreBtn);
 
+    // Sans ça, une fois les boutons collapsés (display:none), le groupe
+    // garde parfois sa largeur flex d'avant (calcul flex figé constaté sur
+    // Chrome) et écrase le titre/hamburger du groupe voisin. Un width:auto
+    // explicite force le recalcul.
+    group.style.width = 'auto';
+
     moreBtn.addEventListener('click', e => {
       e.stopPropagation();
       dropdown.classList.toggle('open');

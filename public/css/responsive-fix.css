@@ -3,6 +3,19 @@
 /* À inclure EN DERNIER sur toutes les pages, après tous les autres CSS */
 
 /* ═══════════════════════════════════════════════════════════════════
+   BREAKPOINTS — convention du projet
+   Pas de build step (pas de Sass/PostCSS) : les media queries CSS
+   natives n'acceptent pas var(--xxx) dans leur condition, donc ces
+   valeurs sont documentées ici en constantes de référence plutôt que
+   déclarées comme custom properties utilisables. Toute nouvelle règle
+   @media doit reprendre une de ces trois valeurs telle quelle.
+
+     max-width: 1024px  → tablette / petit écran
+     max-width: 768px   → mobile (cible principale : iPhone 16, 393-440px)
+     max-width: 480px   → très petit mobile / ajustements fins
+═══════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════
    GLOBAL — Empêche le scroll horizontal sur TOUTES les pages
 ═══════════════════════════════════════════════════════════════════ */
 
@@ -52,6 +65,10 @@ table {
     transition: transform 0.25s ease-out;
     z-index: 100;
     box-shadow: none;
+    /* La sidebar est en position:fixed donc n'hérite pas du
+       padding-top de <body> (LOT 1) — l'encoche doit être gérée ici. */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .sidebar.open,
@@ -63,6 +80,13 @@ table {
   .main-content,
   .main {
     margin-left: 0 !important;
+  }
+
+  /* .page-header est position:sticky;top:0 — quand elle colle en haut de
+     l'écran, elle doit dégager l'encoche pour que le bouton hamburger et
+     le titre restent tapables/visibles. */
+  .page-header {
+    padding-top: max(10px, env(safe-area-inset-top, 0px));
   }
 }
 
@@ -235,29 +259,59 @@ table {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   MODALS — Plein écran sur mobile
+   MODALS — Plein écran sur mobile (LOT 2A)
+   .modal > .modal-content (flex column) > .modal-header / .modal-body
+   (scrollable) / .modal-footer — header et footer sont des enfants
+   flex-shrink:0 en dehors de la zone de scroll de .modal-body, donc
+   déjà "épinglés" sans avoir besoin de position:fixed (qui se comporte
+   mal sous Safari iOS quand le clavier virtuel apparaît). On ajoute
+   position:sticky en plus, en ceinture-bretelles, comme demandé.
 ═══════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
   .modal {
     padding: 0 !important;
-    align-items: flex-end !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    background: transparent !important;
   }
 
   .modal-content {
-    max-width: 100vw !important;
-    width: 100vw !important;
-    max-height: 92vh !important;
-    border-radius: 12px 12px 0 0 !important;
-    animation: slideInUp 0.25s ease-out !important;
+    max-width: 100dvw !important;
+    width: 100dvw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    animation: fadeIn 0.15s ease-out !important;
+  }
+
+  .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    min-height: 44px;
+    padding-top: max(16px, env(safe-area-inset-top, 0px));
+  }
+
+  .modal-close {
+    width: 44px !important;
+    height: 44px !important;
   }
 
   .modal-body {
     padding: 16px !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
   }
 
   .modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
     padding: 12px 16px !important;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
     flex-wrap: wrap;
     gap: 8px;
   }
@@ -265,6 +319,13 @@ table {
   .modal-footer .btn {
     flex: 1;
     justify-content: center;
+    min-height: 44px;
+  }
+
+  /* Bloque le scroll de la page derrière tant qu'un modal (ou un
+     modal empilé sur un autre) est ouvert. */
+  body:has(.modal.active) {
+    overflow: hidden !important;
   }
 }
 
@@ -277,8 +338,8 @@ table {
   .client-sheet-modal {
     max-width: 100vw !important;
     width: 100vw !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
     border-radius: 0 !important;
   }
 
@@ -632,8 +693,8 @@ table {
   #report-modal .modal-content {
     width: 100vw !important;
     max-width: 100vw !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
     border-radius: 0 !important;
   }
 
@@ -712,30 +773,189 @@ table {
 
 @media (max-width: 768px) {
   .ss-main {
-    height: 40px !important;
-    font-size: 0.9rem !important;
+    height: auto !important;
+    min-height: 44px !important;
+    font-size: 1rem !important;
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+    padding: 4px 8px !important;
   }
 
-  .ss-content {
-    max-height: 200px !important;
+  /* Sélection multiple : les tags passent à la ligne au lieu
+     d'être coupés par la hauteur fixe du champ. */
+  .ss-values {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+
+  /* Cible tactile 44px sur chaque option de la liste */
+  .ss-option {
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    font-size: 1rem !important;
+  }
+
+  .ss-search input {
+    font-size: 1rem !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     Dropdown plein écran (option B — voir échange avec l'utilisateur).
+     .ss-content est ajouté à <body> par SlimSelect en position:absolute,
+     calculée une seule fois à l'ouverture à partir du champ déclencheur.
+     Dans une modale au corps scrollable, cette position devient fausse
+     dès que l'utilisateur scrolle : le dropdown reste figé alors que le
+     champ se déplace. En le passant en plein écran fixe, il devient
+     immunisé au scroll (de la modale ou de la page) et à l'overflow.
+     SlimSelect ajoute .ss-open-below/.ss-open-above sur .ss-content
+     uniquement quand il est effectivement ouvert.
+  ───────────────────────────────────────────────────────────────── */
+  .ss-content.ss-open-below,
+  .ss-content.ss-open-above {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100dvw !important;
+    max-width: 100dvw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    z-index: 100000 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .ss-content.ss-open-below .ss-search,
+  .ss-content.ss-open-above .ss-search {
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: max(12px, env(safe-area-inset-top, 0px)) 12px 12px;
+    background: inherit;
+  }
+
+  .ss-content.ss-open-below .ss-search input,
+  .ss-content.ss-open-above .ss-search input {
+    height: 44px !important;
+  }
+
+  .ss-content.ss-open-below .ss-list,
+  .ss-content.ss-open-above .ss-list {
+    flex: 1 !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Bloque le scroll derrière le picker plein écran tant qu'il est ouvert */
+  body:has(.ss-content.ss-open-below, .ss-content.ss-open-above) {
+    overflow: hidden !important;
+  }
+
+  /* Bouton de fermeture (public/js/slimselect-mobile-fix.js) — nécessaire
+     pour les multi-select sans recherche (showSearch:false), qui n'ont
+     sinon aucun moyen de se fermer sans sélectionner une option. */
+  #ss-mobile-close {
+    display: none;
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top, 0px));
+    right: 12px;
+    width: 44px;
+    height: 44px;
+    z-index: 100001;
+    border-radius: 50%;
+    border: 1px solid var(--border-primary, #e5e7eb);
+    background: var(--bg-elevated, #fff);
+    color: var(--text-primary, #111827);
+    font-size: 22px;
+    line-height: 1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  body:has(.ss-content.ss-open-below, .ss-content.ss-open-above) #ss-mobile-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   TOUCH TARGETS — Minimum 44px sur mobile
+   TOUCH TARGETS — Minimum 44px sur mobile (boutons et liens)
 ═══════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
   .btn,
+  .btn-sm,
+  .btn-icon-sm,
+  .btn-icon-simple,
   .sidebar-btn,
   .nav-item,
   .nav-link,
   .map-filter-btn,
-  .ticket-tab-btn {
-    min-height: 40px;
+  .ticket-tab-btn,
+  button,
+  a.btn,
+  a[role="button"] {
+    min-height: 44px;
   }
 
-  .btn-sm {
-    min-height: 34px;
+  .btn-icon-sm,
+  .btn-icon-simple {
+    min-width: 44px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODAL "MES PRÉFÉRENCES" — injecté en JS par sidebar-init.js,
+   entièrement en style inline (pas de classes) sauf les 2 hooks
+   ._prefs-box / ._prefs-head / ._prefs-close ajoutés pour ce correctif.
+   !important nécessaire pour battre les style inline existants.
+═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  #_prefs-modal {
+    padding: 0 !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    background: transparent !important;
+  }
+
+  #_prefs-modal ._prefs-box {
+    max-width: 100dvw !important;
+    width: 100dvw !important;
+    height: 100dvh !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  #_prefs-modal ._prefs-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    min-height: 44px !important;
+    padding-top: max(14px, env(safe-area-inset-top, 0px)) !important;
+    flex-shrink: 0;
+  }
+
+  #_prefs-modal ._prefs-close {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  #_prefs-modal #_pane-password,
+  #_prefs-modal #_pane-notifs {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  body:has(#_prefs-modal) {
+    overflow: hidden !important;
   }
 }

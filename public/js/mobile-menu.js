@@ -37,10 +37,35 @@
     }
     overlay.addEventListener('click', closeSidebar);
 
+    // Ferme le drawer au clic sur un lien de nav (utile le temps que la
+    // navigation vers la nouvelle page se charge, et pour le cas où le
+    // lien cliqué est celui de la page déjà active).
+    sidebar.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', closeSidebar);
+    });
+
+    // Swipe pour fermer : glisser vers la gauche sur le drawer ouvert.
+    let touchStartX = null;
+    let touchStartY = null;
+    sidebar.addEventListener('touchstart', e => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    sidebar.addEventListener('touchend', e => {
+      if (touchStartX === null) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (dx < -50 && Math.abs(dx) > Math.abs(dy)) closeSidebar();
+      touchStartX = null;
+      touchStartY = null;
+    }, { passive: true });
+
     let hamburger = document.getElementById('mobile-menu-btn');
     if (!hamburger) {
       const pageHeader = document.querySelector('.page-header .header-title-group')
-                      || document.querySelector('.page-header');
+                      || document.querySelector('.rma-topbar-left')
+                      || document.querySelector('.page-header')
+                      || document.querySelector('.topbar-left');
       if (pageHeader) {
         hamburger = document.createElement('button');
         hamburger.id = 'mobile-menu-btn';

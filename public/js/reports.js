@@ -1151,11 +1151,11 @@ const technicians = window.technicians || [];  // ← AJOUTE ÇA
 
   div.innerHTML = `
     <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
-    <div><select class="technician-select" style="width:100%"><option value="">--</option>${technicians.map(t => `<option value="${t.id}" ${data && data.technician_id == t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}</select></div>
-    <div><input type="date" class="tech-date" value="${data ? data.work_date : new Date().toISOString().split("T")[0]}" style="width:100%" /></div>
-    <div><input type="number" class="tech-hours-normal" step="0.5" value="${data ? data.hours_normal : 0}" style="width:100%" /></div>
-    <div><input type="number" class="tech-hours-extra" step="0.5" value="${data ? data.hours_extra : 0}" style="width:100%" /></div>
-    <div style="text-align:center;"><input type="checkbox" class="tech-included" style="width:16px; height:16px;" ${isChecked}></div>
+    <div><span class="field-label">Nom</span><select class="technician-select" style="width:100%"><option value="">--</option>${technicians.map(t => `<option value="${t.id}" ${data && data.technician_id == t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}</select></div>
+    <div><span class="field-label">Date</span><input type="date" class="tech-date" value="${data ? data.work_date : new Date().toISOString().split("T")[0]}" style="width:100%" /></div>
+    <div><span class="field-label">Heures</span><input type="number" class="tech-hours-normal" step="0.5" value="${data ? data.hours_normal : 0}" style="width:100%" /></div>
+    <div><span class="field-label">Sup.</span><input type="number" class="tech-hours-extra" step="0.5" value="${data ? data.hours_extra : 0}" style="width:100%" /></div>
+    <div style="text-align:center;"><span class="field-label">Inclus</span><input type="checkbox" class="tech-included" style="width:16px; height:16px;" ${isChecked}></div>
     <div style="text-align:right;"><button type="button" class="btn-icon-sm btn-icon-danger" onclick="this.parentElement.remove(); calculateTotal();"><i class="fas fa-times"></i></button></div>
   `;
 
@@ -1289,33 +1289,35 @@ function addMaterialRow(data = null) {
     <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
     
     <div>
+        <span class="field-label">Catalogue</span>
         <select class="material-select" style="width:100%;">
             <option value="">-- Rechercher --</option>
             ${materials.map(m => {
                 const label = m.product_code ? `${m.product_code} - ${m.name}` : m.name;
-                return `<option value="${m.id}" 
-                    data-name="${escapeHtml(m.name)}" 
-                    data-price="${m.unit_price}" 
-                    data-code="${m.product_code}" 
+                return `<option value="${m.id}"
+                    data-name="${escapeHtml(m.name)}"
+                    data-price="${m.unit_price}"
+                    data-code="${m.product_code}"
                     ${data && data.material_id == m.id ? "selected" : ""}>
                     ${escapeHtml(label)}
                 </option>`;
             }).join("")}
         </select>
     </div>
-  
-    <div><input type="text" class="material-name-input" value="${escapeHtml(currentName)}" placeholder="Désignation" /></div>
-    <div><input type="text" class="material-code" value="${escapeHtml(productCode)}" placeholder="Code" /></div>
-    <div><input type="number" class="material-qty text-right" min="1" value="${qty}" /></div>
-    <div><input type="number" class="material-price text-right" step="0.01" value="${price}" /></div>
-    
+
+    <div><span class="field-label">Désignation</span><input type="text" class="material-name-input" value="${escapeHtml(currentName)}" placeholder="Désignation" /></div>
+    <div><span class="field-label">Code</span><input type="text" class="material-code" value="${escapeHtml(productCode)}" placeholder="Code" /></div>
+    <div><span class="field-label">Qté</span><input type="number" class="material-qty text-right" min="1" value="${qty}" /></div>
+    <div><span class="field-label">Prix</span><input type="number" class="material-price text-right" step="0.01" value="${price}" /></div>
+
     <div class="text-center">
+        <span class="field-label">Inclus</span>
         <input type="checkbox" class="material-incl" style="width:18px; height:18px; cursor:pointer;" ${isIncluded ? "checked" : ""} />
     </div>
-    
-    <div><input type="number" class="material-discount text-right" min="0" max="100" step="1" value="${discountVal}" /></div>
-    <div><input type="number" class="material-total text-right" step="0.01" value="${total}" readonly style="background:transparent; font-weight:bold; border:none;" /></div>
-  
+
+    <div><span class="field-label">Remise %</span><input type="number" class="material-discount text-right" min="0" max="100" step="1" value="${discountVal}" /></div>
+    <div><span class="field-label">Total</span><input type="number" class="material-total text-right" step="0.01" value="${total}" readonly style="background:transparent; font-weight:bold; border:none;" /></div>
+
     <div class="text-right">
         <button type="button" class="btn-icon-sm btn-icon-danger delete-mat-btn">
             <i class="fas fa-times"></i>

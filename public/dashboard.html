@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tableau de bord — KB Med</title>
   <link rel="shortcut icon" href="/src/images/swiss_flag.webp" type="image/x-icon">
 
@@ -39,7 +39,7 @@
     ═══════════════════════════════════════════════════════════════════ */
     .app-shell {
       display: flex;
-      min-height: 100vh;
+      min-height: 100dvh;
     }
 
     /* ═══════════════════════════════════════════════════════════════════
@@ -269,7 +269,7 @@
     .main {
       flex: 1;
       margin-left: 240px;
-      min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
     }
@@ -569,7 +569,7 @@
       position: fixed;
       top: 52px; right: 0;
       width: 360px;
-      height: calc(100vh - 52px);
+      height: calc(100dvh - 52px);
       background: var(--bg-elevated);
       border-left: 1px solid var(--border-primary);
       z-index: 200;
@@ -1075,7 +1075,7 @@
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    height: 100vh !important;
+    height: 100dvh !important;
     z-index: 100 !important;
     transform: translateX(-100%) !important;
     transition: transform 0.25s ease-out !important;
@@ -1100,10 +1100,6 @@
 }
 
     @media (max-width: 768px) {
-      .sidebar {
-        transform: translateX(-100%);
-      }
-      .sidebar.mobile-open { transform: translateX(0); }
       .main { margin-left: 0; }
       .stats-row { grid-template-columns: 1fr 1fr; }
       .widgets-grid { grid-template-columns: 1fr; }
@@ -1114,6 +1110,70 @@
     @media (max-width: 480px) {
       .stats-row { grid-template-columns: 1fr; }
       .page-body { padding: 16px; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       MODALS — Plein écran mobile (LOT 2A)
+       Cette page utilise .modal-backdrop > .modal > .modal-head /
+       .modal-body / .modal-foot (noms différents des autres pages).
+    ═══════════════════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+      .modal-backdrop {
+        padding: 0 !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+        background: transparent !important;
+      }
+
+      .modal-backdrop .modal {
+        width: 100dvw !important;
+        max-width: 100dvw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        /* Le .modal partagé de responsive-fix.css (Famille A, overlay)
+           met background:transparent — ici .modal est la boîte visible,
+           pas l'overlay, donc on restaure son fond opaque. */
+        background: var(--bg-elevated) !important;
+      }
+
+      .modal-head {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        min-height: 44px;
+        padding-top: max(18px, env(safe-area-inset-top, 0px));
+      }
+
+      .modal-backdrop .modal-close,
+      .modal-head .modal-close {
+        width: 44px !important;
+        height: 44px !important;
+      }
+
+      .modal-backdrop .modal-body {
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .modal-foot {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)) !important;
+      }
+
+      .modal-foot .btn {
+        flex: 1;
+        justify-content: center;
+        min-height: 44px;
+      }
+
+      body:has(.modal-backdrop.active) {
+        overflow: hidden !important;
+      }
     }
   </style>
 </head>
@@ -1183,7 +1243,6 @@
       <div class="topbar-left">
         <button class="topbar-btn" id="mobile-menu-btn" style="display:none">
           <i class="fas fa-bars"></i>
-        </button>
         </button>
         <h1 class="topbar-title">Tableau de bord</h1>
       </div>
@@ -1520,5 +1579,6 @@
 <script src="/js/dashboard.js"></script>
 <script src="js/mobile-menu.js"></script>
 <script src="/js/sidebar-init.js"></script>
+<script src="/js/header-mobile.js"></script>
 </body>
 </html>

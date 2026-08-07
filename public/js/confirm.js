@@ -164,10 +164,11 @@
         background: var(--kb-blue-dark, #1e3f73);
       }
 
-      @media (max-width: 480px) {
+      @media (max-width: 768px) {
         #kb-confirm-backdrop {
           align-items: flex-end;
           padding: 0;
+          padding-bottom: env(safe-area-inset-bottom, 0px);
         }
 
         #kb-confirm-box {
@@ -180,6 +181,13 @@
         #kb-confirm-actions button {
           padding: 12px;
           font-size: 0.95rem;
+          min-height: 44px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        body:has(#kb-confirm-modal.active) {
+          overflow: hidden !important;
         }
       }
     `;

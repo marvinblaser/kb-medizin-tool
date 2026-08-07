@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Rapports — KB Med</title>
   <link rel="shortcut icon" href="/src/images/swiss_flag.webp" type="image/x-icon">
   <link rel="stylesheet" href="/css/design-tokens.css">
@@ -21,7 +21,7 @@
       padding: 20px 28px;
       display: flex;
       flex-direction: column;
-      height: calc(100vh - 53px);
+      height: calc(100dvh - 53px);
       overflow: hidden;
     }
 
@@ -389,6 +389,12 @@
       border-bottom: 1px solid var(--border-primary);
     }
 
+    /* Libellé de secours pour mobile — les colonnes de .grid-header
+       n'ont plus de sens une fois empilées en une seule colonne, donc
+       chaque champ porte son propre libellé, affiché uniquement sous
+       768px (voir media query plus bas). */
+    .field-label { display: none; }
+
     /* ── DRAGGABLE ITEMS ── */
     .draggable-item {
       display: grid;
@@ -455,10 +461,13 @@
       text-transform: uppercase;
     }
 
-    /* ── MODAL WIDE ── */
-    #report-modal .modal-content {
-      width: 95vw !important;
-      max-width: 1400px !important;
+    /* ── MODAL WIDE (desktop uniquement — sous 768px le modal doit
+       rester plein écran, voir responsive-fix.css) ── */
+    @media (min-width: 769px) {
+      #report-modal .modal-content {
+        width: 95vw !important;
+        max-width: 1400px !important;
+      }
     }
 
     /* ── RESPONSIVE ── */
@@ -472,6 +481,29 @@
       .modal-sidebar { display: none; }
       .grid-cols-material { grid-template-columns: 1fr; }
       .grid-cols-tech { grid-template-columns: 1fr; }
+
+      /* Les colonnes de .grid-header n'alignent plus rien une fois la
+         grille repliée en 1 colonne — remplacées par un libellé par
+         champ (voir .field-label et reports.js). */
+      .grid-header { display: none; }
+      .field-label {
+        display: block;
+        font-size: 10px;
+        font-weight: var(--font-semibold);
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 3px;
+      }
+      .draggable-item { padding: 12px !important; }
+      .draggable-item .drag-handle { justify-self: start; width: auto; }
+
+      /* LOT 3A — fallback de sécurité : 780px de colonnes à largeur fixe,
+         aucun traitement mobile jusqu'ici. */
+      .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
     }
   </style>
 </head>
@@ -512,7 +544,6 @@
   <main class="main-content">
     <div class="page-header">
       <div class="header-title-group">
-        <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
         <h1><i class="fas fa-file-signature"></i> Rapports d'Intervention</h1>
       </div>
       <div class="header-actions-group">
@@ -922,12 +953,14 @@
 
 <script src="/js/confirm.js"></script>
 <script type="module" src="/js/init-selects.js"></script>
+<script src="/js/slimselect-mobile-fix.js"></script>
 <script src="/js/loader.js"></script>
 <script src="/js/reports.js"></script>
 <script src="/js/notifications.js"></script>
 <script src="/js/mobile-menu.js"></script>
 <script src="/js/theme-switcher.js"></script>
 <script src="/js/sidebar-init.js"></script>
+<script src="/js/header-mobile.js"></script>
 <script>
 
 function openSettings() { window.location.href = '/admin.html'; }

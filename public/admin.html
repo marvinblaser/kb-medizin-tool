@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Administration — KB Med</title>
   <link rel="shortcut icon" href="/src/images/swiss_flag.webp" type="image/x-icon">
   <link rel="stylesheet" href="/css/design-tokens.css">
@@ -223,6 +223,14 @@
       .admin-container-fluid { padding: 12px; }
       .toolbar-nav-section { overflow-x: auto; }
       .permissions-grid { grid-template-columns: 1fr 1fr; }
+
+      /* LOT 3A — fallback de sécurité : les 8 tableaux de cette page
+         n'avaient aucun traitement mobile, et le wrapper clippe
+         (overflow:hidden) au lieu de permettre de scroller. */
+      .erp-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
     }
   </style>
 </head>
@@ -263,7 +271,6 @@
   <main class="main-content">
     <div class="page-header">
       <div class="header-title-group">
-        <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
         <h1><i class="fas fa-cog"></i> Administration</h1>
       </div>
     </div>
@@ -866,6 +873,7 @@ border-radius:3px;margin-bottom:10px;">
 
 <script src="/js/confirm.js"></script>
 <script type="module" src="/js/init-selects.js"></script>
+<script src="/js/slimselect-mobile-fix.js"></script>
 <script src="/js/loader.js"></script>
 <script src="/js/admin.js"></script>
 <script src="/js/notifications.js"></script>

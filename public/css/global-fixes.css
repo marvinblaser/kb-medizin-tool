@@ -118,7 +118,7 @@
 .toolbar-search-section input {
   border: none !important;
   background: transparent !important;
-  font-size: var(--text-sm) !important;
+  font-size: var(--text-base) !important;
   color: var(--text-primary) !important;
   outline: none !important;
   width: 100% !important;
@@ -136,7 +136,7 @@
 .admin-container-fluid {
   display: flex !important;
   flex-direction: column !important;
-  height: calc(100vh - 53px) !important;
+  height: calc(100dvh - 53px) !important;
   overflow: hidden !important;
   padding: 0 !important;
 }
@@ -166,7 +166,7 @@
 ════════════════════════════════════════════════════════════════════ */
 
 .stk-container {
-  height: calc(100vh - 53px - 52px) !important; /* viewport - page-header - toolbar */
+  height: calc(100dvh - 53px - 52px) !important; /* viewport - page-header - toolbar */
   padding: 12px 20px 16px !important;
   gap: 10px !important;
 }

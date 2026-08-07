@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Appareils de Prêt — KB Med</title>
   <link rel="shortcut icon" href="/src/images/swiss_flag.webp" type="image/x-icon">
   <link rel="stylesheet" href="/css/design-tokens.css">
@@ -18,7 +18,7 @@
 
     /* ── LAYOUT ────────────────────────────────────────────────── */
     .loans-container {
-      height: calc(100vh - 53px);
+      height: calc(100dvh - 53px);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -381,6 +381,9 @@
 .ts-dropdown .option.active { background: var(--color-primary) !important; color: #fff !important; }
 
     @media (max-width: 768px) {
+    /* LOT 3A — filet de sécurité horizontal, même si le mode carte
+       ci-dessous ne devrait normalement pas en avoir besoin. */
+    .loans-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .loans-table thead { display: none !important; }
     .loans-table, .loans-table tbody { display: block !important; }
     .loans-table tbody tr {
@@ -405,8 +408,6 @@
       .stats-grid      { grid-template-columns: 1fr; }
       .devices-grid    { grid-template-columns: 1fr; }
       .modal-grid-2    { grid-template-columns: 1fr; }
-      .loans-table-wrap { overflow-x: auto; }
-      .loans-table { min-width: 600px; }
     }
   </style>
 </head>
@@ -449,7 +450,6 @@
   <main class="main-content">
     <div class="page-header">
       <div class="header-title-group">
-        <button class="mobile-menu-btn"><i class="fas fa-bars"></i></button>
         <h1><i class="fas fa-hand-holding-medical"></i> Appareils de Prêt</h1>
       </div>
       <div class="header-actions-group">
@@ -571,7 +571,7 @@
   </main>
 </div>
 
-<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 <!-- ── MODAL NOUVEAU PRÊT ─────────────────────────────────────────── -->
 <div class="modal" id="loan-modal">
@@ -742,5 +742,6 @@
 <script src="/js/mobile-menu.js"></script>
 <script src="/js/theme-switcher.js"></script>
 <script src="/js/sidebar-init.js"></script>
+<script src="/js/header-mobile.js"></script>
 </body>
 </html>

@@ -305,11 +305,11 @@ window.openPreferencesModal = function() {
     padding:20px;`;
 
   modal.innerHTML = `
-    <div style="background:var(--bg-elevated);border:1px solid var(--border-primary);
+    <div class="_prefs-box" style="background:var(--bg-elevated);border:1px solid var(--border-primary);
       width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
 
       <!-- Header -->
-      <div style="display:flex;align-items:center;justify-content:space-between;
+      <div class="_prefs-head" style="display:flex;align-items:center;justify-content:space-between;
         padding:14px 18px;border-bottom:1px solid var(--border-primary);
         background:var(--bg-secondary);">
         <h3 style="margin:0;font-size:var(--text-base);font-weight:var(--font-semibold);
@@ -317,7 +317,7 @@ window.openPreferencesModal = function() {
           <i class="fas fa-user-cog" style="color:var(--color-primary);"></i>
           Mes préférences
         </h3>
-        <button onclick="document.getElementById('_prefs-modal').remove()"
+        <button class="_prefs-close" onclick="document.getElementById('_prefs-modal').remove()"
           style="background:none;border:none;font-size:18px;cursor:pointer;
             color:var(--text-tertiary);line-height:1;">&times;</button>
       </div>

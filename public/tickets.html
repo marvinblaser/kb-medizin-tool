@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tickets — KB Med</title>
   <link rel="shortcut icon" href="/src/images/swiss_flag.webp" type="image/x-icon">
   <link rel="stylesheet" href="/css/design-tokens.css">
@@ -15,7 +15,7 @@
   <link href="https://unpkg.com/slim-select@2.8.2/dist/slimselect.css" rel="stylesheet">
   <style>
     /* ── PAGE ── */
-    .main-content { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .main-content { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
 
     /* ── KPI ── */
     .kpi-grid {
@@ -991,7 +991,6 @@
   <main class="main-content">
     <div class="page-header">
       <div class="header-title-group">
-        <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
         <h1><i class="fas fa-ticket-alt"></i> Suivi des Demandes</h1>
       </div>
       <div class="header-actions-group">
@@ -1307,12 +1306,14 @@
 
 <script src="https://unpkg.com/slim-select@2.8.2/dist/slimselect.min.js"></script>
 <script src="/js/confirm.js"></script>
+<script src="/js/slimselect-mobile-fix.js"></script>
 <script src="/js/tickets.js"></script>
 <script src="/js/loader.js"></script>
 <script src="/js/notifications.js"></script>
 <script src="/js/mobile-menu.js"></script>
 <script src="/js/theme-switcher.js"></script>
 <script src="/js/sidebar-init.js"></script>
+<script src="/js/header-mobile.js"></script>
 <script>
 
 function openSettings() { window.location.href = '/admin.html'; }

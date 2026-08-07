@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Signature STK — KB Med</title>
   <link rel="shortcut icon" href="/src/images/swiss_flag.webp" type="image/x-icon">
   <link rel="stylesheet" href="/css/design-tokens.css">
@@ -19,7 +19,7 @@
     .stk-container {
       display: flex;
       flex-direction: column;
-      height: calc(100vh - 53px);
+      height: calc(100dvh - 53px);
       padding: 0 16px 16px;
       gap: 10px;
     }
@@ -247,7 +247,6 @@
   <main class="main-content">
     <div class="page-header">
       <div class="header-title-group">
-        <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
         <h1><i class="fas fa-file-signature"></i> Signature des STK</h1>
       </div>
       <div class="header-actions-group">
@@ -346,6 +345,7 @@
 <script src="/js/mobile-menu.js"></script>
 <script src="/js/theme-switcher.js"></script>
 <script src="/js/sidebar-init.js"></script>
+<script src="/js/header-mobile.js"></script>
 <script>
 
 function openSettings() { window.location.href = '/admin.html'; }

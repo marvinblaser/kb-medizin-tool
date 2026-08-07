@@ -29,7 +29,7 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-app);
     color: var(--text-main);
-    padding: 1rem;
+    padding: calc(1rem + env(safe-area-inset-top, 0px)) calc(1rem + env(safe-area-inset-right, 0px)) calc(1rem + env(safe-area-inset-bottom, 0px)) calc(1rem + env(safe-area-inset-left, 0px));
 }
 
 .tool-container {
@@ -62,7 +62,7 @@ label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25
 input {
     width: 100%; padding: 0.6rem; border: 1px solid var(--border-color);
     border-radius: 6px; background-color: var(--input-bg); color: var(--text-main);
-    font-size: 0.9rem;
+    font-size: 1rem;
 }
 input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px var(--primary-light); }
 

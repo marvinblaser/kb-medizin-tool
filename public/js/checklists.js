@@ -210,7 +210,7 @@ const checklistStyles = `
 }
 .checklist-item:hover { background: white; border-color: var(--color-primary-light); }
 .checklist-item-inputs { flex: 1; display: flex; gap: 0.5rem; }
-.checklist-item input { margin: 0 !important; height: 32px !important; font-size: 0.85rem !important; }
+.checklist-item input { margin: 0 !important; height: 32px !important; font-size: 1rem !important; }
 .drag-handle { cursor: grab; opacity: 0.5; }
 .drag-handle:hover { opacity: 1; color: var(--color-primary); }
 .checklist-item.dragging { opacity: 0.5; border: 2px dashed var(--color-primary); }
