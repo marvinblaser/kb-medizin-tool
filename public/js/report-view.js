@@ -66,15 +66,15 @@ const TRANSLATIONS = {
         sig_client: "Unterschrift Kunde:",
         date: "Datum:",
 
-        "Mise en marche": "Inbetriebsetzung-<br>Bericht",
-        "Réparation": "Reparatur-<br>Bericht",
-        "Réparation / Garantie": "Reparatur / Garantie-<br>Bericht",
+        "Mise en marche": "Inbetriebsetzung<br>Rapport",
+        "Réparation": "Reparatur<br>Rapport",
+        "Réparation / Garantie": "Reparatur / Garantie<br>Rapport",
         "Service d'entretien": "Service<br>Rapport",
-        "Contrôle": "Kontroll-<br>Bericht",
-        "Première validation": "Erstvalidierung",
-        "Montage": "Montage-<br>Bericht",
-        "Instruction": "Instruktions-<br>Protokoll",
-        "Re-validation": "Revalidierung"
+        "Contrôle": "Kontroll<br>Rapport",
+        "Première validation": "Erstvalidierung<br>Rapport",
+        "Montage": "Montage<br>Rapport",
+        "Instruction": "Instruktions<br>Rapport",
+        "Re-validation": "Revalidierung<br>Rapport"
     }
 };
 
@@ -90,6 +90,19 @@ function updateDayNames(lang) {
     if (el) el.textContent = name;
   });
 }
+
+// Noms allemands (racine du titre, sans "Rapport") utilisés pour composer les titres combinés
+const WORK_TYPE_DE_NOUN = {
+    "Mise en marche": "Inbetriebsetzung",
+    "Réparation": "Reparatur",
+    "Réparation / Garantie": "Reparatur / Garantie",
+    "Service d'entretien": "Service",
+    "Contrôle": "Kontroll",
+    "Première validation": "Erstvalidierung",
+    "Montage": "Montage",
+    "Instruction": "Instruktions",
+    "Re-validation": "Revalidierung"
+};
 
 const CHECKBOX_LABELS_DE = {
     "Mise en marche": "Inbetriebsetzung",
@@ -139,8 +152,12 @@ function updateTitleFromList(typesList) {
             return;
         }
     }
-    const prefix = currentLanguage === 'de' ? 'Bericht: ' : 'Rapport : ';
-    titleEl.innerHTML = prefix + typesList.join(' + ');
+    if (currentLanguage === 'de') {
+        const nouns = typesList.map(t => WORK_TYPE_DE_NOUN[t] || t);
+        titleEl.innerHTML = nouns.join(' + ') + ' Rapport';
+    } else {
+        titleEl.innerHTML = 'Rapport de ' + typesList.join(' + ');
+    }
 }
 
 // --- CHARGEMENT DU RAPPORT ---
