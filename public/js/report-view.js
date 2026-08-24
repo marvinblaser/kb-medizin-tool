@@ -7,6 +7,7 @@ const HOURLY_RATE = 160; // Tarif horaire pour le calcul
 const TRANSLATIONS = {
     fr: {
         title_main: "Rapport de service<br>d'entretien",
+        label_report_number: "N° rapport :",
         label_name: "Nom :",
         label_address: "Adresse :",
         label_city: "Lieu :",
@@ -42,6 +43,7 @@ const TRANSLATIONS = {
     },
     de: {
         title_main: "Service Rapport",
+        label_report_number: "Bericht-Nr.:",
         label_name: "Name:",
         label_address: "Adresse:",
         label_city: "Ort:",
@@ -180,6 +182,7 @@ async function loadReport(id) {
             updateTitleFromList(types);
         }
 
+        setText('report-number', data.report_number);
         setText('cabinet-name', data.cabinet_name);
         setText('client-address', data.address);
         setText('client-city', (data.postal_code||'') + ' ' + data.city);
