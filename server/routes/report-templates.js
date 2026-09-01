@@ -21,10 +21,15 @@ const parseJson = (str, fallback) => {
 };
 
 // Nettoie/verrouille la forme des lignes reçues du client (défense en profondeur).
-const cleanWorkLines = (arr) => (Array.isArray(arr) ? arr : [])
-  .map((l) => String(l == null ? '' : l).slice(0, 500))
-  .filter((l) => l.trim() !== '')
-  .slice(0, 200);
+// Les lignes vides intérieures sont CONSERVÉES (= saut de ligne volontaire) ;
+// seules les lignes vides en fin de liste sont retirées.
+const cleanWorkLines = (arr) => {
+  const lines = (Array.isArray(arr) ? arr : [])
+    .map((l) => String(l == null ? '' : l).replace(/\s+$/, '').slice(0, 500))
+    .slice(0, 200);
+  while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+  return lines;
+};
 
 const cleanStk = (arr) => (Array.isArray(arr) ? arr : [])
   .map((t) => ({
@@ -140,7 +145,7 @@ const buildPayload = (body) => ({
 });
 
 const isEmptyTemplate = (p) =>
-  JSON.parse(p.work_lines_json).length === 0 &&
+  JSON.parse(p.work_lines_json).every((l) => !String(l).trim()) &&
   JSON.parse(p.stk_tests_json).length === 0 &&
   JSON.parse(p.materials_json).length === 0 &&
   !p.installation_text && !p.remarks && !p.suggested_title;

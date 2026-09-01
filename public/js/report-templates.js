@@ -24,9 +24,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   await Promise.all([loadDeviceTypes(), loadEquipmentCatalog(), loadMaterialsCatalog()]);
   buildFilterOptions();
   buildEditorScopeOptions();
+  initSortables();
   wireEvents();
   await loadTemplates();
 });
+
+// Réordonnancement des lignes par glisser-déposer (poignée à gauche de chaque ligne).
+function initSortables() {
+  if (typeof Sortable !== 'function') return;
+  ['e-work', 'e-stk', 'e-mat'].forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    Sortable.create(el, {
+      handle: '.drag-handle',
+      animation: 150,
+      ghostClass: 'tpl-drag-ghost',
+      forceFallback: true,      // glisser à la souris, plus fiable avec des champs de saisie dans les lignes
+      fallbackTolerance: 3,
+    });
+  });
+}
 
 async function checkAuth() {
   try {
@@ -57,7 +74,7 @@ async function loadMaterialsCatalog() {
   } catch { materialsCatalog = []; }
 }
 function matCatalogOptions(selectedId) {
-  return '<option value="">— Libre (saisie manuelle) —</option>' +
+  return '<option value="">— Libre —</option>' +
     materialsCatalog.map(m =>
       `<option value="${m.id}" ${String(m.id) === String(selectedId) ? 'selected' : ''}>${esc(m.product_code ? '[' + m.product_code + '] ' : '')}${esc(m.name)}</option>`
     ).join('');
@@ -239,18 +256,21 @@ window.openTplEditor = async function (id) {
       return;
     }
   } else {
-    addTplWorkLine(); addTplWorkLine(); addTplWorkLine();
+    addTplWorkLine();
   }
   $('tpl-editor').classList.add('active');
   setTimeout(() => $('e-name').focus(), 60);
 };
 
+const DRAG_HANDLE = '<span class="drag-handle" title="Glisser pour réordonner"><i class="fas fa-grip-vertical"></i></span>';
+
 function addTplWorkLine(text = '') {
   const row = document.createElement('div');
   row.className = 'tpl-line-row work';
   row.innerHTML = `
-    <input type="text" class="wl" placeholder="Description du travail…" value="${esc(text)}">
-    <button type="button" class="tpl-mini-btn" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>`;
+    ${DRAG_HANDLE}
+    <input type="text" class="wl" placeholder="Description du travail… (laisser vide = saut de ligne)" value="${esc(text)}">
+    <button type="button" class="tpl-mini-btn" onclick="this.closest('.tpl-line-row').remove()"><i class="fas fa-times"></i></button>`;
   $('e-work').appendChild(row);
 }
 window.addTplWorkLine = addTplWorkLine;
@@ -259,11 +279,12 @@ function addTplStk(d = {}) {
   const row = document.createElement('div');
   row.className = 'tpl-line-row stk';
   row.innerHTML = `
+    ${DRAG_HANDLE}
     <input type="text" class="sk-name" placeholder="Nom de l'appareil…" value="${esc(d.device_name || '')}">
     <input type="number" class="price sk-price" step="0.01" placeholder="Prix" value="${d.price != null ? d.price : 75}">
     <input type="number" class="num sk-disc" min="0" max="100" step="1" placeholder="Rab%" value="${d.discount || 0}">
     <span class="chkwrap"><input type="checkbox" class="sk-incl" ${d.included ? 'checked' : ''} title="Inclus"></span>
-    <button type="button" class="tpl-mini-btn" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>`;
+    <button type="button" class="tpl-mini-btn" onclick="this.closest('.tpl-line-row').remove()"><i class="fas fa-times"></i></button>`;
   $('e-stk').appendChild(row);
 }
 window.addTplStk = addTplStk;
@@ -272,6 +293,7 @@ function addTplMat(d = {}) {
   const row = document.createElement('div');
   row.className = 'tpl-line-row mat';
   row.innerHTML = `
+    ${DRAG_HANDLE}
     <select class="cat mt-cat">${matCatalogOptions(d.material_id)}</select>
     <input type="text" class="mt-name" placeholder="Désignation…" value="${esc(d.material_name || '')}">
     <input type="text" class="code mt-code" placeholder="Code" value="${esc(d.product_code || '')}">
@@ -295,7 +317,10 @@ function addTplMat(d = {}) {
 window.addTplMat = addTplMat;
 
 function collectEditor() {
-  const workLines = [...document.querySelectorAll('#e-work .wl')].map(i => i.value.trim()).filter(Boolean);
+  // On conserve les lignes vides (= saut de ligne voulu), on retire seulement
+  // les lignes vides *en fin de liste* (généralement des rangs jamais remplis).
+  const workLines = [...document.querySelectorAll('#e-work .wl')].map(i => i.value.replace(/\s+$/, ''));
+  while (workLines.length && workLines[workLines.length - 1].trim() === '') workLines.pop();
   const stkTests = [...document.querySelectorAll('#e-stk .stk')].map(r => ({
     device_name: r.querySelector('.sk-name').value.trim(),
     price: parseFloat(r.querySelector('.sk-price').value) || 0,
@@ -332,7 +357,7 @@ function collectEditor() {
 async function saveTemplate() {
   const payload = collectEditor();
   if (!payload.name) { if (window.toast) toast.error('Nom requis', 'Donnez un nom au modèle.'); return; }
-  const empty = !payload.work_lines.length && !payload.stk_tests.length && !payload.materials.length
+  const empty = !payload.work_lines.some(l => l.trim()) && !payload.stk_tests.length && !payload.materials.length
     && !payload.installation_text && !payload.remarks && !payload.suggested_title;
   if (empty) { if (window.toast) toast.error('Modèle vide', 'Ajoutez au moins une ligne ou un texte.'); return; }
 

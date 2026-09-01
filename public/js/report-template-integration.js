@@ -87,7 +87,8 @@
   function currentReportContent() {
     const workText = typeof getWorkData === 'function' ? getWorkData() : '';
     const work_lines = String(workText || '').split('\n')
-      .map(s => s.replace(/ /g, ' ').trim()).filter(Boolean);
+      .map(s => (s.replace(/ /g, '').trim() === '') ? '' : s.trim());
+    while (work_lines.length && work_lines[work_lines.length - 1] === '') work_lines.pop();
     const stk_tests = (typeof getStkTestsData === 'function' ? getStkTestsData() : []).map(t => ({
       device_name: t.device_name || '', price: t.price || 0, discount: t.discount || 0, included: !!t.included,
     }));
