@@ -182,8 +182,10 @@
     renderApplyList();
   }
 
-  function langMismatch(t, c) {
-    return t.language && c.language && t.language !== c.language;
+  const LANG_LABEL = { fr: 'français', de: 'allemand' };
+  // Le modèle changera la langue du rapport ?
+  function willSwitchLang(t, c) {
+    return t.language && t.language !== (c.language || 'fr');
   }
 
   function scoreTemplate(t, c) {
@@ -197,7 +199,6 @@
     else if (t.device_type && c.checkedEquipment.some(e =>
       e.model && t.device_type.toLowerCase().split(/\s+/).some(w => w.length > 3 && e.model.includes(w)))) s += 1;
     if (t.language && c.language && t.language === c.language) s += 1;
-    if (langMismatch(t, c)) s -= 2;
     s += Math.min(2, (t.usage_count || 0) / 10);
     return s;
   }
@@ -220,14 +221,15 @@
         t.equipment_catalog_id
           ? `<span class="apt-badge apt-machine">${esc([t.eq_brand, t.eq_model || t.eq_name].filter(Boolean).join(' '))}</span>`
           : (t.device_type ? `<span class="apt-badge apt-machine">${esc(t.device_type)}</span>` : ''),
+        t.language ? `<span class="apt-badge"><i class="fas fa-language"></i> ${t.language.toUpperCase()}</span>` : '',
       ].join('');
-      const mismatch = langMismatch(t, c);
+      const switchLang = willSwitchLang(t, c);
       return `
       <div class="apt-card">
         <div style="flex:1;min-width:0">
           <div style="font-weight:var(--font-semibold);color:var(--text-primary)">${esc(t.name)}
             ${score >= 5 ? '<span class="apt-badge apt-top">Pertinent</span>' : ''}
-            ${mismatch ? `<span class="apt-badge" style="background:var(--color-warning-bg);color:var(--color-warning)"><i class="fas fa-triangle-exclamation"></i> Modèle en ${t.language.toUpperCase()}, rapport en ${(c.language || '').toUpperCase()}</span>` : ''}</div>
+            ${switchLang ? `<span class="apt-badge" style="background:var(--color-info-bg);color:var(--color-primary)"><i class="fas fa-language"></i> passera le rapport en ${LANG_LABEL[t.language] || t.language}</span>` : ''}</div>
           ${t.description ? `<div style="font-size:var(--text-xs);color:var(--text-tertiary)">${esc(t.description)}</div>` : ''}
           <div style="margin-top:4px">${scope || '<span class="apt-badge">Générique</span>'}</div>
           <div style="font-size:11px;color:var(--text-tertiary);margin-top:3px">
@@ -277,6 +279,19 @@
     // neuf est ainsi remplacée par la 1re ligne du modèle, pas conservée.
     const dropEmptyRows = (rowSel, ...inputSels) =>
       document.querySelectorAll(rowSel).forEach(row => { if (rowIsEmpty(row, ...inputSels)) row.remove(); });
+
+    // ── Langue du rapport ────────────────────────────────────────────────
+    // Un modèle FR/DE impose sa langue au rapport (un modèle « les deux » n'y touche pas).
+    if ((t.language === 'fr' || t.language === 'de') && $('report-language')) {
+      const prev = $('report-language').value;
+      if (prev !== t.language) {
+        if (typeof window.setSlimSelect === 'function') window.setSlimSelect('report-language', t.language);
+        else $('report-language').value = t.language;
+        // Rejoue le handler de reports.js (recharge les libellés machines dans la bonne langue).
+        $('report-language').dispatchEvent(new Event('change', { bubbles: true }));
+        notes.push(`langue : ${t.language.toUpperCase()}`);
+      }
+    }
 
     // ── Type(s) de travaux ────────────────────────────────────────────────
     const tplTypes = t.work_types_list || [];
