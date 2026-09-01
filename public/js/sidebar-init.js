@@ -47,14 +47,22 @@
     return a;
   }
 
+  // ── 2bis. TITRE D'ONGLET ────────────────────────────────────────
+  // Préfixe le titre de l'onglet avec le nombre de tickets qui concernent
+  // l'utilisateur (mêmes règles que le badge), visible même onglet en arrière-plan.
+  function updateTabTitle(count) {
+    const base = document.title.replace(/^\(\d+\+?\)\s*/, '');
+    document.title = count > 0 ? `(${count > 99 ? '99+' : count}) ${base}` : base;
+  }
+
   // ── 2. BADGE ────────────────────────────────────────────────────
-  function setBadge(href, count) {
+  function setBadge(href, count, urgent) {
   const link = document.querySelector(`.sidebar-nav a[href="${href}"]`)
             || document.querySelector(`aside nav a[href="${href}"]`)
             || document.querySelector(`nav a[href="${href}"]`);
 
   if (!link) {
-    setTimeout(() => setBadge(href, count), 600);
+    setTimeout(() => setBadge(href, count, urgent), 600);
     return;
   }
 
@@ -67,8 +75,9 @@
   if (!count || count <= 0) return;
 
   const badge = document.createElement('span');
-  badge.className   = 'sidebar-badge';
+  badge.className   = 'sidebar-badge' + (urgent ? ' animate-pulse' : '');
   badge.textContent = count > 99 ? '99+' : count;
+  badge.title       = urgent ? 'Dont au moins un ticket urgent' : '';
   badge.style.cssText = `
     background:var(--color-danger,#ef4444);color:#fff;font-size:10px;
     font-weight:800;padding:1px 6px;border-radius:999px;margin-left:auto;
@@ -103,7 +112,8 @@
 
     // ── Tickets ──────────────────────────────────────────────────
     if (tickets.status === 'fulfilled' && tickets.value?.count > 0) {
-      setBadge('/tickets.html', tickets.value.count);
+      setBadge('/tickets.html', tickets.value.count, tickets.value.urgent > 0);
+      updateTabTitle(tickets.value.count);
     }
 
     // ── Rapports ─────────────────────────────────────────────────

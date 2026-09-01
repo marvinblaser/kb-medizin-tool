@@ -6,7 +6,7 @@ const registry = new Map();
 
 // 1. Initialisation d'un select
 const initSelect = (element) => {
-    if (element.dataset.ssid || element.classList.contains('hidden')) return;
+    if (element.dataset.ssid || element.classList.contains('hidden') || element.hasAttribute('data-no-slim')) return;
 
     const slim = new SlimSelect({
         select: element,

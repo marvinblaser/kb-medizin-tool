@@ -246,6 +246,7 @@
       <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
       <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
       <a href="/reports.html"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+      <a href="/report-templates.html" style="padding-left:34px;font-size:0.82rem;"><i class="fas fa-layer-group"></i><span>Modèles de rapport</span></a>
       <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
       <a href="/tickets.html"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
       <a href="/admin.html" class="active"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
@@ -283,6 +284,7 @@
           <button class="nav-text-btn admin-only" data-tab="roles" style="display:none"><i class="fas fa-user-shield"></i> Rôles</button>
           <button class="nav-text-btn" data-tab="equipment" id="tab-btn-eq"><i class="fas fa-server"></i> Catalogue</button>
           <button class="nav-text-btn" data-tab="device-types"><i class="fas fa-tags"></i> Types</button>
+          <button class="nav-text-btn" data-tab="ticket-categories"><i class="fas fa-ticket-alt"></i> Catégories tickets</button>
           <button class="nav-text-btn" data-tab="sectors"><i class="fas fa-clinic-medical"></i> Secteurs</button>
           <button class="nav-text-btn" data-tab="materials"><i class="fas fa-boxes"></i> Matériel</button>
           <button class="nav-text-btn admin-only" data-tab="contract-prices" style="display:none">
@@ -371,6 +373,25 @@
           <table class="erp-table">
             <thead><tr><th>Nom</th><th style="text-align:right">Actions</th></tr></thead>
             <tbody id="device-types-tbody">
+              <tr><td colspan="2" class="text-center" style="padding:32px;color:var(--text-tertiary)">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TICKET CATEGORIES -->
+      <div class="view-section" id="tab-ticket-categories">
+        <div class="section-header">
+          <div class="section-info">
+            <h3>Catégories de tickets</h3>
+            <p>Liste utilisée pour classer les demandes (ex: Panne machine, SAV / Garantie).</p>
+          </div>
+          <button class="btn btn-primary" id="add-ticket-category-btn"><i class="fas fa-plus"></i> Ajouter une catégorie</button>
+        </div>
+        <div class="erp-table-wrapper">
+          <table class="erp-table">
+            <thead><tr><th>Nom</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="ticket-categories-tbody">
               <tr><td colspan="2" class="text-center" style="padding:32px;color:var(--text-tertiary)">Chargement...</td></tr>
             </tbody>
           </table>
@@ -802,6 +823,23 @@ border-radius:3px;margin-bottom:10px;">
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="closeDeviceTypeModal()">Annuler</button>
           <button class="btn btn-primary" id="save-device-type-btn">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TICKET CATEGORY MODAL -->
+    <div class="modal" id="ticket-category-modal">
+      <div class="modal-content" style="max-width:400px">
+        <div class="modal-header">
+          <h2>Ajouter une catégorie</h2>
+          <button class="modal-close" onclick="closeTicketCategoryModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="display:block;padding:20px">
+          <div class="form-group"><label>Nom *</label><input type="text" id="ticket-category-name" required></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeTicketCategoryModal()">Annuler</button>
+          <button class="btn btn-primary" id="save-ticket-category-btn">Enregistrer</button>
         </div>
       </div>
     </div>

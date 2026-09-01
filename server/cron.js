@@ -153,6 +153,65 @@ const checkLoanReminders = () => {
   });
 };
 
+// ─── Escalade tickets (SLA) ────────────────────────────────────────────────────
+const TICKET_SLA_HOURS = { 'Urgente': 4, 'Haute': 24, 'Normale': 72, 'Basse': 168 };
+const ESCALATION_COOLDOWN_MS = 24 * 3600000; // pas de relance avant 24h
+
+const checkTicketEscalation = () => {
+    const sql = `
+        SELECT t.id, t.title, t.priority, t.owner_id, t.created_at, t.last_escalated_at,
+            (SELECT MAX(created_at) FROM ticket_comments WHERE ticket_id = t.id AND is_system = 0) as last_comment_at,
+            (SELECT GROUP_CONCAT(user_id) FROM ticket_assignees WHERE ticket_id = t.id) as assignee_ids
+        FROM tickets t
+        WHERE t.status != 'Clôturé'
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err || !rows || !rows.length) return;
+
+        const now = Date.now();
+        const toUtcDate = (s) => new Date(s.includes('T') ? s : s.replace(' ', 'T') + 'Z');
+
+        const overdue = rows.filter((row) => {
+            const thresholdH = TICKET_SLA_HOURS[row.priority];
+            if (!thresholdH) return false;
+
+            const lastActivity = toUtcDate(row.last_comment_at || row.created_at);
+            const hoursSince = (now - lastActivity.getTime()) / 3600000;
+            if (hoursSince < thresholdH) return false;
+
+            if (row.last_escalated_at) {
+                const sinceEscalation = now - toUtcDate(row.last_escalated_at).getTime();
+                if (sinceEscalation < ESCALATION_COOLDOWN_MS) return false;
+            }
+            return true;
+        });
+
+        if (!overdue.length) return;
+
+        db.all("SELECT id FROM users WHERE role IN ('admin', 'secretary') AND is_active = 1", [], (err, fallbackUsers) => {
+            const fallbackIds = (fallbackUsers || []).map((u) => u.id);
+
+            overdue.forEach((row) => {
+                let recipients;
+                if (row.owner_id) recipients = [row.owner_id];
+                else if (row.assignee_ids) recipients = row.assignee_ids.split(',').map(Number);
+                else recipients = fallbackIds;
+
+                const msg = `⏰ Ticket en attente depuis plus de ${TICKET_SLA_HOURS[row.priority]}h (priorité ${row.priority}) : ${row.title}`;
+                recipients.forEach((uid) => {
+                    db.run("INSERT INTO notifications (user_id, type, message, link) VALUES (?, 'warning', ?, ?)",
+                        [uid, msg, `/tickets.html?open=${row.id}`]);
+                });
+
+                db.run("UPDATE tickets SET last_escalated_at = datetime('now') WHERE id = ?", [row.id]);
+            });
+
+            console.log(`✅ [CRON] Escalade tickets : ${overdue.length} relance(s) envoyée(s).`);
+        });
+    });
+};
+
 // ─── Sync Bexio ──────────────────────────────────────────────────────────────
 const syncBexioIfNeeded = async () => {
     if (!process.env.BEXIO_API_TOKEN) return; // Token non configuré → skip
@@ -176,13 +235,15 @@ const initCronJobs = () => {
     checkExpirations();
     syncBexioIfNeeded(); // ← sync au démarrage
     checkLoanReminders(); // ← sync au démarrage
+    checkTicketEscalation(); // ← sync au démarrage
 
     // Vérifie toutes les heures
     setInterval(() => {
         checkExpirations();
         syncBexioIfNeeded();
         checkLoanReminders(); // ← sync une fois par jour via l'intervalle horaire
+        checkTicketEscalation();
     }, 3600000);
 };
 
-module.exports = { initCronJobs };
+module.exports = { initCronJobs, checkTicketEscalation };

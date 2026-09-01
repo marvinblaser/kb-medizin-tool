@@ -10,6 +10,10 @@ const TRAVEL_ZONES = {
 const HOURLY_RATE = 160; // Tarif horaire en CHF (Modifiez cette valeur selon vos tarifs)
 let currentPage = 1;
 let currentStatusFilter = "draft";
+let currentSortBy = "created_at";
+let currentSortDir = "desc";
+let currentArchiveSort = "client_asc";
+let lastArchivedReports = [];
 let currentUser = null;
 let reportToDelete = null;
 let clients = [],
@@ -24,6 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Chargements initiaux
   await Promise.all([loadClients(), loadTechnicians(), loadMaterials()]);
+  populateFilterSelects();
 
   // --- LOGIQUE DE REDIRECTION ---
   const urlParams = new URLSearchParams(window.location.search);
@@ -83,11 +88,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("global-search").addEventListener(
     "input",
-    debounce(() => loadReports(), 300)
+    debounce(() => { currentPage = 1; loadReports(); }, 300)
   );
-  document
-    .getElementById("filter-type")
-    .addEventListener("change", () => loadReports());
+
+  // Filtres (type, client, auteur, période)
+  ["filter-type", "filter-client", "filter-author", "filter-date-from", "filter-date-to"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("change", () => { currentPage = 1; loadReports(); });
+  });
+
+  document.getElementById("reset-filters-btn")?.addEventListener("click", () => {
+    document.getElementById("filter-type").value = "";
+    document.getElementById("filter-date-from").value = "";
+    document.getElementById("filter-date-to").value = "";
+    if (window.setSlimSelect) {
+      window.setSlimSelect("filter-client", "");
+      window.setSlimSelect("filter-author", "");
+    } else {
+      document.getElementById("filter-client").value = "";
+      document.getElementById("filter-author").value = "";
+    }
+    document.getElementById("global-search").value = "";
+    currentPage = 1;
+    loadReports();
+  });
+
   document.getElementById("prev-page").addEventListener("click", () => {
     if (currentPage > 1) {
       currentPage--;
@@ -105,6 +130,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       .getElementById(`tab-${status}`)
       .addEventListener("click", () => switchTab(status));
   });
+
+  // Tri du tableau (clic sur un en-tête de colonne)
+  setupReportSortableHeaders();
+
+  // Tri des archives (menu déroulant)
+  const archiveSortSelect = document.getElementById("archive-sort-select");
+  if (archiveSortSelect) {
+    archiveSortSelect.addEventListener("change", (e) => {
+      currentArchiveSort = e.target.value;
+      renderArchivedFolders(lastArchivedReports);
+    });
+  }
 
   // Listener Client Select
 document.getElementById('client-select').addEventListener('change', async function() {
@@ -228,7 +265,39 @@ function scrollToSection(id) {
         // Ouvre la section si fermée
         el.classList.add('open');
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Retour visuel immédiat au clic (le scroll-spy reprendra la main une fois le scroll terminé)
+        document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+        document.querySelector(`.sidebar-link[data-section="${id}"]`)?.classList.add('active');
     }
+}
+
+// --- SCROLL-SPY : surligne dans le sommaire la section actuellement visible ---
+let _sectionObserver = null;
+
+function setupScrollSpy() {
+    const root = document.getElementById('main-scroll-area');
+    const sections = document.querySelectorAll('.ux-section[id]');
+    if (!root || !sections.length) return;
+
+    if (_sectionObserver) _sectionObserver.disconnect();
+
+    _sectionObserver = new IntersectionObserver((entries) => {
+        // Parmi les sections actuellement visibles, on retient la plus haute à l'écran
+        const visible = entries.filter(e => e.isIntersecting);
+        if (!visible.length) return;
+        visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        const current = visible[0].target.id;
+
+        document.querySelectorAll('.sidebar-link').forEach(l =>
+            l.classList.toggle('active', l.dataset.section === current)
+        );
+    }, {
+        root,
+        rootMargin: '0px 0px -70% 0px',
+        threshold: 0
+    });
+
+    sections.forEach(s => _sectionObserver.observe(s));
 }
 
 // Initialise le Drag & Drop sur toutes les listes
@@ -359,40 +428,89 @@ function switchTab(status, reload = true) {
 
   const tableView = document.getElementById("table-view-container");
   const archivesView = document.getElementById("archives-container");
+  const archivesSortBar = document.getElementById("archives-sort-bar");
   const pagination = document.getElementById("pagination-controls");
 
   if (status === "archived") {
     tableView.style.display = "none";
     archivesView.style.display = "block"; // <--- CHANGEZ "grid" PAR "block"
+    if (archivesSortBar) archivesSortBar.style.display = "flex";
     pagination.style.display = "none";
   } else {
     tableView.style.display = "block";
     archivesView.style.display = "none";
+    if (archivesSortBar) archivesSortBar.style.display = "none";
     pagination.style.display = "flex";
   }
 
   if (reload) loadReports();
 }
 
-async function loadReports() {
-  const search = document.getElementById("global-search").value;
-  const type = document.getElementById("filter-type").value;
+// --- TRI DU TABLEAU (en-têtes cliquables) ---
+function setupReportSortableHeaders() {
+  document.querySelectorAll(".erp-table th[data-sort]").forEach((th) => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.sort;
+      if (currentSortBy === key) currentSortDir = currentSortDir === "asc" ? "desc" : "asc";
+      else { currentSortBy = key; currentSortDir = "asc"; }
+      currentPage = 1;
+      updateReportSortIndicators();
+      loadReports();
+    });
+  });
+  updateReportSortIndicators();
+}
 
+function updateReportSortIndicators() {
+  document.querySelectorAll(".erp-table th[data-sort]").forEach((th) => {
+    const icon = th.querySelector(".sort-icon");
+    const isActive = th.dataset.sort === currentSortBy;
+    th.classList.toggle("sorted", isActive);
+    if (icon) icon.className = "fas sort-icon " + (isActive ? (currentSortDir === "asc" ? "fa-sort-up" : "fa-sort-down") : "fa-sort");
+  });
+}
+
+function buildReportFilterParams() {
+  const params = new URLSearchParams();
+  const search   = document.getElementById("global-search").value;
+  const type     = document.getElementById("filter-type").value;
+  const clientId = document.getElementById("filter-client")?.value;
+  const authorId = document.getElementById("filter-author")?.value;
+  const dateFrom = document.getElementById("filter-date-from")?.value;
+  const dateTo   = document.getElementById("filter-date-to")?.value;
+
+  if (search)   params.set("search", search);
+  if (type)     params.set("type", type);
+  if (clientId) params.set("client_id", clientId);
+  if (authorId) params.set("author_id", authorId);
+  if (dateFrom) params.set("date_from", dateFrom);
+  if (dateTo)   params.set("date_to", dateTo);
+  params.set("status", currentStatusFilter);
+  params.set("sortBy", currentSortBy);
+  params.set("sortDir", currentSortDir);
+  return params;
+}
+
+async function loadReports() {
   // --- PARTIE 1 : GESTION DES ARCHIVES (Vue Dossiers) ---
   if (currentStatusFilter === "archived") {
     const container = document.getElementById("archives-container");
     container.innerHTML =
       '<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--neutral-400);"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Chargement des archives...</p></div>';
-    
+
     try {
         // On force la limite à 1000 pour que tous les dossiers clients soient complets
-        const res = await fetch(`/api/reports?page=1&limit=1000&search=${search}&type=${type}&status=${currentStatusFilter}`);
-        
+        const params = buildReportFilterParams();
+        params.set("page", "1");
+        params.set("limit", "1000");
+        const res = await fetch(`/api/reports?${params.toString()}`);
+
         if (!res.ok) return;
 
         const data = await res.json();
-        renderArchivedFolders(data.reports || []); 
-        
+        lastArchivedReports = data.reports || [];
+        renderArchivedFolders(lastArchivedReports);
+
         if (data.pagination) updatePagination(data.pagination);
         
     } catch(e) { 
@@ -404,9 +522,10 @@ async function loadReports() {
 
   // --- PARTIE 2 : GESTION STANDARD ---
   try {
-    const res = await fetch(
-      `/api/reports?page=${currentPage}&limit=25&search=${search}&type=${type}&status=${currentStatusFilter}`
-    );
+    const params = buildReportFilterParams();
+    params.set("page", String(currentPage));
+    params.set("limit", "25");
+    const res = await fetch(`/api/reports?${params.toString()}`);
     const data = await res.json();
     renderReports(data.reports);
     updatePagination(data.pagination);
@@ -518,14 +637,34 @@ function renderArchivedFolders(reports) {
     groups[name].push(r);
   });
 
-  const clientNames = Object.keys(groups).sort();
+  // Ordre des rapports à l'intérieur de chaque dossier client
+  const dateDir = currentArchiveSort === "date_asc" ? -1 : 1;
+  Object.values(groups).forEach((clientReports) => {
+    clientReports.sort(
+      (a, b) => dateDir * (new Date(b.created_at) - new Date(a.created_at))
+    );
+  });
+
+  // Ordre des dossiers clients eux-mêmes
+  let clientNames = Object.keys(groups);
+  if (currentArchiveSort === "client_desc") {
+    clientNames.sort((a, b) => b.localeCompare(a));
+  } else if (currentArchiveSort === "date_desc" || currentArchiveSort === "date_asc") {
+    clientNames.sort((a, b) => {
+      const da = new Date(groups[a][0]?.created_at || 0);
+      const db = new Date(groups[b][0]?.created_at || 0);
+      return currentArchiveSort === "date_asc" ? da - db : db - da;
+    });
+  } else if (currentArchiveSort === "count_desc") {
+    clientNames.sort((a, b) => groups[b].length - groups[a].length);
+  } else {
+    clientNames.sort((a, b) => a.localeCompare(b)); // client_asc (défaut)
+  }
+
   let html = "";
 
   clientNames.forEach((clientName, index) => {
     const clientReports = groups[clientName];
-    clientReports.sort(
-      (a, b) => new Date(b.created_at) - new Date(a.created_at)
-    );
     const lastDate = clientReports[0]
       ? formatDate(clientReports[0].created_at)
       : "";
@@ -687,8 +826,12 @@ async function openReportModal(reportId = null) {
     addWorkRow();
   }
   modal.classList.add("active");
+  document.getElementById("main-scroll-area").scrollTop = 0;
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  document.querySelector('.sidebar-link[data-section="sec-info"]')?.classList.add('active');
 
   setTimeout(initDragAndDrop, 100);
+  setTimeout(setupScrollSpy, 150);
 }
 
 function renderWorkflowButtons(r) {
@@ -910,6 +1053,7 @@ async function saveReport() {
 
 function closeReportModal() {
   document.getElementById("report-modal").classList.remove("active");
+  if (_sectionObserver) { _sectionObserver.disconnect(); _sectionObserver = null; }
   loadReports();
 }
 
@@ -1105,6 +1249,27 @@ async function checkAuth() {
     window.location.href = "/login.html";
   }
 }
+function populateFilterSelects() {
+  const clientSelect = document.getElementById("filter-client");
+  if (clientSelect) {
+    clientSelect.innerHTML =
+      '<option value="">Tous les clients</option>' +
+      [...clients]
+        .sort((a, b) => (a.cabinet_name || "").localeCompare(b.cabinet_name || ""))
+        .map((c) => `<option value="${c.id}">${escapeHtml(c.cabinet_name)}</option>`)
+        .join("");
+  }
+
+  const authorSelect = document.getElementById("filter-author");
+  if (authorSelect) {
+    authorSelect.innerHTML =
+      '<option value="">Tous les auteurs</option>' +
+      (window.technicians || [])
+        .map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`)
+        .join("");
+  }
+}
+
 async function loadClients() {
   const res = await fetch("/api/clients?limit=1000");
   const d = await res.json();
@@ -1583,7 +1748,13 @@ function updateReportTitleHeader() {
       typeText = customTitle;
   } else {
       // Sinon, logique automatique existante
-      const selectedOptions = Array.from(typeSelect.selectedOptions);
+      let selectedOptions = Array.from(typeSelect.selectedOptions);
+      // "Contrôle" est un contrôle de routine : on ne l'affiche pas dans le titre
+      // s'il y a d'autres types sélectionnés à côté (on le garde si c'est le seul).
+      if (selectedOptions.length > 1) {
+          const withoutControle = selectedOptions.filter((o) => o.value !== 'Contrôle');
+          if (withoutControle.length > 0) selectedOptions = withoutControle;
+      }
       if (selectedOptions.length === 1) {
           typeText = "Rapport de " + selectedOptions[0].text;
       } else if (selectedOptions.length > 1) {

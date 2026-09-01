@@ -141,22 +141,30 @@ function updateTitleFromList(typesList) {
     if (!titleEl) return;
     const dict = TRANSLATIONS[currentLanguage];
 
-    if (typesList.length === 0) {
+    // "Contrôle" est un contrôle de routine souvent associé à une autre intervention :
+    // on ne l'affiche pas dans le titre dès qu'il y a autre chose à côté (mais on le
+    // garde si c'est la seule intervention, sinon le titre serait vide).
+    const displayTypes = typesList.length > 1
+        ? typesList.filter((t) => t !== 'Contrôle')
+        : typesList;
+    if (displayTypes.length === 0) displayTypes.push(...typesList);
+
+    if (displayTypes.length === 0) {
         titleEl.innerHTML = dict.title_main;
         return;
     }
-    if (typesList.length === 1) {
-        const singleType = typesList[0];
+    if (displayTypes.length === 1) {
+        const singleType = displayTypes[0];
         if (dict[singleType]) {
             titleEl.innerHTML = dict[singleType];
             return;
         }
     }
     if (currentLanguage === 'de') {
-        const nouns = typesList.map(t => WORK_TYPE_DE_NOUN[t] || t);
+        const nouns = displayTypes.map(t => WORK_TYPE_DE_NOUN[t] || t);
         titleEl.innerHTML = nouns.join(' + ') + ' Rapport';
     } else {
-        titleEl.innerHTML = 'Rapport de ' + typesList.join(' + ');
+        titleEl.innerHTML = 'Rapport de ' + displayTypes.join(' + ');
     }
 }
 

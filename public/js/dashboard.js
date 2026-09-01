@@ -546,10 +546,11 @@ async function loadTicketsWidget() {
 
     const uid     = String(currentUser?.id || '');
     const active  = list.filter(t => t.status !== 'Clôturé');
-    const urgent  = active.filter(t => t.is_urgent === 1);
-    const unassigned = active.filter(t => t.is_urgent !== 1 && (!t.assigned_ids || t.assigned_ids === ''));
-    const mine    = active.filter(t => t.is_urgent !== 1 && t.assigned_ids && t.assigned_ids.split(',').includes(uid));
-    const others  = active.filter(t => t.is_urgent !== 1 && t.assigned_ids && !t.assigned_ids.split(',').includes(uid));
+    const isUrgent = (t) => t.priority === 'Urgente';
+    const urgent  = active.filter(isUrgent);
+    const unassigned = active.filter(t => !isUrgent(t) && (!t.assigned_ids || t.assigned_ids === ''));
+    const mine    = active.filter(t => !isUrgent(t) && t.assigned_ids && t.assigned_ids.split(',').includes(uid));
+    const others  = active.filter(t => !isUrgent(t) && t.assigned_ids && !t.assigned_ids.split(',').includes(uid));
 
     // Badge total
     const badge = document.getElementById('badge-tickets');
@@ -562,13 +563,13 @@ async function loadTicketsWidget() {
       </div>`;
 
     const ticketRow = (t, accentColor) => {
-      const priorityColors = { urgent:'var(--color-danger)', high:'var(--color-warning)', normal:'var(--color-info)', low:'var(--neutral-400)' };
+      const priorityColors = { 'Urgente':'var(--color-danger)', 'Haute':'var(--color-warning)', 'Normale':'var(--color-info)', 'Basse':'var(--neutral-400)' };
       const pColor = priorityColors[t.priority] || 'var(--color-info)';
       return `
         <div class="w-item" onclick="window.location.href='/tickets.html?open=${t.id}'" style="cursor:pointer;border-left:3px solid ${accentColor}">
           <div style="width:8px;height:8px;border-radius:50%;background:${pColor};flex-shrink:0;margin-top:4px"></div>
           <div class="w-item-body">
-            <div class="w-item-title" style="color:${t.is_urgent ? 'var(--color-danger)' : 'var(--text-primary)'}">#${t.id} — ${escHtml(t.title || t.subject || 'Sans titre')}</div>
+            <div class="w-item-title" style="color:${t.priority === 'Urgente' ? 'var(--color-danger)' : 'var(--text-primary)'}">#${t.id} — ${escHtml(t.title || t.subject || 'Sans titre')}</div>
             <div class="w-item-sub">
               ${t.cabinet_name ? `<i class="fas fa-hospital" style="font-size:10px;margin-right:3px;color:var(--text-tertiary)"></i>${escHtml(t.cabinet_name)}&nbsp;·&nbsp;` : ''}
               ${t.status} &nbsp;·&nbsp; ${timeAgo(t.created_at)}

@@ -717,6 +717,9 @@ async function openClientDetails(id) {
                 <button class="btn btn-primary btn-sm" onclick="openScheduleModal(${c.id}, '${escapeJsArg(c.cabinet_name)}')" title="Fixer un nouveau RDV">
                     <i class="fas fa-calendar-plus"></i> Planifier
                 </button>
+                <button class="btn btn-secondary btn-sm" onclick="location.href='/tickets.html?client_id=${c.id}&new=1'" title="Créer un ticket pour ce client">
+                    <i class="fas fa-ticket-alt"></i> Signaler un problème
+                </button>
                 <button class="btn btn-secondary btn-sm" onclick="openClientModal(${c.id})">
                     <i class="fas fa-pen"></i> Modifier
                 </button>

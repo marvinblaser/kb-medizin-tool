@@ -125,6 +125,51 @@
       font-family: inherit;
     }
 
+    /* ── FILTRES ── */
+    .filters-row {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-primary);
+      border-top: none;
+      padding: 10px 16px;
+      display: flex;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-shrink: 0;
+    }
+
+    .filter-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 150px;
+    }
+
+    .filter-field label {
+      font-size: 10px;
+      font-weight: var(--font-semibold);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+    }
+
+    .filter-field select,
+    .filter-field input[type="date"] {
+      width: 100%;
+      height: 32px;
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      padding: 0 10px;
+      font-size: var(--text-xs);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      outline: none;
+      font-family: inherit;
+    }
+
+    #reset-filters-btn { margin-left: auto; align-self: flex-end; }
+
     /* ── TABLE ── */
     .table-container {
       flex: 1;
@@ -175,7 +220,24 @@
 
     .table-actions button { position: relative; z-index: 2; }
 
+    /* ── TRI TABLEAU ── */
+    .erp-table th[data-sort] { cursor: pointer; user-select: none; }
+    .erp-table th[data-sort]:hover { color: var(--text-primary); }
+    .erp-table th i.sort-icon { margin-left: 4px; opacity: 0.5; font-size: 9px; }
+    .erp-table th.sorted i.sort-icon { opacity: 1; color: var(--color-primary); }
+
     /* ── ARCHIVES ── */
+    .archives-sort-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 2px;
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+    }
+    .archives-sort-bar label { display: flex; align-items: center; gap: 6px; font-weight: var(--font-medium); }
+
     #archives-container {
       display: block;
       flex: 1;
@@ -478,6 +540,9 @@
       .toolbar-divider { display: none; }
       .toolbar-nav-section { flex-wrap: wrap; height: auto; gap: 0; }
       .toolbar-filters-section { margin-left: 0; }
+      .filters-row { padding: 10px 12px; }
+      .filter-field { min-width: calc(50% - 6px); flex: 1 1 calc(50% - 6px); }
+      #reset-filters-btn { margin-left: 0; flex: 1 1 100%; justify-content: center; }
       .modal-sidebar { display: none; }
       .grid-cols-material { grid-template-columns: 1fr; }
       .grid-cols-tech { grid-template-columns: 1fr; }
@@ -485,7 +550,7 @@
       /* Les colonnes de .grid-header n'alignent plus rien une fois la
          grille repliée en 1 colonne — remplacées par un libellé par
          champ (voir .field-label et reports.js). */
-      .grid-header { display: none; }
+      .grid-header, .stk-col-hint, .section-col-hint { display: none; }
       .field-label {
         display: block;
         font-size: 10px;
@@ -505,6 +570,29 @@
         -webkit-overflow-scrolling: touch;
       }
     }
+
+    /* ── Sélecteur « Appliquer un modèle » ── */
+    .apt-group { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-tertiary); padding: 12px 8px 6px; }
+    .apt-card { display: flex; gap: 12px; align-items: flex-start; padding: 12px;
+      border: 1px solid var(--border-primary); border-radius: var(--radius-md); margin-bottom: 8px; background: var(--bg-elevated); }
+    .apt-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: var(--radius-sm);
+      background: var(--bg-tertiary); color: var(--text-secondary); margin: 1px 3px 1px 0; white-space: nowrap; }
+    .apt-badge.apt-machine { background: var(--color-info-bg); color: var(--color-primary); }
+    .apt-badge.apt-top { background: var(--color-success-bg); color: var(--color-success); }
+    .apt-preview { font-size: var(--text-xs); color: var(--text-secondary); background: var(--bg-secondary);
+      border: 1px solid var(--border-primary); border-radius: var(--radius-md); padding: 10px 14px; margin: -4px 0 10px; }
+    .apt-preview ul { margin: 3px 0 8px; padding-left: 18px; }
+    .apt-preview strong { display: block; margin-top: 6px; color: var(--text-primary); }
+    .apt-mode-seg { display: inline-flex; border: 1px solid var(--border-primary); border-radius: 6px; overflow: hidden; flex-shrink: 0; }
+    .apt-mode-btn {
+      border: none; background: var(--bg-elevated); color: var(--text-secondary);
+      font-family: inherit; font-size: var(--text-xs); padding: 0 12px; height: 34px; cursor: pointer;
+      transition: background var(--transition-fast), color var(--transition-fast);
+    }
+    .apt-mode-btn + .apt-mode-btn { border-left: 1px solid var(--border-primary); }
+    .apt-mode-btn:hover:not(.active) { background: var(--bg-secondary); color: var(--text-primary); }
+    .apt-mode-btn.active { background: var(--color-primary); color: #fff; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -519,6 +607,7 @@
       <a href="/clients.html"><i class="fas fa-users"></i><span>Clients</span></a>
       <a href="/checklists.html"><i class="fas fa-clipboard-check"></i><span>Checklists</span></a>
       <a href="/reports.html" class="active"><i class="fas fa-file-alt"></i><span>Rapports</span></a>
+      <a href="/report-templates.html" style="padding-left:34px;font-size:0.82rem;"><i class="fas fa-layer-group"></i><span>Modèles de rapport</span></a>
       <a href="/stk.html"><i class="fas fa-file-signature"></i><span>STK</span></a>
       <a href="/tickets.html"><i class="fas fa-ticket-alt"></i><span>Tickets</span></a>
       <a href="/admin.html"><i class="fas fa-book"></i><span>Catalogue & Matériel</span></a>
@@ -547,6 +636,9 @@
         <h1><i class="fas fa-file-signature"></i> Rapports d'Intervention</h1>
       </div>
       <div class="header-actions-group">
+        <a class="btn btn-secondary" href="/report-templates.html" title="Bibliothèque de modèles de rapport">
+          <i class="fas fa-layer-group"></i> <span class="btn-label">Modèles</span>
+        </a>
         <button class="btn btn-primary" id="add-report-btn">
           <i class="fas fa-plus"></i> <span class="btn-label">Nouveau rapport</span>
         </button>
@@ -579,15 +671,44 @@
           </button>
         </div>
 
-        <div class="toolbar-filters-section">
-          <select id="filter-type" class="minimal-select">
+      </div>
+
+      <!-- FILTRES -->
+      <div class="filters-row">
+        <div class="filter-field">
+          <label>Type</label>
+          <select id="filter-type" class="minimal-select" data-no-slim>
             <option value="">Tous les types</option>
             <option value="Mise en marche">Mise en marche</option>
             <option value="Service d'entretien">Service d'entretien</option>
             <option value="Réparation">Réparation</option>
+            <option value="Réparation / Garantie">Réparation / Garantie</option>
             <option value="Contrôle">Contrôle</option>
+            <option value="Première validation">Première validation</option>
+            <option value="Montage">Montage</option>
+            <option value="Instruction">Instruction</option>
+            <option value="Re-validation">Re-validation</option>
           </select>
         </div>
+        <div class="filter-field">
+          <label>Client</label>
+          <select id="filter-client"><option value="">Tous les clients</option></select>
+        </div>
+        <div class="filter-field">
+          <label>Auteur</label>
+          <select id="filter-author"><option value="">Tous les auteurs</option></select>
+        </div>
+        <div class="filter-field">
+          <label>Du</label>
+          <input type="date" id="filter-date-from" class="minimal-select">
+        </div>
+        <div class="filter-field">
+          <label>Au</label>
+          <input type="date" id="filter-date-to" class="minimal-select">
+        </div>
+        <button class="btn btn-secondary btn-sm" id="reset-filters-btn" title="Réinitialiser les filtres">
+          <i class="fas fa-rotate-left"></i> Réinitialiser
+        </button>
       </div>
 
       <!-- TABLE VIEW -->
@@ -596,11 +717,11 @@
           <table class="table erp-table">
             <thead>
               <tr>
-                <th style="width:110px">N° Rapport</th>
-                <th style="width:140px">Type</th>
-                <th style="width:200px">Client</th>
+                <th style="width:110px" data-sort="report_number">N° Rapport <i class="fas fa-sort sort-icon"></i></th>
+                <th style="width:140px" data-sort="work_type">Type <i class="fas fa-sort sort-icon"></i></th>
+                <th style="width:200px" data-sort="cabinet_name">Client <i class="fas fa-sort sort-icon"></i></th>
                 <th>Installation</th>
-                <th style="width:110px">Date</th>
+                <th style="width:110px" data-sort="created_at">Date <i class="fas fa-sort sort-icon"></i></th>
                 <th style="width:110px">Statut</th>
                 <th style="text-align:right;width:110px">Actions</th>
               </tr>
@@ -617,6 +738,16 @@
       </div>
 
       <!-- ARCHIVES VIEW -->
+      <div id="archives-sort-bar" class="archives-sort-bar" style="display:none;">
+        <label for="archive-sort-select"><i class="fas fa-sort"></i> Trier par</label>
+        <select id="archive-sort-select" class="minimal-select" data-no-slim>
+          <option value="client_asc">Client (A → Z)</option>
+          <option value="client_desc">Client (Z → A)</option>
+          <option value="date_desc">Date la plus récente</option>
+          <option value="date_asc">Date la plus ancienne</option>
+          <option value="count_desc">Nombre de rapports (+ → -)</option>
+        </select>
+      </div>
       <div id="archives-container" class="folder-grid" style="display:none;overflow-y:auto">
       </div>
 
@@ -644,6 +775,12 @@
         <div id="report-meta-info" style="font-size:var(--text-xs);color:var(--text-tertiary);margin-top:3px;"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-secondary btn-sm" id="apply-template-btn" type="button" title="Appliquer un modèle prédéfini">
+          <i class="fas fa-wand-magic-sparkles"></i> Appliquer un modèle
+        </button>
+        <button class="btn btn-secondary btn-sm" id="save-as-template-btn" type="button" title="Créer un modèle à partir de ce rapport">
+          <i class="fas fa-layer-group"></i> Enregistrer comme modèle
+        </button>
         <button class="btn btn-secondary btn-sm" id="header-pdf-btn" style="display:none">
           <i class="fas fa-file-pdf"></i> PDF
         </button>
@@ -654,14 +791,14 @@
     <div class="modal-body">
       <!-- Sidebar nav -->
       <nav class="modal-sidebar">
-        <div class="sidebar-link active" onclick="scrollToSection('sec-info')"><i class="fas fa-info-circle"></i> Général</div>
-        <div class="sidebar-link" onclick="scrollToSection('sec-client')"><i class="fas fa-building"></i> Client</div>
-        <div class="sidebar-link" onclick="scrollToSection('sec-tech')"><i class="fas fa-tools"></i> Techniciens</div>
-        <div class="sidebar-link" onclick="scrollToSection('sec-work')"><i class="fas fa-clipboard-list"></i> Travaux</div>
-        <div class="sidebar-link" onclick="scrollToSection('sec-stk')"><i class="fas fa-bolt"></i> Tests STK</div>
-        <div class="sidebar-link" onclick="scrollToSection('sec-material')"><i class="fas fa-box-open"></i> Matériel</div>
-        <div class="sidebar-link" onclick="scrollToSection('sec-travel')"><i class="fas fa-car"></i> Déplacement</div>
-        <div class="sidebar-link" onclick="scrollToSection('sec-close')"><i class="fas fa-check-double"></i> Clôture</div>
+        <div class="sidebar-link active" data-section="sec-info" onclick="scrollToSection('sec-info')"><i class="fas fa-info-circle"></i> Général</div>
+        <div class="sidebar-link" data-section="sec-client" onclick="scrollToSection('sec-client')"><i class="fas fa-building"></i> Client</div>
+        <div class="sidebar-link" data-section="sec-tech" onclick="scrollToSection('sec-tech')"><i class="fas fa-tools"></i> Techniciens</div>
+        <div class="sidebar-link" data-section="sec-work" onclick="scrollToSection('sec-work')"><i class="fas fa-clipboard-list"></i> Travaux</div>
+        <div class="sidebar-link" data-section="sec-stk" onclick="scrollToSection('sec-stk')"><i class="fas fa-bolt"></i> Tests STK</div>
+        <div class="sidebar-link" data-section="sec-material" onclick="scrollToSection('sec-material')"><i class="fas fa-box-open"></i> Matériel</div>
+        <div class="sidebar-link" data-section="sec-travel" onclick="scrollToSection('sec-travel')"><i class="fas fa-car"></i> Déplacement</div>
+        <div class="sidebar-link" data-section="sec-close" onclick="scrollToSection('sec-close')"><i class="fas fa-check-double"></i> Clôture</div>
       </nav>
 
       <div class="modal-main-content" id="main-scroll-area">
@@ -789,6 +926,9 @@
               <i class="fas fa-chevron-down"></i>
             </div>
             <div class="ux-section-body">
+              <div class="section-col-hint" style="padding-left:22px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);border-bottom:1px solid var(--border-primary);padding-bottom:5px;margin-bottom:8px;">
+                Description du travail effectué — une opération par ligne
+              </div>
               <div id="work-list"></div>
               <button type="button" class="btn btn-sm btn-secondary" id="add-work-btn">
                 <i class="fas fa-plus"></i> Ajouter Ligne
@@ -803,6 +943,14 @@
               <i class="fas fa-chevron-down"></i>
             </div>
             <div class="ux-section-body">
+              <div class="stk-col-hint" style="display:flex;align-items:center;gap:10px;padding-left:22px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);border-bottom:1px solid var(--border-primary);padding-bottom:5px;margin-bottom:8px;">
+                <span style="flex:1">Appareil testé (sécurité électrique)</span>
+                <span style="width:90px">Prix CHF</span>
+                <span style="width:80px">Rabais %</span>
+                <span style="width:90px">Prix net</span>
+                <span style="width:50px;text-align:center">Inclus</span>
+                <span style="width:30px"></span>
+              </div>
               <div id="stk-tests-list"></div>
               <button type="button" class="btn btn-sm btn-secondary" id="add-stk-test-btn">
                 <i class="fas fa-plus"></i> Ajouter Test
@@ -949,6 +1097,72 @@
   </div>
 </div>
 
+<!-- ENREGISTRER COMME MODÈLE -->
+<div class="modal" id="save-as-tpl-modal">
+  <div class="modal-content" style="max-width:560px">
+    <div class="modal-header">
+      <h2><i class="fas fa-layer-group" style="color:var(--color-primary)"></i> Enregistrer comme modèle</h2>
+      <button class="modal-close" onclick="document.getElementById('save-as-tpl-modal').classList.remove('active')">&times;</button>
+    </div>
+    <div class="modal-body" style="display:block;padding:20px">
+      <p style="font-size:var(--text-xs);color:var(--text-tertiary);margin:0 0 14px">
+        Capture les <strong>Travaux</strong>, <strong>Tests STK</strong>, <strong>Matériel</strong>, l'<strong>Installation</strong> et les <strong>Remarques</strong> du rapport courant. Les infos client, techniciens et déplacement ne sont pas incluses.
+      </p>
+      <div class="form-group"><label>Nom du modèle *</label>
+        <input type="text" id="sat-name" placeholder="Ex : Entretien annuel — Autoclave classe B"></div>
+      <div class="form-group"><label>Description</label>
+        <input type="text" id="sat-description" placeholder="Quand utiliser ce modèle"></div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1"><label>Type de machine</label>
+          <select id="sat-device" data-no-slim><option value="">— Indifférent —</option></select></div>
+        <div class="form-group" style="flex:1"><label>Modèle précis (catalogue)</label>
+          <select id="sat-equipment" data-no-slim><option value="">— Indifférent —</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1"><label>Langue</label>
+          <select id="sat-lang" data-no-slim><option value="">Les deux</option><option value="fr">Français</option><option value="de">Allemand</option></select></div>
+        <div class="form-group" style="flex:1"><label>Visibilité</label>
+          <select id="sat-shared" data-no-slim><option value="1">Partagé (commun)</option><option value="0">Personnel</option></select></div>
+      </div>
+      <div id="sat-summary" style="font-size:var(--text-xs);color:var(--text-secondary);background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:6px;padding:10px 12px;margin-top:6px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('save-as-tpl-modal').classList.remove('active')">Annuler</button>
+      <button class="btn btn-primary" id="sat-save-btn"><i class="fas fa-save"></i> Créer le modèle</button>
+    </div>
+  </div>
+</div>
+
+<!-- APPLIQUER UN MODÈLE -->
+<div class="modal" id="apply-tpl-modal">
+  <div class="modal-content" style="max-width:720px;max-height:90vh">
+    <div class="modal-header">
+      <h2><i class="fas fa-wand-magic-sparkles" style="color:var(--color-primary)"></i> Appliquer un modèle</h2>
+      <button class="modal-close" onclick="document.getElementById('apply-tpl-modal').classList.remove('active')">&times;</button>
+    </div>
+    <div class="modal-body" style="display:block;padding:0;overflow-y:auto">
+      <div style="padding:12px 20px;border-bottom:1px solid var(--border-primary)">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <div style="position:relative;flex:1;min-width:200px">
+            <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-tertiary);font-size:12px"></i>
+            <input type="text" id="apt-search" placeholder="Rechercher un modèle…" style="width:100%;height:34px;padding:0 10px 0 32px;border:1px solid var(--border-primary);border-radius:6px;background:var(--bg-elevated);color:var(--text-primary);font-family:inherit;outline:none">
+          </div>
+          <div class="apt-mode-seg" role="group" aria-label="Comment appliquer le modèle">
+            <button type="button" class="apt-mode-btn active" data-mode="append">Ajouter au rapport</button>
+            <button type="button" class="apt-mode-btn" data-mode="replace">Remplacer le contenu</button>
+          </div>
+        </div>
+        <div id="apt-mode-hint" style="font-size:11px;color:var(--text-tertiary);margin-top:7px"></div>
+      </div>
+      <div id="apt-list" style="padding:8px 12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('apply-tpl-modal').classList.remove('active')">Fermer</button>
+      <a class="btn btn-secondary" href="/report-templates.html" target="_blank"><i class="fas fa-layer-group"></i> Gérer les modèles</a>
+    </div>
+  </div>
+</div>
+
 <div id="notification-container"></div>
 
 <script src="/js/confirm.js"></script>
@@ -956,6 +1170,7 @@
 <script src="/js/slimselect-mobile-fix.js"></script>
 <script src="/js/loader.js"></script>
 <script src="/js/reports.js"></script>
+<script src="/js/report-template-integration.js"></script>
 <script src="/js/notifications.js"></script>
 <script src="/js/mobile-menu.js"></script>
 <script src="/js/theme-switcher.js"></script>

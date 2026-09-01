@@ -440,6 +440,23 @@ router.delete('/device-types/:id', requireRoles(...CATALOG_MANAGERS), (req, res,
   db.run('DELETE FROM device_types WHERE id=?', [toInt(req.params.id)], (err) =>
     err ? next(err) : res.json({ success: true })));
 
+// Catégories de tickets — lecture pour tout le staff, écriture pour gestionnaires
+router.get('/ticket-categories', requireStaff, (req, res, next) =>
+  db.all('SELECT * FROM ticket_categories ORDER BY name', [], (err, rows) =>
+    err ? next(err) : res.json(rows)));
+
+router.post('/ticket-categories', requireRoles(...CATALOG_MANAGERS), (req, res, next) => {
+  if (!isNonEmptyString(req.body.name)) return res.status(400).json({ error: 'Nom requis.' });
+  db.run('INSERT INTO ticket_categories (name) VALUES (?)', [req.body.name.trim()], function (err) {
+    if (err) return res.status(400).json({ error: 'Erreur (peut-être déjà existant).' });
+    res.json({ id: this.lastID });
+  });
+});
+
+router.delete('/ticket-categories/:id', requireRoles(...CATALOG_MANAGERS), (req, res, next) =>
+  db.run('DELETE FROM ticket_categories WHERE id=?', [toInt(req.params.id)], (err) =>
+    err ? next(err) : res.json({ success: true })));
+
 // Catalogue d'équipement — lecture pour tout le staff, écriture pour gestionnaires
 router.get('/equipment', requireStaff, (req, res, next) =>
   db.all('SELECT * FROM equipment_catalog ORDER BY name', [], (err, rows) =>

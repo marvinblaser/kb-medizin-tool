@@ -49,9 +49,18 @@ router.get('/stats', requireStaff, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Colonnes autorisées pour le tri (whitelist anti-injection)
+const REPORT_SORT_COLUMNS = {
+  report_number: 'r.report_number',
+  work_type:     'r.work_type',
+  cabinet_name:  'r.cabinet_name',
+  created_at:    'r.created_at',
+  status:        'r.status',
+};
+
 router.get('/', requireStaff, async (req, res, next) => {
   try {
-    const { page = 1, search, type, status, client_id } = req.query;
+    const { page = 1, search, type, status, client_id, author_id, date_from, date_to, sortBy, sortDir } = req.query;
     const limit = client_id ? 200 : Math.min(toInt(req.query.limit, 25), 200);
     const offset = (toInt(page, 1) - 1) * limit;
     const where = ['1=1'];
@@ -61,12 +70,20 @@ router.get('/', requireStaff, async (req, res, next) => {
       where.push('(r.cabinet_name LIKE ? OR r.city LIKE ? OR r.report_number LIKE ?)');
       params.push(s, s, s);
     }
-    if (type)      { where.push('r.work_type = ?'); params.push(type); }
+    // work_type est une liste séparée par virgules (ex: "Service d'entretien, Contrôle") :
+    // correspondance partielle pour retrouver un rapport même si le type n'est pas seul.
+    if (type)      { where.push('r.work_type LIKE ?'); params.push(`%${type}%`); }
     if (status)    { where.push('r.status = ?'); params.push(status); }
     if (client_id) { where.push('r.client_id = ?'); params.push(toInt(client_id)); }
+    if (author_id) { where.push('r.author_id = ?'); params.push(toInt(author_id)); }
+    if (date_from) { where.push('date(r.created_at) >= date(?)'); params.push(date_from); }
+    if (date_to)   { where.push('date(r.created_at) <= date(?)'); params.push(date_to); }
 
     const whereSQL = where.join(' AND ');
     const countRow = await get(`SELECT count(*) as count FROM reports r WHERE ${whereSQL}`, params);
+
+    const sortColumn = REPORT_SORT_COLUMNS[sortBy] || 'r.created_at';
+    const sortDirection = sortDir === 'asc' ? 'ASC' : 'DESC';
 
     const sql = `
       SELECT r.*,
@@ -78,7 +95,7 @@ router.get('/', requireStaff, async (req, res, next) => {
       LEFT JOIN users u ON r.validator_id = u.id
       LEFT JOIN users a ON r.author_id = a.id
       WHERE ${whereSQL}
-      ORDER BY r.created_at DESC LIMIT ? OFFSET ?`;
+      ORDER BY ${sortColumn} ${sortDirection}, r.created_at DESC LIMIT ? OFFSET ?`;
 
     const rows = await all(sql, [...params, limit, offset]);
     res.json({

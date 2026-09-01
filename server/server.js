@@ -70,6 +70,7 @@ app.use('/api/clients', clientsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/checklists', checklistsRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/report-templates', require('./routes/report-templates'));
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/rmas', rmasRoutes);

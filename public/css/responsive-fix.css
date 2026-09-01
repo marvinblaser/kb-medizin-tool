@@ -771,6 +771,14 @@ table {
    SLIMSELECT — Touch-friendly
 ═══════════════════════════════════════════════════════════════════ */
 
+/* Bouton de fermeture du picker plein écran, injecté dans <body> par
+   slimselect-mobile-fix.js SANS style inline. Ses seules règles vivent dans
+   le bloc @media (max-width:768px) plus bas : hors mobile il n'avait donc
+   aucun style, s'affichait en flux tout en bas du <body> (bouton "×" ~21px)
+   et provoquait une barre de défilement verticale sur toute la page.
+   On le neutralise par défaut ; le mobile le réactive quand un picker est ouvert. */
+#ss-mobile-close { display: none; }
+
 @media (max-width: 768px) {
   .ss-main {
     height: auto !important;

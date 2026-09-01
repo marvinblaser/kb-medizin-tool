@@ -28,6 +28,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   safeAddListener('save-sector-btn', 'click', saveSector);
   safeAddListener('add-device-type-btn', 'click', openDeviceTypeModal);
   safeAddListener('save-device-type-btn', 'click', saveDeviceType);
+  safeAddListener('add-ticket-category-btn', 'click', openTicketCategoryModal);
+  safeAddListener('save-ticket-category-btn', 'click', saveTicketCategory);
   
   // EQUIPEMENTS
   safeAddListener('add-equipment-btn', 'click', () => openEquipmentModal());
@@ -250,7 +252,7 @@ async function loadCpModels(brand) {
 }
 
 async function loadAllData() {
-  await Promise.all([loadSectors(), loadDeviceTypes(), loadRoles()]);
+  await Promise.all([loadSectors(), loadDeviceTypes(), loadTicketCategories(), loadRoles()]);
   await Promise.all([loadUsers(), loadEquipment(), loadMaterials(), loadLogs()]);
 }
 
@@ -482,6 +484,17 @@ async function deleteDeviceType(id) {
     if (!ok) return;
     await fetch(`/api/admin/device-types/${id}`, { method: 'DELETE' });
     loadDeviceTypes();
+}
+
+async function loadTicketCategories(){const r=await fetch('/api/admin/ticket-categories');const d=await r.json();document.getElementById('ticket-categories-tbody').innerHTML=d.map(t=>`<tr><td><strong>${escapeHtml(t.name)}</strong></td><td style="text-align:right"><button class="btn-icon-sm btn-icon-danger" onclick="deleteTicketCategory(${t.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('');}
+function openTicketCategoryModal(){document.getElementById('ticket-category-name').value='';document.getElementById('ticket-category-modal').classList.add('active');}
+function closeTicketCategoryModal(){document.getElementById('ticket-category-modal').classList.remove('active');}
+async function saveTicketCategory(){const n=document.getElementById('ticket-category-name').value;if(!n)return;await fetch('/api/admin/ticket-categories',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});closeTicketCategoryModal();loadTicketCategories();}
+async function deleteTicketCategory(id) {
+    const ok = await confirmDelete('cette catégorie de ticket');
+    if (!ok) return;
+    await fetch(`/api/admin/ticket-categories/${id}`, { method: 'DELETE' });
+    loadTicketCategories();
 }
 
 // ========== EQUIPMENT (CORRIGÉ & COMPLET) ==========
